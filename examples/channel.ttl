@@ -4,13 +4,21 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
 
-<../channel/test/> a :Channel ;
+<.> a :Channel ;
     rdf:describedBy <> ;
-    :filter [
-        :order 1 ;
-        :name "resize" ;
-        :argument [ :max_width 2048 ] ;
-        :type "image/jp2"
-    ] .
+    :hasFilter <.#resize_and_ocr> .
+
         
+<.#resize_and_ocr> a :FilterChain ;
+    :triggeredByType "image/jp2" ;
+    :filter ([
+        :name "resize" ;
+        :type "modify" ;
+        :arguments "--max_width 2048" ;
+    ] [
+        :type "meta" ;
+        :name "extract_meta"
+    ] [ 
+        :type "extract" 
+    ]) . 
 

@@ -7,14 +7,17 @@
 
 <.> a :Package ;
     rdf:describedBy <> ;
-    :contains <>, <0123456789.jpg>, <0123456789.xml>, <http://sub.su.se/archive/74dfAGbdngj/pdf> .
+    :contains <>, <description.ttl>, <0123456789.jpg>, <0123456789.xml> .
 
 <> a :Description ;
     dct:created "2010-01-01T12:20:12:00Z"^^xsd:dateTime ;
     dct:format "text/turtle" ;
     :filename "package.ttl" .
 
-<0123456789.jpg> a :Image ;
+<description.ttl> a :Description ;
+    
+
+<0123456789.jpg> a :Document ;
     dct:format "image/jpeg" ;
     :width 2048 ;
     :height 3500 ;
@@ -23,11 +26,9 @@
     :filename "0123456789.jpg" ;
     :size 1234567 .
 
-<0123456789.xml> a :OCR ;
+<0123456789.xml> a :Document ;
     dct:format "text/xml" ;
     :md5 "469441d884bc72c229be391f1030d4b2" ;
     :filename "0123456789.xml" ;
     :size 12345 .
-
-<http://sub.su.se/archive/74dfAGbdngj/pdf> a :Document .
 

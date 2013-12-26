@@ -1,0 +1,1 @@
+from diskstore import DiskStoredef store(basedir):    return DiskStore(basedir)

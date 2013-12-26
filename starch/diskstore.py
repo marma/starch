@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 
-from rdflib import Graph,Namespace,URIRef
-from rdflib.namespace import RDF
 import hashlib
 import uuid
 import sys
-#from config import VOCAB_BASE
 from os.path import abspath,dirname,exists,isfile,isdir
 from os import getpid,makedirs
 import datetime
 from urllib2 import urlopen
 
-class Archive:
+class DiskStore:
     def __init__(self, basedir):
         self.basedir = abspath(basedir)
 
@@ -52,9 +49,9 @@ class Archive:
             meta['filename'] = req.headers['Content-disposition']
 
         if url.split(':')[0] == 'file':
-            meta['filename'] = url.split('/')[-1:][0]
+            meta['filename'] = url.split(':')[1].split('/')[-1:][0]
         
-        meta['original_uri'] = url
+        meta['original_url'] = url
 
         t = datetime.datetime.utcnow()
         meta['timestamp'] = datetime.datetime.utcnow().isoformat()
@@ -79,8 +76,8 @@ if __name__ == "__main__":
         print "usage: %s <base directory> <URL>" % sys.argv[0]
         sys.exit(1)
 
-    a = Archive(sys.argv[1])
-    u = a.store(sys.argv[2])
+    ds = DiskStorage(sys.argv[1])
+    u = ds.store(sys.argv[2])
 
-    print a.get(u)
+    print ds.get(u)
         

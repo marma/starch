@@ -16,7 +16,8 @@ if __name__ == "__main__":
     g = Graph()
     g.parse(sys.argv[1], format='turtle')
     
-    # is there a Package described by this file?
-    for s in g.subjects(STARCH.describedBy, URIRef('file://' + abspath(sys.argv[1]))):
-        print s
+    # is there a Package described by this URL?
+    url = URIRef(sys.argv[1] if ':' in sys.argv[1] else 'file://' + abspath(sys.argv[1]))
+    if (None, STARCH.describedBy, url) in g:
+        print "exit"
 

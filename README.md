@@ -1,4 +1,4 @@
 starch
 ======
 
-Semantic Tiny Archive
+Semantic Tiny ARCHive

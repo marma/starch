@@ -7,6 +7,7 @@ from os.path import abspath,dirname,exists,isfile,isdir
 from os import getpid,makedirs
 import datetime
 from urllib2 import urlopen
+from rdflib import Graph()
 
 class DiskStore:
     def __init__(self, basedir):
@@ -19,7 +20,7 @@ class DiskStore:
         with open("%s/log" % self.basedir, 'a+') as logfile:
             logfile.write(t.isoformat() + ' ' + message + '\n')
 
-    def store(self, url, meta={}):
+    def store(self, url, description=Graph()):
         u = uuid.uuid4()
         apath = self.basedir + '/data/' + '/'.join([ u.hex[2*i:2*i+2] for i in range(0,4) ] + [ u.hex ])
         makedirs(apath)
@@ -68,7 +69,7 @@ class DiskStore:
         base = self.basedir + '/data/' + '/'.join([ urn.hex[2*i:2*i+2] for i in range(0,4) ] + [ urn.hex ])
  
         with open(base + '/meta') as m:
-            return (base + '/content', eval(m.read()))
+            return base + '/content', eval(m.read())
 
 
 if __name__ == "__main__":
@@ -80,4 +81,4 @@ if __name__ == "__main__":
     u = ds.store(sys.argv[2])
 
     print ds.get(u)
-        
+

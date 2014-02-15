@@ -18,6 +18,9 @@
     :filename "description.ttl" .
 
 <0123456789.jpg> a :Resource ;
+    dct:creator [
+        dct:title "Malmsten"
+    ] ;
     dct:format "image/jpeg" ;
     :width 2048 ;
     :height 3500 ;

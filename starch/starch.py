@@ -9,7 +9,7 @@ class Archive:
         self.STARCH_NS = _default_ns
 
     def store(self, url, description):
-        self.store.store(url, description.serialize(format='turtle'))
+        self.store.store(url, description)
 
     def ingest(self, url):
         g = Graph()

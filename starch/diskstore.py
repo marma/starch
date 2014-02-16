@@ -8,10 +8,13 @@ from os import getpid,makedirs
 import datetime
 from urllib2 import urlopen
 from rdflib import Graph()
+from digest import sha1
+from rdflib import Graph,Namespace,RDF
 
 class DiskStore:
-    def __init__(self, basedir):
+    def __init__(self, basedir, resource_uri):
         self.basedir = abspath(basedir)
+        self.resource_uri = resource_uri
 
         if not exists(basedir):
             makedirs(self.basedir)
@@ -20,15 +23,17 @@ class DiskStore:
         with open("%s/log" % self.basedir, 'a+') as logfile:
             logfile.write(t.isoformat() + ' ' + message + '\n')
 
-    def store(self, url, description=Graph()):
-        u = uuid.uuid4()
-        apath = self.basedir + '/data/' + '/'.join([ u.hex[2*i:2*i+2] for i in range(0,4) ] + [ u.hex ])
+    def store(self, url, desc=None, uri=None):
+        uri = uri if uri is not None else uuid.uuid4().urn
+        hex = sha1(str(uri)).hexdigest()
+        rpath = '/data/' + '/'.join([ hex[2*i:2*i+2] for i in range(0,4) ] + [ hex ])
+        apath = self.basedir + rpath
         makedirs(apath)
 
         req = urlopen(url)
         d = hashlib.sha1()
         size = 0
-        with open(apath + '/content', 'w') as out:
+        with open(apath + '/' + hex, 'w') as out:
             while True:
                 data = req.read(1024)
                 size += len(data)
@@ -38,6 +43,15 @@ class DiskStore:
 
                 out.write(data)
                 d.update(data)
+
+        if not desc:
+            desc = Graph()
+            desc.add((uri, RDF.type, self.resource_uri))
+        else:
+            # replace resource uri
+            g = Graph()
+            for (s,p,o) in desc:
+
 
         meta['urn'] = u.urn
         meta['sha1'] = d.hexdigest()
@@ -55,12 +69,12 @@ class DiskStore:
         meta['original_url'] = url
 
         t = datetime.datetime.utcnow()
-        meta['timestamp'] = datetime.datetime.utcnow().isoformat()
+            meta['timestamp'] = datetime.datetime.utcnow().isoformat()
 
-        with open(apath + '/meta', 'w') as metaf:
+        with open(apath + '/' + hex + '.ttl', 'w') as metaf:
             metaf.write(repr(meta))
 
-        self.log('store %s size:%d sha1:%s' % (u.hex, size, d.hexdigest()), t)
+        self.log('store %s at %s, size:%d sha1:%s' % (uri, apath, size, d.hexdigest()), t)
 
         return u
 

@@ -1,1 +1,1 @@
-from diskstore import DiskStoredef store(type='temporary', basedir=None):    if type == 'disk':        return DiskStore(basedir)    else:        return Nonedef graph(type='memory'):    return Nonedef starch(graph='memory', store='temporary', basedir=None):    return None
+from diskstore import DiskStorefrom memorystore import MemoryStorefrom starch import Archive

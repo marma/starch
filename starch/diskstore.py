@@ -48,7 +48,8 @@ class DiskStore:
             desc = Graph()
             desc.add((uri, RDF.type, self.resource_uri))
         else:
-            # replace resource uri
+            # replace resource uri and save
+            # @TODO implement non-trivial replacement of URI
             g = Graph()
             for (s,p,o) in desc:
 

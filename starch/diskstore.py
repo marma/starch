@@ -29,8 +29,9 @@ class DiskStore:
         uri = uri or self.uri_minter()
         path = [ self.base + '/data' ] + self.pather(uri)
         meta = { 'uri': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
-        
-        if exists('/'.join(path)) and self.overwrite_callback and not force:
+        file = '/'.join(path)
+
+        if exists(file) and self.overwrite_callback and not force:
             old_meta = get(uri)[1]
 
             if not self.overwrite_callback(uri, path, meta, old_meta):
@@ -38,7 +39,7 @@ class DiskStore:
 
         self.write_file(path, uri, meta, url=url, data=data)
 
-        return uri, '/'.join(path), meta
+        return uri, file, meta
 
     def write_file(self, path, uri, meta, url=None, data=None):
         assert bool(url) ^ bool(data)

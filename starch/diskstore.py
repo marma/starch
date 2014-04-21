@@ -1,84 +1,89 @@
 #!/usr/bin/env python
 
-import hashlib
-import uuid
-import sys
 from os.path import abspath,dirname,exists,isfile,isdir
-from os import getpid,makedirs
-import datetime
+from os import makedirs
+from datetime import datetime
 from urllib2 import urlopen
-from rdflib import Graph()
-from digest import sha1
-from rdflib import Graph,Namespace,RDF
+from hashlib import sha1
+from utils import md5_pather,uuid_minter
+from magic import Magic
+from sys import argv,exit
 
 class DiskStore:
-    def __init__(self, basedir, resource_uri):
-        self.basedir = abspath(basedir)
-        self.resource_uri = resource_uri
+    def __init__(self, basedir, pather=md5_pather, uri_minter=uuid_minter, overwrite_callback=None):
+        self.base = abspath(basedir)
+        self.pather = pather
+        self.uri_minter = uri_minter
+        self.overwrite_callback = overwrite_callback
+        self.mime = Magic(mime=True)
 
-        if not exists(basedir):
-            makedirs(self.basedir)
+        if not exists(self.base):
+            makedirs(self.base)
 
-    def log(self, message, t=datetime.datetime.utcnow()):
-        with open("%s/log" % self.basedir, 'a+') as logfile:
+    def log(self, message, t=datetime.utcnow()):
+        with open("%s/log" % self.base, 'a+') as logfile:
             logfile.write(t.isoformat() + ' ' + message + '\n')
 
-    def store(self, url, desc=None, uri=None):
-        uri = uri if uri is not None else uuid.uuid4().urn
-        hex = sha1(str(uri)).hexdigest()
-        rpath = '/data/' + '/'.join([ hex[2*i:2*i+2] for i in range(0,4) ] + [ hex ])
-        apath = self.basedir + rpath
-        makedirs(apath)
+    def store(self, url=None, data=None, uri=None, properties={}, force=False):
+        assert bool(url) ^ bool(data)
+        uri = uri or self.uri_minter()
+        path = [ self.base + '/data' ] + self.pather(uri)
+        meta = { 'uri': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
+        
+        if exists('/'.join(path)) and self.overwrite_callback and not force:
+            old_meta = get(uri)[1]
 
-        req = urlopen(url)
-        d = hashlib.sha1()
-        size = 0
-        with open(apath + '/' + hex, 'w') as out:
-            while True:
-                data = req.read(1024)
-                size += len(data)
-                    
-                if data == '':
-                    break
+            if not self.overwrite_callback(uri, path, meta, old_meta):
+                return uri, path, old_meta
 
+        self.write_file(path, uri, meta, url=url, data=data)
+
+        return uri, '/'.join(path), meta
+
+    def write_file(self, path, uri, meta, url=None, data=None):
+        assert bool(url) ^ bool(data)
+        directory = path[0] + '/' + path[1]
+        filename = path[2]
+        t = datetime.utcnow()
+        meta['timestamp'] = t.isoformat()
+
+        if not exists(directory):
+            makedirs(directory)
+
+        # write data
+        if data:
+            meta['sha1'] = sha1(data).hexdigest()
+            meta['content-type'] = self.mime.from_buffer(data)
+
+            with open(directory + '/' + filename, 'w') as out:
                 out.write(data)
-                d.update(data)
-
-        if not desc:
-            desc = Graph()
-            desc.add((uri, RDF.type, self.resource_uri))
+                meta['content-length'] = out.tell()
         else:
-            # replace resource uri and save
-            # @TODO implement non-trivial replacement of URI
-            g = Graph()
-            for (s,p,o) in desc:
+            req = urlopen(url)
+            h = sha1()
+            with open(directory + '/' + filename, 'w') as out:
+                while data != '':
+                    data = req.read(1024)
+                    out.write(data)
+                    h.update(data)
+                    meta['content-length'] = out.tell()
+            del req
 
+            meta['sha1'] = h.hexdigest()
+            meta['content-type'] = self.mime.from_file(directory + '/' + filename)
 
-        meta['urn'] = u.urn
-        meta['sha1'] = d.hexdigest()
-        meta['size'] = size
-        
-        if 'Content-type' in req.headers:
-            meta['format'] = req.headers['Content-type']
+        # override mime type?
+        if 'content-type' in meta['properties'].keys():
+            meta['content-type'] = meta['properties']['content-type']
 
-        if 'Content-disposition' in req.headers:
-            meta['filename'] = req.headers['Content-disposition']
+        # write meta
+        if not exists(directory + '/.meta'):
+            makedirs(directory + '/.meta')
 
-        if url.split(':')[0] == 'file':
-            meta['filename'] = url.split(':')[1].split('/')[-1:][0]
-        
-        meta['original_url'] = url
+        with open(directory + '/.meta/' + filename, 'w') as out:
+            out.write(str(meta))
 
-        t = datetime.datetime.utcnow()
-            meta['timestamp'] = datetime.datetime.utcnow().isoformat()
-
-        with open(apath + '/' + hex + '.ttl', 'w') as metaf:
-            metaf.write(repr(meta))
-
-        self.log('store %s at %s, size:%d sha1:%s' % (uri, apath, size, d.hexdigest()), t)
-
-        return u
-
+        self.log('STORE: %s at %s, size:%d sha1:%s type:%s' % (uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
 
     def get(self, urn):
         base = self.basedir + '/data/' + '/'.join([ urn.hex[2*i:2*i+2] for i in range(0,4) ] + [ urn.hex ])
@@ -88,12 +93,12 @@ class DiskStore:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print "usage: %s <base directory> <URL>" % sys.argv[0]
-        sys.exit(1)
+    if len(argv) != 3:
+        print "usage: %s <base directory> <URL>" % argv[0]
+        exit(1)
 
-    ds = DiskStorage(sys.argv[1])
-    u = ds.store(sys.argv[2])
+    ds = DiskStore(argv[1])
+    ret = ds.store(argv[2])
 
-    print ds.get(u)
+    print ret
 

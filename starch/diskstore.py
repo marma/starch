@@ -5,7 +5,7 @@ from os import makedirs
 from datetime import datetime
 from urllib2 import urlopen
 from hashlib import sha1
-from utils import md5_pather,uuid_minter
+from utils import md5_pather,url_pather,uuid_minter
 from magic import Magic
 from sys import argv,exit
 
@@ -93,12 +93,12 @@ class DiskStore:
 
 
 if __name__ == "__main__":
-    if len(argv) != 3:
-        print "usage: %s <base directory> <URL>" % argv[0]
+    if len(argv) < 3 or len(argv) > 4:
+        print "usage: %s <base directory> <URL> [URI]" % argv[0]
         exit(1)
-
-    ds = DiskStore(argv[1])
-    ret = ds.store(argv[2])
-
-    print ret
+    
+    uri = argv[3] if len(argv) == 4 else None
+    ds = DiskStore(argv[1], pather=url_pather)
+    
+    print ds.store(argv[2], uri=uri)
 

@@ -10,7 +10,7 @@ def md5_pather(uri):
     return [ '/'.join([ hex[ 2*i:2*i+2 ] for i in range(0,4) ] + [ hex ]), hex ]
 
 def url_pather(uri):
-    s = [ x for x in split(':|/|-', uri) if x != '' ]
+    s = [ x for x in split(':|/', uri) if x != '' ]
     
     if uri[-1] == '/':
         return [ '/'.join(s), '.content' ]

@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 
 from os.path import abspath,dirname,exists,isfile,isdir
-from os import makedirs
+from os import makedirs,remove,rmdir,listdir
 from datetime import datetime
 from urllib2 import urlopen
 from hashlib import sha1
 from utils import md5_pather,url_pather,uuid_minter
 from magic import Magic
 from sys import argv,exit
+from StringIO import StringIO
 
 class DiskStore:
     def __init__(self, basedir, pather=md5_pather, uri_minter=uuid_minter, overwrite_callback=None):
         self.base = abspath(basedir)
+        self.base_data = self.base + '/data'
         self.pather = pather
         self.uri_minter = uri_minter
         self.overwrite_callback = overwrite_callback
@@ -27,9 +29,9 @@ class DiskStore:
     def store(self, url=None, data=None, uri=None, properties={}, force=False):
         assert bool(url) ^ bool(data)
         uri = uri or self.uri_minter()
-        path = [ self.base + '/data' ] + self.pather(uri)
-        meta = { 'uri': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
+        path = self.get_path(uri)
         file = '/'.join(path)
+        meta = { 'uri': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
 
         if exists(file) and self.overwrite_callback and not force:
             old_meta = get(uri)[1]
@@ -37,13 +39,13 @@ class DiskStore:
             if not self.overwrite_callback(uri, path, meta, old_meta):
                 return uri, path, old_meta
 
-        self.write_file(path, uri, meta, url=url, data=data)
+        self.__write_file(path, uri, meta, url=url, data=data)
 
-        return uri, file, meta
+        return uri, 'file://' + file, meta
 
-    def write_file(self, path, uri, meta, url=None, data=None):
+    def __write_file(self, path, uri, meta, url=None, data=None):
         assert bool(url) ^ bool(data)
-        directory = path[0] + '/' + path[1]
+        directory = '/'.join(path[0:2])
         filename = path[2]
         t = datetime.utcnow()
         meta['timestamp'] = t.isoformat()
@@ -52,26 +54,18 @@ class DiskStore:
             makedirs(directory)
 
         # write data
-        if data:
-            meta['sha1'] = sha1(data).hexdigest()
-            meta['content-type'] = self.mime.from_buffer(data)
-
-            with open(directory + '/' + filename, 'w') as out:
+        req = StringIO(data) if data else urlopen(url)
+        h = sha1()
+        with open(directory + '/' + filename, 'w') as out:
+            while data != '':
+                data = req.read(1024)
                 out.write(data)
+                h.update(data)
                 meta['content-length'] = out.tell()
-        else:
-            req = urlopen(url)
-            h = sha1()
-            with open(directory + '/' + filename, 'w') as out:
-                while data != '':
-                    data = req.read(1024)
-                    out.write(data)
-                    h.update(data)
-                    meta['content-length'] = out.tell()
-            del req
+        del req
 
-            meta['sha1'] = h.hexdigest()
-            meta['content-type'] = self.mime.from_file(directory + '/' + filename)
+        meta['sha1'] = h.hexdigest()
+        meta['content-type'] = self.mime.from_file(directory + '/' + filename)
 
         # override mime type?
         if 'content-type' in meta['properties'].keys():
@@ -86,20 +80,45 @@ class DiskStore:
 
         self.log('STORE: %s at %s, size:%d sha1:%s type:%s' % (uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
 
-    def get(self, urn):
-        base = self.basedir + '/data/' + '/'.join([ urn.hex[2*i:2*i+2] for i in range(0,4) ] + [ urn.hex ])
- 
-        with open(base + '/meta') as m:
-            return base + '/content', eval(m.read())
+    def delete(self, uri):
+        path = self.get_path(uri)
+        dir, file = '/'.join(path[0:2]), '/'.join(path)
+        self.log('DELETE: %s at %s' % (uri, file))
 
+        remove(file)
+        remove('/'.join(path[0:2]) + '/.meta/' + path[2])
+
+        if len(listdir(dir + '/.meta/')) == 0:
+            rmdir(dir + '/.meta/')
+
+        while dir != self.base_data and len(listdir(dir)) == 0:
+            rmdir(dir)
+            dir = '/'.join(dir.split('/')[:-1])
+
+        return dir, file
+
+    def get(self, uri):
+        path = self.get_path(uri)
+        file = '/'.join(path)
+
+        with open('/'.join(path[0:2]) + '/.meta/' + path[2]) as m:
+            return 'file://' + file, eval(m.read())
+
+    def get_path(self, uri):
+        return [ self.base_data ] + self.pather(uri)
 
 if __name__ == "__main__":
-    if len(argv) < 3 or len(argv) > 4:
-        print "usage: %s <base directory> <URL> [URI]" % argv[0]
+    if len(argv) < 4:
+        print "usage: %s <base directory> <operation> [options]" % argv[0]
         exit(1)
-    
-    uri = argv[3] if len(argv) == 4 else None
+
     ds = DiskStore(argv[1], pather=url_pather)
-    
-    print ds.store(argv[2], uri=uri)
+
+    if argv[2] == 'store':
+        uri = argv[4] if len(argv) == 5 else None
+        print ds.store(argv[3], uri=uri)
+    elif argv[2] == 'get':
+        print ds.get(argv[3])
+    elif argv[2] == 'delete':
+        print ds.delete(argv[3])
 

@@ -5,7 +5,7 @@ from os import makedirs,remove,rmdir,listdir
 from datetime import datetime
 from urllib2 import urlopen
 from hashlib import sha1
-from utils import md5_pather,url_pather,uuid_minter
+from utils import md5_pather,url_pather,uuid_minter,deny_overwrite
 from magic import Magic
 from sys import argv,exit
 from StringIO import StringIO
@@ -34,7 +34,7 @@ class DiskStore:
         meta = { 'uri': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
 
         if exists(file) and self.overwrite_callback and not force:
-            old_meta = get(uri)[1]
+            old_meta = self.get(uri)[1]
 
             if not self.overwrite_callback(uri, path, meta, old_meta):
                 return uri, path, old_meta
@@ -47,7 +47,9 @@ class DiskStore:
         assert bool(url) ^ bool(data)
         directory = '/'.join(path[0:2])
         filename = path[2]
+        file = '/'.join(path)
         t = datetime.utcnow()
+        operation = 'STORE' if not exists(file) else 'UPDATE'
         meta['timestamp'] = t.isoformat()
 
         if not exists(directory):
@@ -56,7 +58,7 @@ class DiskStore:
         # write data
         req = StringIO(data) if data else urlopen(url)
         h = sha1()
-        with open(directory + '/' + filename, 'w') as out:
+        with open(file, 'w') as out:
             while data != '':
                 data = req.read(1024)
                 out.write(data)
@@ -78,7 +80,7 @@ class DiskStore:
         with open(directory + '/.meta/' + filename, 'w') as out:
             out.write(str(meta))
 
-        self.log('STORE: %s at %s, size:%d sha1:%s type:%s' % (uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
+        self.log('%s: %s at %s, size:%d sha1:%s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
 
     def delete(self, uri):
         path = self.get_path(uri)
@@ -112,7 +114,7 @@ if __name__ == "__main__":
         print "usage: %s <base directory> <operation> [options]" % argv[0]
         exit(1)
 
-    ds = DiskStore(argv[1], pather=url_pather)
+    ds = DiskStore(argv[1], pather=url_pather)#, overwrite_callback=deny_overwrite)
 
     if argv[2] == 'store':
         uri = argv[4] if len(argv) == 5 else None

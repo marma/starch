@@ -23,3 +23,5 @@ def pairtree_pather(uri):
 def uuid_minter():
     return uuid4().urn
 
+def deny_overwrite(uri, path, old_meta, new_meta):
+    raise Exception('overwrite not allowed')

@@ -24,12 +24,13 @@ class DiskStore:
         if not exists(self.base):
             makedirs(self.base)
 
-    def store(self, url=None, data=None, uri=None, properties={}, force=False):
+    def store(self, url=None, data=None, stream=None, uri=None, properties={}, force=False):
         assert bool(url) ^ bool(data)
         uri = uri or self.uri_minter()
         path = self.get_path(uri)
         file = '/'.join(path)
-        meta = { '@context': self.context, '@id': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
+        meta = { '@context': self.context, '@id': uri, 'directory': path[1], 'filename': path[2] }
+        meta.update(properties)
 
         if exists(file) and self.overwrite_callback and not force:
             old_meta = self.get(uri)[1]
@@ -65,11 +66,10 @@ class DiskStore:
         del req
 
         meta['sha1'] = h.hexdigest()
-        meta['content-type'] = self.mime.from_file(directory + '/' + filename)
 
-        # override mime type?
-        if 'content-type' in meta['properties'].keys():
-            meta['content-type'] = meta['properties']['content-type']
+        # auto detect mime type?
+        if 'content-type' not in meta:
+            meta['content-type'] = self.mime.from_file(directory + '/' + filename)
 
         # write meta
         if not exists(directory + '/.meta'):
@@ -78,7 +78,7 @@ class DiskStore:
         with open(directory + '/.meta/' + filename, 'w') as out:
             out.write(json.dumps(meta))
 
-        self.log('%s: %s at %s, size:%d sha1:%s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
+        self.log('%s %s at %s, size:%d sha1:%s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
 
     def delete(self, uri):
         path = self.get_path(uri)
@@ -111,9 +111,14 @@ class DiskStore:
         with open("%s/log" % self.base, 'a+') as logfile:
             logfile.write(t.isoformat() + ' ' + message + '\n')
 
+    def history(self, start=None):
+        with open("%s/log" % self.base, 'rb') as logfile:
+            for line in logfile:
+                if line[0:26] > start:
+                    yield line.split()[0:3]
 
 if __name__ == "__main__":
-    if len(argv) < 4:
+    if len(argv) < 3:
         print "usage: %s <base directory> <operation> [options]" % argv[0]
         exit(1)
 
@@ -126,4 +131,7 @@ if __name__ == "__main__":
         print ds.get(argv[3])
     elif argv[2] == 'delete':
         print ds.delete(argv[3])
+    elif argv[2] == 'history':
+        for item in ds.history(start=None if len(argv) == 3 else argv[3]):
+            print item
 

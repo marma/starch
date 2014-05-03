@@ -9,6 +9,7 @@ from utils import md5_pather,url_pather,uuid_minter,deny_overwrite
 from magic import Magic
 from sys import argv,exit
 from StringIO import StringIO
+import json
 
 class DiskStore:
     def __init__(self, basedir, pather=md5_pather, uri_minter=uuid_minter, overwrite_callback=None):
@@ -18,20 +19,17 @@ class DiskStore:
         self.uri_minter = uri_minter
         self.overwrite_callback = overwrite_callback
         self.mime = Magic(mime=True)
+        self.context = { 'content-type': 'http://purl.org/dc/terms/format', 'timestamp': 'http://purl.org/dc/terms/date' }
 
         if not exists(self.base):
             makedirs(self.base)
-
-    def log(self, message, t=datetime.utcnow()):
-        with open("%s/log" % self.base, 'a+') as logfile:
-            logfile.write(t.isoformat() + ' ' + message + '\n')
 
     def store(self, url=None, data=None, uri=None, properties={}, force=False):
         assert bool(url) ^ bool(data)
         uri = uri or self.uri_minter()
         path = self.get_path(uri)
         file = '/'.join(path)
-        meta = { 'uri': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
+        meta = { '@context': self.context, '@id': uri, 'directory': path[1], 'filename': path[2], 'properties': properties }
 
         if exists(file) and self.overwrite_callback and not force:
             old_meta = self.get(uri)[1]
@@ -78,7 +76,7 @@ class DiskStore:
             makedirs(directory + '/.meta')
 
         with open(directory + '/.meta/' + filename, 'w') as out:
-            out.write(str(meta))
+            out.write(json.dumps(meta))
 
         self.log('%s: %s at %s, size:%d sha1:%s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
 
@@ -104,10 +102,15 @@ class DiskStore:
         file = '/'.join(path)
 
         with open('/'.join(path[0:2]) + '/.meta/' + path[2]) as m:
-            return 'file://' + file, eval(m.read())
+            return 'file://' + file, json.loads(m.read())
 
     def get_path(self, uri):
         return [ self.base_data ] + self.pather(uri)
+
+    def log(self, message, t=datetime.utcnow()):
+        with open("%s/log" % self.base, 'a+') as logfile:
+            logfile.write(t.isoformat() + ' ' + message + '\n')
+
 
 if __name__ == "__main__":
     if len(argv) < 4:

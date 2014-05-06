@@ -4,8 +4,7 @@ from os.path import abspath,dirname,exists,isfile,isdir
 from os import makedirs,remove,rmdir,listdir
 from datetime import datetime
 from urllib2 import urlopen
-from hashlib import sha1
-from utils import md5_pather,url_pather,uuid_minter,deny_overwrite
+from utils import md5_pather,url_pather,uuid_minter,deny_overwrite,closing,write_file
 from magic import Magic
 from sys import argv,exit
 from StringIO import StringIO
@@ -24,61 +23,36 @@ class DiskStore:
         if not exists(self.base):
             makedirs(self.base)
 
-    def store(self, url=None, data=None, stream=None, uri=None, properties={}, force=False):
-        assert bool(url) ^ bool(data)
+    def store(self, url=None, data=None, stream=None, uri=None, properties={}, force=False, write_file=write_file):
+        assert url or data or stream
         uri = uri or self.uri_minter()
         path = self.get_path(uri)
-        file = '/'.join(path)
-        meta = { '@context': self.context, '@id': uri, 'directory': path[1], 'filename': path[2] }
-        meta.update(properties)
-
-        if exists(file) and self.overwrite_callback and not force:
-            old_meta = self.get(uri)[1]
-
-            if not self.overwrite_callback(uri, path, meta, old_meta):
-                return uri, path, old_meta
-
-        self.__write_file(path, uri, meta, url=url, data=data)
-
-        return uri, 'file://' + file, meta
-
-    def __write_file(self, path, uri, meta, url=None, data=None):
-        assert bool(url) ^ bool(data)
         directory = '/'.join(path[0:2])
         filename = path[2]
         file = '/'.join(path)
+        meta = { '@context': self.context, '@id': uri, 'directory': path[1], 'filename': path[2] }
         t = datetime.utcnow()
         operation = 'STORE' if not exists(file) else 'UPDATE'
         meta['timestamp'] = t.isoformat()
+        meta.update(properties)
 
-        if not exists(directory):
-            makedirs(directory)
+        if exists(file) and self.overwrite_callback and not force:
+            return self.overwrite_callback(uri, path, meta, self.get(uri)[1])
 
-        # write data
-        req = StringIO(data) if data else urlopen(url)
-        h = sha1()
-        with open(file, 'w') as out:
-            while data != '':
-                data = req.read(1024)
-                out.write(data)
-                h.update(data)
-                meta['content-length'] = out.tell()
-        del req
-
-        meta['sha1'] = h.hexdigest()
+        # write file
+        with closing(StringIO(data)) if data else stream or closing(urlopen(url)) as f:
+            meta['checksum'], meta['content-length'] = write_file(file, f)
 
         # auto detect mime type?
         if 'content-type' not in meta:
-            meta['content-type'] = self.mime.from_file(directory + '/' + filename)
+            meta['content-type'] = self.mime.from_file(file)
 
         # write meta
-        if not exists(directory + '/.meta'):
-            makedirs(directory + '/.meta')
+        write_file(directory + '/.meta/' + filename, StringIO(json.dumps(meta)))
 
-        with open(directory + '/.meta/' + filename, 'w') as out:
-            out.write(json.dumps(meta))
+        self.log('%s %s at %s, size:%d %s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['checksum'], meta['content-type']), t)
 
-        self.log('%s %s at %s, size:%d sha1:%s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['sha1'], meta['content-type']), t)
+        return uri, 'file://' + file, meta
 
     def delete(self, uri):
         path = self.get_path(uri)
@@ -111,8 +85,9 @@ class DiskStore:
         with open("%s/log" % self.base, 'a+') as logfile:
             logfile.write(t.isoformat() + ' ' + message + '\n')
 
+    # @todo fix naive implementation of start
     def history(self, start=None):
-        with open("%s/log" % self.base, 'rb') as logfile:
+        with open("%s/log" % self.base, 'r') as logfile:
             for line in logfile:
                 if line[0:26] > start:
                     yield line.split()[0:3]

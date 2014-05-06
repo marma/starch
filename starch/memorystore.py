@@ -13,7 +13,7 @@ class MemoryStore():
         self.storage = {}
         self.mint = mint
 
-    def store(self, data=None, description={}, uri=None, url=None):
+    def store(self, data=None, uri=None, url=None, properties):
         assert url or data
 
         uri = uri or self.mint()

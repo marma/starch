@@ -4,7 +4,7 @@ from rdflib import Graph,Namespace
 from starch.store import MemoryStore
 
 class Archive:
-    def __init__(self, store=MemoryStore(), graph_store=Graph(), vocab=Namespace('http://example.org/vocab#'), types=Namespace('http://example.org/type#', package_uri=types.Package, resource_uri=types.Resource):
+    def __init__(self, store=MemoryStore(), graph_store=Graph(), vocab=Namespace('http://example.org/vocab#'), types=Namespace('http://example.org/type#'), package_uri=types.Package, resource_uri=types.Resource):
         self.store = store
         self.gstore = graph_store
         self.VOCAB = vocab
@@ -23,7 +23,7 @@ class Archive:
         self.gstore.add(g)
 
         # find all Resources in package and store them
-        for uri in g.subjects(RDF.type, self.TYPES.Resource):
+        for uri in g.subjects(RDF.type, self.resource_uri):
             desc = g.triples(uri, None, None)
             self.store(uri, desc)
             self.gstore.store(desc)

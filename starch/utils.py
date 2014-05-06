@@ -3,6 +3,10 @@
 from uuid import uuid4
 from hashlib import md5
 from re import split
+from contextlib import contextmanager
+from os import makedirs
+from os.path import dirname,exists
+from hashlib import sha1
 
 def md5_pather(uri):
     hex = md5(uri).hexdigest()
@@ -25,3 +29,28 @@ def uuid_minter():
 
 def deny_overwrite(uri, path, old_meta, new_meta):
     raise Exception('overwrite not allowed')
+
+@contextmanager
+def closing(thing):
+    try:
+        yield thing
+    finally:
+        thing.close()
+
+def write_file(file, stream):
+    if not exists(dirname(file)):
+        makedirs(dirname(file))
+
+    # write data
+    h = sha1()
+    with open(file, 'w') as out:
+        data, length = None, 0
+
+        while data != '':
+            data = stream.read(1024)
+            out.write(data)
+            h.update(data)
+            size = out.tell()
+
+    return 'sha1:' + h.hexdigest(), size
+

@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from os import makedirs
 from os.path import dirname,exists
 from hashlib import sha1
+from io import BytesIO
+from urllib2 import urlopen
 
 def md5_pather(uri):
     hex = md5(uri).hexdigest()
@@ -14,8 +16,14 @@ def md5_pather(uri):
     return [ '/'.join([ hex[ 2*i:2*i+2 ] for i in range(0,4) ] + [ hex ]), hex ]
 
 def url_pather(uri):
-    s = [ x for x in split(':|/', uri) if x != '' ]
-    
+    if uri[0:8] == 'urn:uuid':
+        s = [ 'urn', 'uuid' ] + [ s[8:][ 2*i:2*i+2 ] for i in range(0,4) ] + [ s[8:] ]
+    elif uri[0:7] = 'urn:nbn':
+        hex = md5(uri).hexdigest()
+        s = [ 'urn', 'nbn' ] + [ hex[ 2*i:2*i+2 ] for i in range(0,4) ] + [ hex ]
+    elif uri[0:4] == 'http':
+        s = [ x for x in split(':|/', uri) if x != '' ]
+
     if uri[-1] == '/':
         return [ '/'.join(s), '.content' ]
     else:
@@ -35,7 +43,10 @@ def closing(thing):
     try:
         yield thing
     finally:
-        thing.close()
+        try:
+            thing.close()
+        except:
+            pass
 
 def write_file(file, stream):
     if not exists(dirname(file)):
@@ -54,3 +65,9 @@ def write_file(file, stream):
 
     return 'sha1:' + h.hexdigest(), size
 
+
+def get_property(g, s, p, default=None):
+    for ret in g.objects(s,p):
+        return str(ret)
+
+    return default or None

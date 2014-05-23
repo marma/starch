@@ -9,13 +9,14 @@ from magic import Magic
 from sys import argv,exit
 from StringIO import StringIO
 import json
+from resource import Resource
 
 class DiskStore:
     def __init__(self, basedir, pather=md5_pather, uri_minter=uuid_minter, overwrite_callback=None):
         self.base = abspath(basedir)
         self.base_data = self.base + '/data'
         self.pather = pather
-        self.uri_minter = uri_minter
+        self.mint = uri_minter
         self.overwrite_callback = overwrite_callback
         self.mime = Magic(mime=True)
         self.context = { 'content-type': 'http://purl.org/dc/terms/format', 'timestamp': 'http://purl.org/dc/terms/date' }
@@ -25,19 +26,20 @@ class DiskStore:
 
     def store(self, url=None, data=None, stream=None, uri=None, properties={}, force=False, write_file=write_file):
         assert url or data or stream
-        uri = uri or self.uri_minter()
+        uri = uri or self.mint()
         path = self.get_path(uri)
         directory = '/'.join(path[0:2])
         filename = path[2]
         file = '/'.join(path)
         meta = { '@context': self.context, '@id': uri, 'directory': path[1], 'filename': path[2] }
         t = datetime.utcnow()
+
         operation = 'STORE' if not exists(file) else 'UPDATE'
         meta['timestamp'] = t.isoformat()
         meta.update(properties)
 
         if exists(file) and self.overwrite_callback and not force:
-            return self.overwrite_callback(uri, path, meta, self.get(uri)[1])
+            return self.overwrite_callback(uri, path, meta, self.get(uri).meta)
 
         # write file
         with closing(StringIO(data)) if data else stream or closing(urlopen(url)) as f:
@@ -50,9 +52,9 @@ class DiskStore:
         # write meta
         write_file(directory + '/.meta/' + filename, StringIO(json.dumps(meta)))
 
-        self.log('%s %s at %s, size:%d %s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['checksum'], meta['content-type']), t)
+        self.log('%s %s at %s, size:%d, %s type:%s' % (operation, uri, '/'.join(path[1:]), meta['content-length'], meta['checksum'], meta['content-type']), t)
 
-        return uri, 'file://' + file, meta
+        return Resource(uri, meta, url='file://' + file)
 
     def delete(self, uri):
         path = self.get_path(uri)
@@ -76,7 +78,7 @@ class DiskStore:
         file = '/'.join(path)
 
         with open('/'.join(path[0:2]) + '/.meta/' + path[2]) as m:
-            return 'file://' + file, json.loads(m.read())
+            return Resource(uri, json.loads(m.read()), url='file://')
 
     def get_path(self, uri):
         return [ self.base_data ] + self.pather(uri)

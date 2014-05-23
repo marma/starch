@@ -17,8 +17,8 @@ def md5_pather(uri):
 
 def url_pather(uri):
     if uri[0:8] == 'urn:uuid':
-        s = [ 'urn', 'uuid' ] + [ s[8:][ 2*i:2*i+2 ] for i in range(0,4) ] + [ s[8:] ]
-    elif uri[0:7] = 'urn:nbn':
+        s = [ 'urn', 'uuid' ] + [ s[8:][ 2*i:2*i+2 ] for i in range(0,4) ] + [ s[8:] ]
+    elif uri[0:7] == 'urn:nbn':
         hex = md5(uri).hexdigest()
         s = [ 'urn', 'nbn' ] + [ hex[ 2*i:2*i+2 ] for i in range(0,4) ] + [ hex ]
     elif uri[0:4] == 'http':

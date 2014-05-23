@@ -27,7 +27,7 @@ class DiskStore:
     def store(self, url=None, data=None, stream=None, uri=None, properties={}, force=False, write_file=write_file):
         assert url or data or stream
         uri = uri or self.mint()
-        path = self.get_path(uri)
+        path = self._get_path(uri)
         directory = '/'.join(path[0:2])
         filename = path[2]
         file = '/'.join(path)
@@ -57,7 +57,7 @@ class DiskStore:
         return Resource(uri, meta, url='file://' + file)
 
     def delete(self, uri):
-        path = self.get_path(uri)
+        path = self._get_path(uri)
         dir, file = '/'.join(path[0:2]), '/'.join(path)
         self.log('DELETE: %s at %s' % (uri, file))
 
@@ -74,13 +74,13 @@ class DiskStore:
         return dir, file
 
     def get(self, uri):
-        path = self.get_path(uri)
+        path = self._get_path(uri)
         file = '/'.join(path)
 
         with open('/'.join(path[0:2]) + '/.meta/' + path[2]) as m:
-            return Resource(uri, json.loads(m.read()), url='file://')
+            return Resource(uri, json.loads(m.read()), url='file://' + file)
 
-    def get_path(self, uri):
+    def _get_path(self, uri):
         return [ self.base_data ] + self.pather(uri)
 
     def log(self, message, t=datetime.utcnow()):

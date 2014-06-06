@@ -1,3 +1,3 @@
 magic>=0.4.6
 rdflib>=4.1.1
-rdflib-jsonld
+pillow>=2.4.0

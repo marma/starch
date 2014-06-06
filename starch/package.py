@@ -1,39 +1,22 @@
 #!/usr/bin/env python
 
-from rdflib import Graph,Namespace,URIRef,RDF,Literal
+from rdflib import Graph,Namespace,URIRef,RDF,Literal,XSD
 from os.path import exists,dirname,abspath,join
 from os import makedirs
 from urllib2 import urlopen
 from uuid import uuid4
-#from utils import random_slug
+from utils import random_slug,normalize_url
 from magic import Magic
 from contextlib import closing
 from hashlib import sha1
 from random import random
+from datetime import datetime
+from PIL import Image
 
 DCTERMS = Namespace('http://purl.org/dc/terms/')
 
-def normalize_url(url):
-    if url.find(':') != -1:
-        if url.split(':')[0] not in [ 'file', 'http', 'https', 'ftp' ]:
-            raise Exception('unsupported protocol')
-
-        if 'file:///' in url:
-            return url
-        elif 'file:' in url:
-            return 'file://' + abspath(url[5:])
-        else:
-            return url
-    else:
-        return 'file://' + abspath(url)
-
-
-def random_slug():
-    return sha1(str(random())).hexdigest()
-
-
 class Package:
-    def __init__(self, url, mode='r', vocab=Namespace('http://example.org/vocab#')):
+    def __init__(self, url, mode='r', uri=None, vocab=Namespace('http://example.org/vocab#')):
         self.g = Graph()
         self.VOCAB = vocab
         self.mode = mode
@@ -48,6 +31,8 @@ class Package:
 
         # check
         if self.mode == 'w':
+            t = datetime.utcnow()
+
             if self.protocol == 'file':
                 if exists(url[7:]):
                     raise Exception('package file (%s) already exists' % url[7:])
@@ -61,12 +46,14 @@ class Package:
                     self.g.bind('', self.VOCAB)
                     self.g.bind('dct', DCTERMS)
                     self.g.add((URIRef(self.base), RDF.type, self.VOCAB.Package))
-                    self.g.add((URIRef(self.base), self.VOCAB.urn, URIRef(uuid4().urn)))
+                    self.g.add((URIRef(self.base), DCTERMS.created, Literal(t.isoformat() + 'Z', datatype=XSD.dateTime)))
+                    self.g.add((URIRef(self.base), self.VOCAB.uri, URIRef(uri or uuid4().urn)))
                     self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(url)))
                     self.g.add((URIRef(self.base), self.VOCAB.describedby, URIRef(url)))
-                    self.g.add((URIRef(url), RDF.type, self.VOCAB.Resource))
+                    #self.g.add((URIRef(url), RDF.type, self.VOCAB.Resource))
                     self.g.add((URIRef(url), DCTERMS.term('format'), Literal('text/turtle')))
-
+                    self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(self.url + '-log')))
+                    self.g.add((URIRef(self.url + '-log'), RDF.type, self.VOCAB.Log))
 
                     self.save()
             else:
@@ -82,15 +69,24 @@ class Package:
 
     def list(self):
         for package in self.g.subjects(RDF.type, self.VOCAB.Package):
-            print package
-
-            for resource in self.graph.objects(package, self.VOCAB.contains):
-                print resource
+            for resource in self.g.objects(package, self.VOCAB.contains):
                 yield str(resource)
 
 
-    def add(self, url, uri=None, filename=random_slug(), store=True):
+    def get(self, res, pred):
+        for o in self.g.objects(URIRef(res), URIRef(pred)):
+            return str(o)
+
+        return None
+
+
+    def triples(self, res=None):
+        return self.g.triples((URIRef(res) if res else None, None, None))
+
+
+    def add(self, url, uri=None, filename=None, store=True):
         if self.mode == 'w':
+            filename = filename or random_slug()
             path = join(self.basedir, filename)
 
             if exists(path):
@@ -115,25 +111,44 @@ class Package:
                         size = out.tell()
 
                 type = self.mime.from_file(path)
-                self.g.add((s, RDF.type, self.VOCAB.Resource))
+                #self.g.add((s, RDF.type, self.VOCAB.Resource))
                 self.g.add((s, DCTERMS.term('format'), Literal(type)))
                 self.g.add((s, self.VOCAB.size, Literal(str(size))))
                 self.g.add((s, self.VOCAB.sha1, Literal(h.hexdigest())))
-            else:
-                s = uri or url
-                self.g.add((s, RDF.type, self.VOCAB.Resource))
-                self.g.add((URIRef(self.base), self.VOCAB.contains, s))
 
-            if uri:
-                self.g.add((s, self.VOCAB.uri, URIRef(uri)))
-            elif url[:4] != 'file':
-                self.g.add((s, self.VOCAB.uri, URIRef(url)))
+                if uri:
+                    self.g.add((s, self.VOCAB.uri, URIRef(uri)))
+                elif url[:4] != 'file':
+                    self.g.add((s, self.VOCAB.uri, URIRef(url)))
+
+                if type.split('/')[0] == 'image':
+                    try:
+                        i = Image.open(path)
+                        self.g.add((s, self.VOCAB.width, Literal(i.size[0])))
+                        self.g.add((s, self.VOCAB.height, Literal(i.size[1])))a
+                    except:
+                        self._log('WARNING image format not recognized' % filename)
+
+                self._log('STORE %s size: %i type: %s sha1: %s' % (filename, size, type, h.hexdigest()))
             else:
-                self.g.add((s, self.VOCAB.uri, URIRef(uuid4().urn)))
+                s = URIRef(uri or url)
+                #self.g.add((s, RDF.type, self.VOCAB.Resource))
+                self.g.add((URIRef(self.base), self.VOCAB.contains, s))
+                self._log('REF %s' % s)
+
+            #self.g.add((s, self.VOCAB.urn, URIRef(uuid4().urn)))
 
             self.save()
         else:
             raise Exception('package in read-only mode')
+
+
+    def _log(self, message, t=datetime.utcnow()):
+        if self.mode == 'w':
+            with open("%s-log" % self.url[7:], 'a') as logfile:
+                logfile.write(t.isoformat() + ' ' + message + '\n')
+        else:
+            Exception('package in read-only mode')
 
 
     def save(self):
@@ -142,6 +157,10 @@ class Package:
                 out.write(str(self))
         else:
             Exception('package in read-only mode')
+
+
+    def __iter__(self):
+        return self.list()
 
 
     def __str__(self):

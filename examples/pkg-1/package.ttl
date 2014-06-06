@@ -7,14 +7,15 @@
 
 <.> a :Package ;
     :created "2014-02-13T04:50:24.43"^^xsd:dateTime ;
-    :contains <>, <test.jpg>, <test.tll> .
+    :contains <>, <test.jpg>, <test.ttl> .
 
 <test.jpg> a :Resource ;
     :uri <http://example.org/something/test.jpg> ;
     dct:format "image/jpeg" ;
-    :checksum "sha1:0123403458423628437234" .
+    :sha1 "0123403458423628437234" .
 
 <test.ttl> a :Resource ;
     :uri <http://example.org/something/test.ttl> ;
     dct:format "text/turtle" .
 
+<> dct:format "text/turtle" .

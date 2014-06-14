@@ -12,6 +12,7 @@ from hashlib import sha1
 from random import random
 from datetime import datetime
 from PIL import Image
+from io import BytesIO
 
 DCTERMS = Namespace('http://purl.org/dc/terms/')
 
@@ -84,7 +85,10 @@ class Package:
         return self.g.triples((URIRef(res) if res else None, None, None))
 
 
-    def add(self, url, uri=None, filename=None, store=True):
+    def add(self, url=None, data=None, uri=None, filename=None, store=True):
+        assert url or data
+        assert (uri or url) or (data and store)
+
         if self.mode == 'w':
             filename = filename or random_slug()
             path = join(self.basedir, filename)
@@ -101,14 +105,15 @@ class Package:
 
                 # write data
                 h = sha1()
-                with open(path, 'w') as out, closing(urlopen(url)) as stream:
-                    data, length = None, 0
+                with closing(urlopen(url)) if url else BytesIO(data) as stream:
+                    with open(path, 'w') as out:
+                        data, length = None, 0
 
-                    while data != '':
-                        data = stream.read(1024)
-                        out.write(data)
-                        h.update(data)
-                        size = out.tell()
+                        while data != '':
+                            data = stream.read(1024)
+                            out.write(data)
+                            h.update(data)
+                            size = out.tell()
 
                 type = self.mime.from_file(path)
                 #self.g.add((s, RDF.type, self.VOCAB.Resource))
@@ -118,14 +123,15 @@ class Package:
 
                 if uri:
                     self.g.add((s, self.VOCAB.uri, URIRef(uri)))
-                elif url[:4] != 'file':
+                elif url and url[:4] != 'file':
                     self.g.add((s, self.VOCAB.uri, URIRef(url)))
 
+                # @TODO this should be a plugin instead
                 if type.split('/')[0] == 'image':
                     try:
                         i = Image.open(path)
                         self.g.add((s, self.VOCAB.width, Literal(i.size[0])))
-                        self.g.add((s, self.VOCAB.height, Literal(i.size[1])))a
+                        self.g.add((s, self.VOCAB.height, Literal(i.size[1])))
                     except:
                         self._log('WARNING image format not recognized' % filename)
 
@@ -158,6 +164,9 @@ class Package:
         else:
             Exception('package in read-only mode')
 
+    def finalize(self):
+        self.mode = 'r'
+        self._log("CLOSED")
 
     def __iter__(self):
         return self.list()

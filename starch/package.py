@@ -11,7 +11,6 @@ from contextlib import closing
 from hashlib import sha1
 from random import random
 from datetime import datetime
-from PIL import Image
 from io import BytesIO
 
 DCTERMS = Namespace('http://purl.org/dc/terms/')
@@ -129,6 +128,7 @@ class Package:
                 # @TODO this should be a plugin instead
                 if type.split('/')[0] == 'image':
                     try:
+                        from PIL import Image
                         i = Image.open(path)
                         self.g.add((s, self.VOCAB.width, Literal(i.size[0])))
                         self.g.add((s, self.VOCAB.height, Literal(i.size[1])))

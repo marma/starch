@@ -133,7 +133,7 @@ class Package:
                         self.g.add((s, self.VOCAB.width, Literal(i.size[0])))
                         self.g.add((s, self.VOCAB.height, Literal(i.size[1])))
                     except:
-                        self._log('WARNING image format not recognized' % filename)
+                        self._log('WARNING image format not recognized (%s)' % filename)
 
                 self._log('STORE %s size: %i type: %s sha1: %s' % (filename, size, type, h.hexdigest()))
             else:

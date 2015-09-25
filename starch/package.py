@@ -37,8 +37,8 @@ class Package:
                 if exists(url[7:]):
                     raise Exception('package file (%s) already exists' % url[7:])
                 else:
-                    #if exists(dirname(url[7:])):
-                    #    raise Exception('directory (%s) already exists' % dirname(url[7:]))
+                    if exists(dirname(url[7:])):
+                        raise Exception('directory (%s) already exists' % dirname(url[7:]))
 
                     if not exists(dirname(url[7:])):
                         makedirs(dirname(url[7:]))
@@ -50,12 +50,12 @@ class Package:
                     self.g.add((URIRef(self.base), self.VOCAB.uri, URIRef(uri or uuid4().urn)))
                     self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(url)))
                     self.g.add((URIRef(self.base), self.VOCAB.describedby, URIRef(url)))
-                    #self.g.add((URIRef(url), RDF.type, self.VOCAB.Resource))
+                    self.g.add((URIRef(url), RDF.type, self.VOCAB.Resource))
                     self.g.add((URIRef(url), DCTERMS.term('format'), Literal('text/turtle')))
                     self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(self.url + '-log')))
                     self.g.add((URIRef(self.url + '-log'), RDF.type, self.VOCAB.Log))
 
-                    self.save()
+                    #self.save()
             else:
                raise Exception('write mode only supported for file URLs')
         elif self.mode == 'r':
@@ -115,7 +115,7 @@ class Package:
                             size = out.tell()
 
                 type = self.mime.from_file(path)
-                #self.g.add((s, RDF.type, self.VOCAB.Resource))
+                self.g.add((s, RDF.type, self.VOCAB.Resource))
                 self.g.add((s, DCTERMS.term('format'), Literal(type)))
                 self.g.add((s, self.VOCAB.size, Literal(str(size))))
                 self.g.add((s, self.VOCAB.sha1, Literal(h.hexdigest())))
@@ -164,14 +164,26 @@ class Package:
         else:
             Exception('package in read-only mode')
 
+
+    def serialize(self, format='turtle'):
+        assert format in ('trig', 'turtle', 'n3', 'json', 'mets')
+
+        if format in ('trig', 'turtle', 'n3', 'json'):
+            return self.g.serialize(base=self.base, format=format)
+        elif format == 'mets':
+            return None
+
+
     def finalize(self):
+        self.save()
         self.mode = 'r'
         self._log("CLOSED")
+
 
     def __iter__(self):
         return self.list()
 
 
     def __str__(self):
-        return self.g.serialize(base=self.base, format='turtle')
+        return self.serialize('turtle')
 

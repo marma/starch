@@ -77,14 +77,19 @@ def get_property(g, s, p, default=None):
     return default or None
 
 
+def normalise_path(path):
+    if isdir(path):
+        return path if path[-1:] == '/' else path + '/'
+    else:
+        return path
+
+
 def normalize_url(url):
     if url.find(':') != -1:
         if url.split(':')[0] not in [ 'file', 'http', 'https', 'ftp' ]:
-            raise Exception('unsupported protocol')
+            raise Exception('unsupported protocol (%s)' % url.split(':')[0])
 
-        if 'file:///' in url:
-            return url
-        elif 'file:' in url:
+        if 'file://' == url[:7]:
             return 'file://' + abspath(url[5:])
         else:
             return url
@@ -94,6 +99,3 @@ def normalize_url(url):
 
 def random_slug():
     return sha1(str(random())).hexdigest()
-
-
-

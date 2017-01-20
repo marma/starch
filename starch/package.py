@@ -20,14 +20,12 @@ class Package:
 
 
 class DiffPackage(Package):
-    def __init__(self, url, parent=None, mode='r', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
-        print("init DiffPackage", self, url, parent)
-        pass
+    def __init__(self, url, parent=None, mode='w', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
+        self.parent = Package(url, mode=mode)
 
 
 class BasePackage(Package):
     def __init__(self, url, mode='r', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
-        print("init BasePackage")
         self.g = Graph()
         self.VOCAB = vocab
         self.DCTERMS = Namespace('http://purl.org/dc/terms/')
@@ -39,6 +37,7 @@ class BasePackage(Package):
         self.base = Namespace(dirname(url) + '/')
 
         self.g.bind('owl', OWL)
+        self.g.bind('dct', self.DCTERMS)
 
         if self.protocol == 'file':
             self.basedir = dirname(url[7:])
@@ -59,10 +58,10 @@ class BasePackage(Package):
                         makedirs(dirname(url[7:]))
 
                     self.g.bind('', self.VOCAB)
-                    self.g.bind('dct', self.DCTERMS)
                     self.g.add((URIRef(self.base), RDF.type, self.VOCAB.Package))
+                    self.g.add((URIRef(self.base), self.VOCAB.vocab, self.VOCAB['']))
                     self.g.add((URIRef(self.base), self.DCTERMS.created, Literal(t.isoformat() + 'Z', datatype=XSD.dateTime)))
-                    self.g.add((URIRef(self.base), self.VOCAB.uri, URIRef(urn.urn)))
+                    self.g.add((URIRef(self.base), self.VOCAB.sameAs, URIRef(urn.urn)))
                     self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(url)))
                     self.g.add((URIRef(self.base), self.VOCAB.describedby, URIRef(url)))
                     self.g.add((URIRef(url), RDF.type, self.VOCAB.Resource))
@@ -153,10 +152,10 @@ class BasePackage(Package):
             # write data
             h = md5()
             with closing(urlopen(url)) if url else BytesIO(data) as stream:
-                with open(filename, 'w') as out:
+                with open(filename, 'wb') as out:
                     data, length = None, 0
 
-                    while data != '':
+                    while data != b'':
                         data = stream.read(1024)
                         out.write(data)
                         h.update(data)

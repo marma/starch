@@ -1,11 +1,9 @@
-#!/usr/bin/env python
-
 from rdflib import Graph,Namespace,URIRef,RDF,Literal,XSD,OWL
 from os.path import exists,dirname,abspath,join,basename,isdir,join
 from os import makedirs, walk, listdir, sep
-from urllib2 import urlopen
+from urllib.request import urlopen
 from uuid import uuid4
-from utils import random_slug,normalize_url
+from starch.utils import random_slug,normalize_url
 from contextlib import closing
 from hashlib import md5,sha1
 from random import random
@@ -13,9 +11,23 @@ from datetime import datetime
 from io import BytesIO
 from re import compile
 
-
 class Package:
-    def __init__(self, url, mode='r', uri=None, vocab=Namespace('http://example.org/vocab#'), plugins=[]):
+    def __new__(cls, url, **kwargs):
+        if 'parent' in kwargs:
+            return super(Package, DiffPackage).__new__(DiffPackage)
+        else:
+            return super(Package, BasePackage).__new__(BasePackage)
+
+
+class DiffPackage(Package):
+    def __init__(self, url, parent=None, mode='r', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
+        print("init DiffPackage", self, url, parent)
+        pass
+
+
+class BasePackage(Package):
+    def __init__(self, url, mode='r', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
+        print("init BasePackage")
         self.g = Graph()
         self.VOCAB = vocab
         self.DCTERMS = Namespace('http://purl.org/dc/terms/')
@@ -34,6 +46,7 @@ class Package:
         # check
         if self.mode == 'w':
             t = datetime.utcnow()
+            urn = uuid4()
 
             if self.protocol == 'file':
                 if exists(url[7:]):
@@ -49,7 +62,7 @@ class Package:
                     self.g.bind('dct', self.DCTERMS)
                     self.g.add((URIRef(self.base), RDF.type, self.VOCAB.Package))
                     self.g.add((URIRef(self.base), self.DCTERMS.created, Literal(t.isoformat() + 'Z', datatype=XSD.dateTime)))
-                    self.g.add((URIRef(self.base), self.VOCAB.uri, URIRef(uri or uuid4().urn)))
+                    self.g.add((URIRef(self.base), self.VOCAB.uri, URIRef(urn.urn)))
                     self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(url)))
                     self.g.add((URIRef(self.base), self.VOCAB.describedby, URIRef(url)))
                     self.g.add((URIRef(url), RDF.type, self.VOCAB.Resource))
@@ -92,18 +105,20 @@ class Package:
 
 
     def _add_directory(self, dir, path, store=True, exclude=[ '\\..*' ]):
+        assert path[1:] not in [ '.', '/' ] and path.find('/\.\./') == -1
+
         ep = [ compile(x) for x in exclude ]
         for f in listdir(dir):
             for p in ep:
                 if not p.match(f):
-                    print sep.join([ dir, f ]), sep.join([ path, f ])
+                    #print sep.join([ dir, f ]), sep.join([ path, f ])
                     self.add(sep.join([ dir, f ]), path=sep.join([ path, f ]), store=store, exclude=exclude)
 
 
     def add(self, url=None, path=None, data=None, store=True, traverse=True, exclude=[ '^\\..*' ]):
         assert store or not path
         assert data and store or url# and url.split(':')[0] in [ 'file', 'http', 'https' ]
-        assert not path or path[1:] not in [ '.', '/' ]
+        assert not path or path[1:] not in [ '.', '/' ] and path.find('/\.\./') == -1
 
         if self.mode is not 'w': raise Exception('package not writable')
 
@@ -186,7 +201,7 @@ class Package:
         assert format in ('trig', 'turtle', 'n3', 'json', 'mets')
 
         if format in ('trig', 'turtle', 'n3', 'json'):
-            return self.g.serialize(base=self.base, format=format)
+            return self.g.serialize(base=self.base, format=format).decode('utf-8')
         elif format == 'mets':
             return None
 

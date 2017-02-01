@@ -1,33 +1,30 @@
-from rdflib import Graph,Namespace,URIRef,RDF,Literal,XSD,OWL
+from rdflib import Graph,Namespace,URIRef,RDF,RDFS,Literal,XSD,OWL
 from os.path import exists,dirname,abspath,join,basename,isdir,join
 from os import makedirs, walk, listdir, sep
 from urllib.request import urlopen
 from uuid import uuid4
-from starch.utils import random_slug,normalize_url
+from starch.utils import random_slug,normalize_url,get_temp_dirname
 from contextlib import closing
 from hashlib import md5,sha1
 from random import random
-from datetime import datetime
+from datetime.datetime import utcnow
 from io import BytesIO
 from re import compile
 
 class Package:
-    def __new__(cls, url, **kwargs):
+    def __new__(cls, url=None, **kwargs):
         if 'parent' in kwargs:
             return super(Package, DiffPackage).__new__(DiffPackage)
         else:
             return super(Package, BasePackage).__new__(BasePackage)
 
 
-class DiffPackage(Package):
-    def __init__(self, url, parent=None, mode='w', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
-        self.parent = Package(url, mode=mode)
-
-
 class BasePackage(Package):
-    def __init__(self, url, mode='r', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
+    def __init__(self, url=None, mode='r', vocab=Namespace('http://example.org/vocab#'), plugins=[]):
+        assert not (mode is 'r' and not url)
+
+        url = url or 'file://' + get_temp_dirname() + sep + 'package.ttl'
         self.g = Graph()
-        self.VOCAB = vocab
         self.DCTERMS = Namespace('http://purl.org/dc/terms/')
         self.mode = mode
         self.url = url = normalize_url(url)
@@ -44,8 +41,8 @@ class BasePackage(Package):
 
         # check
         if self.mode == 'w':
-            t = datetime.utcnow()
-            urn = uuid4()
+            self.VOCAB = vocab
+            self.urn = uuid4()
 
             if self.protocol == 'file':
                 if exists(url[7:]):
@@ -59,11 +56,11 @@ class BasePackage(Package):
 
                     self.g.bind('', self.VOCAB)
                     self.g.add((URIRef(self.base), RDF.type, self.VOCAB.Package))
-                    self.g.add((URIRef(self.base), self.VOCAB.vocab, self.VOCAB['']))
-                    self.g.add((URIRef(self.base), self.DCTERMS.created, Literal(t.isoformat() + 'Z', datatype=XSD.dateTime)))
-                    self.g.add((URIRef(self.base), self.VOCAB.sameAs, URIRef(urn.urn)))
-                    self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(url)))
-                    self.g.add((URIRef(self.base), self.VOCAB.describedby, URIRef(url)))
+                    self.g.add((URIRef(self.base), RDFS.isDefinedBy, self.VOCAB['']))
+                    self.g.add((URIRef(self.base), self.DCTERMS.created, Literal(utcnow().isoformat() + 'Z', datatype=XSD.dateTime)))
+                    self.g.add((URIRef(self.base), self.VOCAB.sameAs, URIRef(self.urn.urn)))
+                    self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(self.url)))
+                    self.g.add((URIRef(self.base), self.VOCAB.describedby, URIRef(self.url)))
                     self.g.add((URIRef(url), RDF.type, self.VOCAB.Resource))
                     self.g.add((URIRef(url), self.DCTERMS.term('format'), Literal('text/turtle')))
                     self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(self.url + '-log')))
@@ -80,17 +77,27 @@ class BasePackage(Package):
         elif self.mode == 'r':
             self.g.parse(url, format='turtle')
 
+            for row in self.query('select ?vocab where { <%s> rdfs:isDefinedBy ?vocab }' % str(self.base)):
+                self.VOCAB = Namespace(row[0])
+
             if len([ x for x in self.g.subjects(RDF.type, self.VOCAB.Package) ]) != 1:
                 raise Exception('number of packages in file != 1')
         else:
             raise Exception('unsupported mode (\'%s\')' % mode)
 
+        self.save()
 
-    def list(self):
+
+    def _list(self):
         for package in self.g.subjects(RDF.type, self.VOCAB.Package):
             for resource in self.g.objects(package, self.VOCAB.contains):
                 yield str(resource)
 
+    def list(self):
+        return [ x for x in self._list() ]
+
+    def query(self, q):
+        return self.g.query(q)
 
     def get(self, res, pred):
         for o in self.g.objects(URIRef(res), URIRef(pred)):
@@ -103,18 +110,16 @@ class BasePackage(Package):
         return self.g.triples((URIRef(res) if res else None, None, None))
 
 
-    def _add_directory(self, dir, path, store=True, exclude=[ '\\..*' ]):
+    def _add_directory(self, dir, path, store=True, exclude='\\..*'):
         assert path[1:] not in [ '.', '/' ] and path.find('/\.\./') == -1
 
-        ep = [ compile(x) for x in exclude ]
+        ep = compile(exclude)
         for f in listdir(dir):
-            for p in ep:
-                if not p.match(f):
-                    #print sep.join([ dir, f ]), sep.join([ path, f ])
-                    self.add(sep.join([ dir, f ]), path=sep.join([ path, f ]), store=store, exclude=exclude)
+            if not ep.match(f):
+                self.add(sep.join([ dir, f ]), path=sep.join([ path, f ]), store=store, exclude=exclude)
 
 
-    def add(self, url=None, path=None, data=None, store=True, traverse=True, exclude=[ '^\\..*' ]):
+    def add(self, url=None, path=None, data=None, store=True, traverse=True, exclude='^\\..*'):
         assert store or not path
         assert data and store or url# and url.split(':')[0] in [ 'file', 'http', 'https' ]
         assert not path or path[1:] not in [ '.', '/' ] and path.find('/\.\./') == -1
@@ -134,7 +139,7 @@ class BasePackage(Package):
         path = path or basename(filename)
 
         if traverse and url and url[:5] == 'file:' and isdir(url[7:]):
-            self._add_directory(url[7:], path, store=store, exclude=[ '\\..*' ])
+            self._add_directory(url[7:], path, store=store, exclude=exclude)
             return
 
         urn = uuid4()
@@ -169,10 +174,10 @@ class BasePackage(Package):
 
             # run plugins and add triples
             for plugin in self.plugins:
-                for p,o in plugin(self, filename):
+                for p,o in plugin(self, filename, path):
                     self.g.add((s, p, o))
 
-            self._log('STORE %s size: %i md5: %s' % (filename, size, h.hexdigest()))
+            self._log('STORE %s size: %i, md5: %s' % (path, size, h.hexdigest()))
         else:
             self._log('REF %s' % url)
 
@@ -197,22 +202,25 @@ class BasePackage(Package):
 
 
     def serialize(self, format='turtle'):
-        assert format in ('trig', 'turtle', 'n3', 'json', 'mets')
+        assert format in ('trig', 'turtle', 'n3', 'nt', 'json', 'mets')
 
-        if format in ('trig', 'turtle', 'n3', 'json'):
-            return self.g.serialize(base=self.base, format=format).decode('utf-8')
+        if format in ('trig', 'turtle', 'n3', 'nt', 'json'):
+            #return self.g.serialize(format=format).decode('utf-8')
+            ret = self.g.serialize(base=self.base, format=format).decode('utf-8')
+            return ret.replace('<>', '<.>') if format in [ 'trig', 'turtle', 'n3' ] else ret
         elif format == 'mets':
             return None
 
 
     def finalize(self):
         self.save()
-        self._log("CLOSED")
+        self._log("FINALIZED")
         self.mode = 'r'
 
 
     def close(self):
-        self.finalize()
+        self.save()
+        self.mode = 'r'
 
 
     def __iter__(self):
@@ -221,3 +229,16 @@ class BasePackage(Package):
 
     def __str__(self):
         return self.serialize('turtle')
+
+
+class DiffPackage(BasePackage):
+    def __init__(self, url=None, parent=None, mode='w', plugins=[]):
+        assert parent
+        assert mode is 'w'
+
+        url = url or 'file://' + get_temp_dirname() + sep + 'package.ttl'
+
+        self.parent = Package(parent)
+
+        super().__init__(url, mode=mode, vocab=self.parent.VOCAB, plugins=plugins)
+        self.g.add((URIRef(self.base), self.VOCAB.patches, URIRef(self.parent.urn.urn)))

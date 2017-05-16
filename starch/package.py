@@ -7,9 +7,11 @@ from starch.utils import random_slug,normalize_url,get_temp_dirname
 from contextlib import closing
 from hashlib import md5,sha1
 from random import random
-from datetime.datetime import utcnow
+from datetime import datetime
 from io import BytesIO
 from re import compile
+
+VERSION = 0.1
 
 class Package:
     def __new__(cls, url=None, **kwargs):
@@ -57,7 +59,7 @@ class BasePackage(Package):
                     self.g.bind('', self.VOCAB)
                     self.g.add((URIRef(self.base), RDF.type, self.VOCAB.Package))
                     self.g.add((URIRef(self.base), RDFS.isDefinedBy, self.VOCAB['']))
-                    self.g.add((URIRef(self.base), self.DCTERMS.created, Literal(utcnow().isoformat() + 'Z', datatype=XSD.dateTime)))
+                    self.g.add((URIRef(self.base), self.DCTERMS.created, Literal(datetime.utcnow().isoformat() + 'Z', datatype=XSD.dateTime)))
                     self.g.add((URIRef(self.base), self.VOCAB.sameAs, URIRef(self.urn.urn)))
                     self.g.add((URIRef(self.base), self.VOCAB.contains, URIRef(self.url)))
                     self.g.add((URIRef(self.base), self.VOCAB.describedby, URIRef(self.url)))
@@ -93,11 +95,14 @@ class BasePackage(Package):
             for resource in self.g.objects(package, self.VOCAB.contains):
                 yield str(resource)
 
+
     def list(self):
         return [ x for x in self._list() ]
 
+
     def query(self, q):
         return self.g.query(q)
+
 
     def get(self, res, pred):
         for o in self.g.objects(URIRef(res), URIRef(pred)):
@@ -202,9 +207,9 @@ class BasePackage(Package):
 
 
     def serialize(self, format='turtle'):
-        assert format in ('trig', 'turtle', 'n3', 'nt', 'json', 'mets')
+        assert format in ('trig', 'turtle', 'n3', 'nt', 'jsonld', 'json-ld', 'mets')
 
-        if format in ('trig', 'turtle', 'n3', 'nt', 'json'):
+        if format in ('trig', 'turtle', 'n3', 'nt', 'jsonld', 'json-ld'):
             #return self.g.serialize(format=format).decode('utf-8')
             ret = self.g.serialize(base=self.base, format=format).decode('utf-8')
             return ret.replace('<>', '<.>') if format in [ 'trig', 'turtle', 'n3' ] else ret

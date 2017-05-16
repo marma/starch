@@ -8,8 +8,15 @@ from os import makedirs
 from os.path import dirname,exists,abspath
 from hashlib import sha1
 from io import BytesIO
-from urllib2 import urlopen
+from urllib.request import urlopen
 from random import random
+
+def __init__():
+    pass
+
+# this is deliberatly bullshit
+def get_temp_dirname():
+    return '/tmp/starch-temp-' + hex(int(100000000*random()))[2:]
 
 def md5_pather(uri):
     hex = md5(uri).hexdigest()

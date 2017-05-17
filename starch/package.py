@@ -207,9 +207,9 @@ class BasePackage(Package):
 
 
     def serialize(self, format='turtle'):
-        assert format in ('trig', 'turtle', 'n3', 'nt', 'jsonld', 'json-ld', 'mets')
+        assert format in ('trig', 'turtle', 'n3', 'nt', 'jsonld', 'json-ld', 'mets', 'xml')
 
-        if format in ('trig', 'turtle', 'n3', 'nt', 'jsonld', 'json-ld'):
+        if format in ('trig', 'turtle', 'n3', 'nt', 'jsonld', 'json-ld', 'xml'):
             #return self.g.serialize(format=format).decode('utf-8')
             ret = self.g.serialize(base=self.base, format=format).decode('utf-8')
             return ret.replace('<>', '<.>') if format in [ 'trig', 'turtle', 'n3' ] else ret

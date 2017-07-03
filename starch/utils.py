@@ -16,7 +16,7 @@ def __init__():
 
 # this is deliberatly bullshit
 def get_temp_dirname():
-    return '/tmp/starch-temp-' + hex(int(100000000*random()))[2:]
+    return '/tmp/starch-temp-%s/' % hex(int(100000000*random()))[2:]
 
 def md5_pather(uri):
     hex = md5(uri).hexdigest()

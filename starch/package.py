@@ -43,8 +43,8 @@ class Package:
             self.save()
             self._log('CREATED')
         elif mode in [ 'r', 'a' ]:
-            with get(url, auth=auth) as r:
-                self._desc = loads(r.text)
+            with open(sep.join([ self.url[7:], 'package.json' ])) as r:
+                self._desc = loads(r.read())
 
             if mode is 'a' and self._desc['status'] == 'finalized':
                 raise Exception('packet is finalized, use patch(...)')
@@ -106,6 +106,10 @@ class Package:
 
     def close(self):
         self.mode = 'r'
+
+
+    def validate(self):
+        return True
 
 
     def _add_directory(self, dir, path, exclude='^\\..*'):

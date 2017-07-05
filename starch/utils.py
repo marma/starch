@@ -106,3 +106,19 @@ def normalize_url(url):
 
 def random_slug():
     return sha1(str(random())).hexdigest()
+
+def convert(n, radix=32, pad_to=0, alphabet='0123456789bcdfghjklmnpqrstvxzBCDFGHJKLMNPQRSTVXZ'):
+    ret = ''
+
+    if radix > len(alphabet) or radix == 0:
+        raise Exception('radix == 0 or radix > len(alphabet)')
+
+    while n:
+        n, rest = divmod(n, radix)
+        ret = alphabet[rest] + ret
+
+    while len(ret) < pad_to:
+        ret = alphabet[0] + ret
+
+    return ret or alphabet[0]
+

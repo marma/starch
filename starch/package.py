@@ -3,7 +3,7 @@ from os import makedirs, walk, listdir, sep
 from urllib.request import urlopen
 from urllib.parse import urlparse
 from uuid import uuid4
-from starch.utils import random_slug,normalize_url,get_temp_dirname
+from starch.utils import get_temp_dirname,valid_path, valid_file
 from contextlib import closing
 from hashlib import md5,sha1
 from random import random
@@ -16,7 +16,7 @@ from magic import Magic,MAGIC_MIME,MAGIC_RAW
 VERSION = 0.1
 
 class Package:
-    def __init__(self, dir=None, mode='r', id=None, auth=None, parent=None, metadata={}, **kwargs):
+    def __init__(self, dir=None, mode='r', parent=None, auth=None, encrypt=False, cert_path=None, parent=None, metadata={}, **kwargs):
         if not dir and mode is 'r':
             raise Exception('\'%s\' mode and no dir not allowed' % mode)
 
@@ -28,22 +28,23 @@ class Package:
                 raise Exception('path \'%s\' exists, use \'a\' mode' % dir)
 
             makedirs(self.url[7:])
-            self._desc = { '@id': id or '.',
+            self._desc = { '@id': '.',
                            '@context': '/context.jsonld',
                            '@type': 'Package',
                            'urn': uuid4().urn,
-                           'described_by': 'package.json',
+                           'described_by': '_package.json',
                            'status': 'open',
                            'package_version': VERSION,
                            'metadata': metadata,
-                           'files': { 'package.json': { '@id': 'package.json', 'urn': uuid4().urn, '@type': 'Resource', 'mime_type': 'application/json' }} }
-                
+                           'files': { '_package.json': { '@id': '_package.json', 'urn': uuid4().urn, '@type': 'Resource', 'mime_type': 'application/json' },
+                                      '_log': { '@id': '_log', 'urn': uuid4().urn, '@type': 'Resource', 'mime_type': 'text/plain' } } }
+
             self._desc['metadata'].update(kwargs)
             self._desc['created'] = datetime.utcnow().isoformat() + 'Z'
             self.save()
             self._log('CREATED')
         elif mode in [ 'r', 'a' ]:
-            with open(sep.join([ self.url[7:], 'package.json' ])) as r:
+            with open(sep.join([ self.url[7:], '_package.json' ])) as r:
                 self._desc = loads(r.read())
 
             if mode is 'a' and self._desc['status'] == 'finalized':
@@ -52,39 +53,39 @@ class Package:
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname, path=None, traverse=True, exclude='^\\..*'):
-        if self.mode not in [ 'w', 'a' ]: raise Exception('package not writable')
+    def add(self, fname, path=None, traverse=True, exclude='^\\..*|^_.*', replace=False, **kwargs):
+        if self.mode not in [ 'w', 'a' ]:
+            raise Exception('package not writable')
+
         path = path or basename(abspath(fname))
+
+        if path == '_package.json' or path == '_log':
+            raise Exception('filename (%s) not allowed' % path)
 
         if traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            if path and (path[0] in [ '.', '/' ] or path.find('/\.\./') != -1 or path[-1] == '/'):
-                raise Exception('unacceptable path \'%s\'' % path)
+            self._write(fname, valid_path(path), join(self.url[7:], path))
+            self._desc['files'][path].update(kwargs)
+            self.save()
 
-            filename = join(self.url, path)[7:]
-            if exists(filename):
-                raise Exception('file (%s) already exists' % filename)
 
-            if not exists(dirname(filename)):
-                makedirs(dirname(filename))
-
-            # write data
-            self._write(fname, path, filename)
+    def replace(self, fname, path=None, **kwargs):
+        self.add(fname, path, replace=True, **kwargs)        
 
 
     def _log(self, message, t=datetime.utcnow()):
         if self.mode == 'w':
-            with open("%slog" % self.url[7:], 'a') as logfile:
+            with open("%s_log" % self.url[7:], 'a') as logfile:
                 t = datetime.utcnow()
-                logfile.write(t.isoformat() + ' ' + message + '\n')
+                logfile.write(t.isoformat() + 'Z' + ' ' + message + '\n')
         else:
             Exception('package in read-only mode')
 
 
     def save(self):
         if self.mode in [ 'w', 'a' ]:
-            with open(self.url[7:] + 'package.json', 'w') as out:
+            with open(self.url[7:] + '_package.json', 'w') as out:
                 out.write(str(self))
         else:
             Exception('package in read-only mode')
@@ -96,7 +97,7 @@ class Package:
 
     def finalize(self):
         if self.mode == 'r':
-            raise Excpetion('package is in read-only mode')
+            raise Exception('package is in read-only mode')
 
         self._desc['status'] = 'finalized'
         self._log("FINALIZED")
@@ -112,16 +113,23 @@ class Package:
         return True
 
 
-    def _add_directory(self, dir, path, exclude='^\\..*'):
+    def _add_directory(self, dir, path, exclude='^\\..*|^_.*'):
         ep = compile(exclude)
         for f in listdir(dir):
             if not ep.match(f):
                 self.add(sep.join([ dir, f ]), path=sep.join([ path, f ]), exclude=exclude)
 
 
-    def _write(self, iname, path, oname):
+    def _write(self, iname, path, oname, replace=False):
         f = { '@id': path, 'urn': uuid4().urn, '@type': 'Resource' }
         h = md5()
+
+        if not replace and exists(oname):
+            raise Exception('file (%s) already exists, use replace' % filename)
+
+        if not exists(dirname(oname)):
+            makedirs(dirname(oname))
+
         with open(iname, 'rb') as stream:
             with open(oname, 'wb') as out:
                 data, length = None, 0

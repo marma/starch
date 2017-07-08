@@ -24,12 +24,14 @@ with open('config.yml') as f:
 
 @app.route('/<id>/')
 def package(id):
-    return send_from_directory(directory(id), 'package.json')
+    return send_from_directory(directory(id), '_package.json', mimetype='application/json')
 
 
 @app.route('/<id>/<path:path>', methods=[ 'GET', 'PUT', 'DELETE' ])
 def package_file(id, path):
-    return send_from_directory(directory(id), path)
+    p = Package(directory(id))
+
+    return send_from_directory(directory(id), path, mimetype=p[path]['mime_type'])
 
 
 @app.route('/_upload', methods=[ 'POST' ])
@@ -56,8 +58,8 @@ def upload():
             return str(e), 422
 
         # write ingest message in log
-        with open(sep.join([ d, 'log' ]), mode='a') as f:
-            f.write(datetime.utcnow().isoformat() + ' INGEST ' + id + '\n')
+        with open(sep.join([ d, '_log' ]), mode='a') as f:
+            f.write(datetime.utcnow().isoformat() + 'Z' + ' INGEST ' + id + '\n')
 
         remove=False
     finally:

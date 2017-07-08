@@ -1,1 +1,1 @@
-#from diskstore import DiskStore#from memorystore import MemoryStore#from archive import Archive#from resource import Resourcefrom starch.package import Package
+from starch.package import Package

@@ -18,95 +18,6 @@ def __init__():
 def get_temp_dirname():
     return '/tmp/starch-temp-%s/' % hex(int(100000000*random()))[2:]
 
-def md5_pather(uri):
-    hex = md5(uri).hexdigest()
-
-    return [ '/'.join([ hex[ 2*i:2*i+2 ] for i in range(0,4) ] + [ hex ]), hex ]
-
-def url_pather(uri):
-    if uri[0:8] == 'urn:uuid':
-        s = [ 'urn', 'uuid' ] + [ uri[9:][ 2*i:2*i+2 ] for i in range(0,4) ] + [ uri ]
-    elif uri[0:7] == 'urn:nbn':
-        hex = md5(uri).hexdigest()
-        s = [ 'urn', 'nbn' ] + [ hex[ 2*i:2*i+2 ] for i in range(0,4) ] + [ hex ]
-    elif uri[0:4] == 'http':
-        s = [ x for x in split(':|/', uri) if x != '' ]
-    else:
-        hex = md5(uri).hexdigest()
-        s = [ 'md5' ] + [ hex[ 2*i:2*i+2 ] for i in range(0,4) ] + [ hex ]
-
-    if uri[-1] == '/':
-        return [ '/'.join(s), '.content' ]
-    else:
-        return [ '/'.join(s[:-1]), s[-1] ]
-
-def pairtree_pather(uri):
-    pass
-
-def uuid_minter():
-    return uuid4().urn
-
-def deny_overwrite(uri, path, old_meta, new_meta):
-    raise Exception('overwrite not allowed')
-
-@contextmanager
-def closing(thing):
-    try:
-        yield thing
-    finally:
-        try:
-            thing.close()
-        except:
-            pass
-
-def write_file(file, stream):
-    if not exists(dirname(file)):
-        makedirs(dirname(file))
-
-    # write data
-    h = sha1()
-    with open(file, 'w') as out:
-        data, length = None, 0
-
-        while data != '':
-            data = stream.read(1024)
-            out.write(data)
-            h.update(data)
-            size = out.tell()
-
-    return 'sha1:' + h.hexdigest(), size
-
-
-def get_property(g, s, p, default=None):
-    for ret in g.objects(s,p):
-        return str(ret)
-
-    return default or None
-
-
-def normalise_path(path):
-    if isdir(path):
-        return path if path[-1:] == '/' else path + '/'
-    else:
-        return path
-
-
-def normalize_url(url):
-    if url.find(':') != -1:
-        if url.split(':')[0] not in [ 'file', 'http', 'https', 'ftp' ]:
-            raise Exception('unsupported protocol (%s)' % url.split(':')[0])
-
-        if 'file://' == url[:7]:
-            return 'file://' + abspath(url[5:])
-        else:
-            return url
-    else:
-        return 'file://' + abspath(url)
-
-
-def random_slug():
-    return sha1(str(random())).hexdigest()
-
 def convert(n, radix=32, pad_to=0, alphabet='0123456789bcdfghjklmnpqrstvxzBCDFGHJKLMNPQRSTVXZ'):
     ret = ''
 
@@ -121,4 +32,22 @@ def convert(n, radix=32, pad_to=0, alphabet='0123456789bcdfghjklmnpqrstvxzBCDFGH
         ret = alphabet[0] + ret
 
     return ret or alphabet[0]
+
+def valid_path(path):
+    if path[0] in [ '/' ] or '../' in path:
+        raise Exception('invalid path (%s)' % path)
+
+    return path
+
+def valid_file(path):
+    if path[0] == '/' or '..' in path
+        raise Exception('invalid path (%s)' % path)
+
+    return path
+
+def valid_key(key):
+    if '/' in key or '.' in key:
+        raise Exception('invalid key (%s)' % key)
+
+    return key
 

@@ -1,8 +1,9 @@
 from json import loads
 from starch import Package
-from os.path import exists,join,basename
+from os.path import exists,join,basename,dirname
 from os import remove,makedirs,walk
-from starch.utils import convert,timestamp
+from shutil import rmtree
+from starch.utils import convert,timestamp,valid_path,valid_key
 from random import random
 
 MAX_ID=2**38
@@ -18,7 +19,7 @@ class Archive:
         key = self._generate_key()
         dir = self._directory(key)
 
-        return Package(dir, mode='w', encrypted=self.encrypted, cert_path=self.cert_path, **kwargs)
+        return (key, Package(dir, mode='w', encrypted=self.encrypted, cert_path=self.cert_path, **kwargs))
 
 
     def ingest(self, package, key=None):
@@ -31,15 +32,16 @@ class Archive:
                 self._copy(package.get_raw(path), join(dir, valid_path(path)))
 
             Package(dir).validate(validate_content=True, cert_path=self.cert_path)
-        except:
+        except Exception as e:
             rmtree(dir)
+            raise e
         else:
             self._unlock(key)
 
         return key
 
 
-    def get(key, mode='r'):
+    def get(self, key, mode='r'):
         d = self._directory(key)
         
         if exists(d) and not self._is_locked(key):
@@ -109,7 +111,7 @@ class Archive:
         if not exists(dirname(loc)):
             makedirs(dirname(loc))
 
-        with s as i, open(loc, mode='w') as o:
+        with s as i, open(loc, mode='bw') as o:
             b=None
             while b == None or b != b'':
                 b = i.read(100*1024)

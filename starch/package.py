@@ -55,7 +55,7 @@ class Package:
 
     def add(self, fname, path=None, traverse=True, exclude='^\\..*|^_.*', replace=False, **kwargs):
         if self.mode not in [ 'w', 'a' ]:
-            raise Exception('package not writable')
+            raise Exception('package not writable, open in \'a\' mode')
 
         path = path or basename(abspath(fname))
 
@@ -81,9 +81,17 @@ class Package:
         return open(self._get_full_path(path), mode='rb')
 
 
+    def read(self, path):
+        if not exists(self._get_full_path(path)):
+            raise Exception('%s does not exist in package' % path)
+
+        with open(self._get_full_path(path)) as o:
+            return o.read()
+
+
     def _log(self, message, t=datetime.utcnow()):
-        if self.mode == 'w':
-            with open("%s_log" % self.url[7:], 'a') as logfile:
+        if self.mode in [ 'a', 'w' ]:
+            with open(self._get_full_path('_log'), 'a') as logfile:
                 t = datetime.utcnow()
                 logfile.write(t.isoformat() + 'Z' + ' ' + message + '\n')
         else:
@@ -119,7 +127,7 @@ class Package:
         self.mode = 'r'
 
 
-    def validate(self):
+    def validate(self, validate_content=True, cert_path=None):
         return True
 
 
@@ -162,7 +170,7 @@ class Package:
 
 
     def __iter__(self):
-        return self.list()
+        return iter(self.list())
 
 
     def __contains__(self, key):

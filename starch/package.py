@@ -44,7 +44,7 @@ class Package:
             self.save()
             self._log('CREATED')
         elif mode in [ 'r', 'a' ]:
-            with open(sep.join([ self.url[7:], '_package.json' ])) as r:
+            with open(self._get_full_path('_package.json')) as r:
                 self._desc = loads(r.read())
 
             if mode is 'a' and self._desc['status'] == 'finalized':
@@ -74,6 +74,13 @@ class Package:
         self.add(fname, path, replace=True, **kwargs)        
 
 
+    def get_raw(self, path):
+        if not exists(self._get_full_path(path)):
+            raise Exception('%s does not exist in package' % path)
+
+        return open(self._get_full_path(path), mode='rb')
+
+
     def _log(self, message, t=datetime.utcnow()):
         if self.mode == 'w':
             with open("%s_log" % self.url[7:], 'a') as logfile:
@@ -94,6 +101,9 @@ class Package:
     def list(self):
         return list(self._desc['files'].keys())
 
+
+    def _get_full_path(self, path):
+        return join(self.url[7:], path)
 
     def finalize(self):
         if self.mode == 'r':

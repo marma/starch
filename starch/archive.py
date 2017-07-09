@@ -102,3 +102,16 @@ class Archive:
     def _is_locked(self, key):
         return exists(join(self._directory(key), '_lock'))
 
+    def _copy(self, s, loc):
+        if exists(loc):
+            raise Exception('location already exists (%s)' % s)
+
+        if not exists(dirname(loc)):
+            makedirs(dirname(loc))
+
+        with s as i, open(loc, mode='w') as o:
+            b=None
+            while b == None or b != b'':
+                b = i.read(100*1024)
+                o.write(b)
+

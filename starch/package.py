@@ -1,5 +1,5 @@
 from os.path import exists,dirname,abspath,join,basename,isdir,join
-from os import makedirs, walk, listdir, sep
+from os import makedirs, walk, listdir, sep, remove
 from urllib.request import urlopen
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -12,6 +12,7 @@ from io import BytesIO
 from re import compile
 from json import loads,dumps
 from magic import Magic,MAGIC_MIME,MAGIC_RAW
+from shutil import move
 
 VERSION = 0.1
 
@@ -65,7 +66,7 @@ class Package:
         if traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            self._write(fname, valid_path(path), join(self.url[7:], path))
+            self._write(fname, valid_path(path), replace=replace)
             self._desc['files'][path].update(kwargs)
             self.save()
 
@@ -138,25 +139,39 @@ class Package:
                 self.add(sep.join([ dir, f ]), path=sep.join([ path, f ]), exclude=exclude)
 
 
-    def _write(self, iname, path, oname, replace=False):
-        f = { '@id': path, 'urn': uuid4().urn, '@type': 'Resource' }
-        h = md5()
+    def _write(self, iname, path, replace=False):
+        oname = join(self.url[7:], path)
 
         if not replace and exists(oname):
-            raise Exception('file (%s) already exists, use replace' % filename)
+            raise Exception('file (%s) already exists, use replace' % path)
 
         if not exists(dirname(oname)):
             makedirs(dirname(oname))
 
-        with open(iname, 'rb') as stream:
-            with open(oname, 'wb') as out:
-                data, length = None, 0
+        temppath = join(self.url[7:], path + str(random()))
 
-                while data != b'':
-                    data = stream.read(10*1024)
-                    out.write(data)
-                    h.update(data)
-                    size = out.tell()
+        f = { '@id': path, 'urn': uuid4().urn, '@type': 'Resource' }
+        h = md5()
+
+        try:
+            with open(iname, 'rb') as stream:
+                with open(temppath, 'wb') as out:
+                    data, length = None, 0
+
+                    while data != b'':
+                        data = stream.read(100*1024)
+                        out.write(data)
+                        h.update(data)
+                        size = out.tell()
+        except:
+            remove(temppath)
+            raise
+        else:
+            try:
+                move(temppath, oname)
+            except:
+                remove(temppath)
+                raise
 
         f['size'] = size
         f['checksum'] = 'MD5:' + h.hexdigest()
@@ -165,8 +180,18 @@ class Package:
         with Magic(flags=MAGIC_MIME) as m:
             f['mime_type'] = m.id_filename(oname).split(';')[0]
 
-        self._log('STORE %s size: %i, MD5: %s' % (path, size, h.hexdigest()))
+        self._log('STORE %s size:%i MD5:%s' % (path, size, h.hexdigest()))
         self.save()
+
+
+    def remove(self, path):
+        full_path = self._get_full_path(path)
+
+        if exists(full_path):
+            remove(full_path)
+
+        if path in self._desc['files']:
+            del self._desc['files'][path]
 
 
     def __iter__(self):

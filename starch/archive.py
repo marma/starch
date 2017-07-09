@@ -49,6 +49,15 @@ class Archive:
 
         return None
 
+    def get_location(self, key, path):
+        d = self._directory(valid_key(key))
+        p = join(d, valid_path(path))
+
+        if exists(p) and not self._is_locked(key):
+            return 'file://' + p
+        else:
+            return None
+
 
     def _directory(self, key):
         return join(self.root_dir, *[ key[2*i:2*i+2] for i in range(0,3) ], key)

@@ -16,7 +16,7 @@ from magic import Magic,MAGIC_MIME,MAGIC_RAW
 VERSION = 0.1
 
 class Package:
-    def __init__(self, dir=None, mode='r', parent=None, auth=None, encrypt=False, cert_path=None, parent=None, metadata={}, **kwargs):
+    def __init__(self, dir=None, mode='r', parent=None, auth=None, encrypted=False, cert_path=None, metadata={}, **kwargs):
         if not dir and mode is 'r':
             raise Exception('\'%s\' mode and no dir not allowed' % mode)
 
@@ -147,7 +147,7 @@ class Package:
         with Magic(flags=MAGIC_MIME) as m:
             f['mime_type'] = m.id_filename(oname).split(';')[0]
 
-        self._log('STORE %s size: %i, md5: %s' % (path, size, h.hexdigest()))
+        self._log('STORE %s size: %i, MD5: %s' % (path, size, h.hexdigest()))
         self.save()
 
 

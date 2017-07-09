@@ -10,6 +10,7 @@ from hashlib import sha1
 from io import BytesIO
 from urllib.request import urlopen
 from random import random
+from datetime import datetime
 
 def __init__():
     pass
@@ -40,7 +41,7 @@ def valid_path(path):
     return path
 
 def valid_file(path):
-    if path[0] == '/' or '..' in path
+    if path[0] == '/' or '..' in path:
         raise Exception('invalid path (%s)' % path)
 
     return path
@@ -50,4 +51,7 @@ def valid_key(key):
         raise Exception('invalid key (%s)' % key)
 
     return key
+
+def timestamp():
+    return datetime.utcnow().isoformat() + 'Z'
 

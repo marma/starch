@@ -1,76 +1,104 @@
-#!/usr/bin/env python
+from json import loads
+from starch import Package
+from os.path import exists,join,basename
+from os import remove,makedirs,walk
+from starch.utils import convert,timestamp
+from random import random
 
-from rdflib import Graph,Namespace,URIRef,RDF
-from memorystore import MemoryStore
-from diskstore import DiskStore
-from package import Package
-from sys import argv
-from utils import get_property,url_pather
-import logging
-
-DCTERMS = Namespace('http://purl.org/dc/terms/')
+MAX_ID=2**38
 
 class Archive:
-    def __init__(self, store=MemoryStore(), graph=Graph(), vocab=Namespace('http://example.org/vocab#')):
-        self.store = store
-        self.graph = graph
-        self.vocab = vocab
-
-    def __store(self, url=None, data=None, uri=None, properties={}):
-        assert url or data
-        return self.store.store(url=url, data=data, uri=uri, properties=properties)
-
-    def ingest(self, url):
-        p = Package(url, vocab=self.vocab)
-
-        for res in p:
-            mime = p.get(res, str(DCTERMS.term('format')))
-            self.__store(res, uri=p.get(res, str(self.vocab.uri)), properties={ 'content-type': mime } if mime else {})
+    def __init__(self, root_dir, encrypted=False, cert_path=None):
+        self.root_dir = root_dir
+        self.cert_path = cert_path
+        self.encrypted = encrypted
 
 
-#        # find :Package and iterate over :Resources :contained within
-#        for package in g.subjects(RDF.type, self.VOCAB.Package):
-#            print package
-#
-#            for resource in g.objects(package, self.VOCAB.contains):
-#                prop = {}
-#                uri = get_property(g, resource, self.VOCAB.uri)
-#                format = get_property(g, resource, URIRef('http://purl.org/dc/terms/format'))
-#
-#                if format:
-#                    prop['content-type'] = format
-#
-#                self.store.store(url=resource, uri=uri, properties=prop)
-#
-#
-#        """
-#        # find all Resources in package and store them
-#        for resource in g.subjects(RDF.type, self.VOCAB.Resource):
-#            uri=None
-#            for o in g.objects(resource, self.VOCAB.uri):
-#                uri=o
-#
-#            describedByUri=None
-#            for o in g.objects(resource, self.VOCAB.describedByUri):
-#                describedByUri=o
-#
-#            prop = {}
-#            for s,p,o in g.triples((resource, self.DCTERMS.format, None)):
-#                prop['content-type'] = str(o)
-#                print prop
-#
-#            desc = Graph()
-#            for s,p,o in g.triples((resource, None, None)):
-#                desc.add((uri,p,o))
-#
-#            self.store.store(url=str(resource), uri=str(uri))
-#            self.store.store(data=desc.serialize(format='turtle'), uri=str(describedByUri), properties=prop)
-#        """
-if __name__ == "__main__":
-    if len(argv) != 3:
-        print "usage: %s <base> <package>" % argv[0]
-        exit(1)
+    def new(self, **kwargs):
+        key = self._generate_key()
+        dir = self._directory(key)
 
-    logging.basicConfig()
-    archive = Archive(store=DiskStore(argv[1], pather=url_pather))
-    archive.ingest(argv[2])
+        return Package(dir, mode='w', encrypted=self.encrypted, cert_path=self.cert_path, **kwargs)
+
+
+    def ingest(self, package, key=None):
+        key = self._generate_key(suggest=valid_key(key) if key else None)
+        dir = self._create_directory(key)
+        self._lock(key)
+        
+        try:
+            for path in package:
+                self._copy(package.get_raw(path), join(dir, valid_path(path)))
+
+            Package(dir).validate(validate_content=True, cert_path=self.cert_path)
+        except:
+            rmtree(dir)
+        else:
+            self._unlock(key)
+
+        return key
+
+
+    def get(key, mode='r'):
+        d = self._directory(key)
+        
+        if exists(d) and not self._is_locked(key):
+            return Package(d, mode=mode, encrypted=self.encrypted, cert_path=self.cert_path)
+
+        return None
+
+
+    def _directory(self, key):
+        return join(self.root_dir, *[ key[2*i:2*i+2] for i in range(0,3) ], key)
+
+
+    def _create_directory(self, key):
+        dir = self._directory(key)
+        makedirs(dir)
+
+        return dir
+
+    def _generate_key(self, suggest=None):
+        key = suggest or convert(int(MAX_ID*random()), radix=28, pad_to=8)
+
+        if exists(self._directory(key)):
+            if suggest:
+                raise Exception('key %s already exists')
+
+            _log('warning: collision for key %s' % key)
+
+            return self._generate_key()
+
+        return key
+
+
+    def _lock(self, key):
+        if not self._is_locked(key):
+            with open(join(self._directory(key), '_lock'), mode='w') as f:
+                pass
+
+
+    def _unlock(self, key):
+        if self._is_locked(key):
+            remove(join(self._directory(key), '_lock'))
+
+
+    def __iter__(self):
+        # this is non optimal
+        for x in walk(self.root_dir):
+            if '_package.json' in x[2] and '_lock' not in x[2]:
+                yield basename(x[0])
+
+
+    def _log(self, message, t=timestamp()):
+        with open("%s_log" % self.root_dir, 'a') as logfile:
+            logfile.write(t + ' ' + message + '\n')
+
+
+    def _key_exists(self, key):
+        return exists(self._directory(key))
+
+
+    def _is_locked(self, key):
+        return exists(join(self._directory(key), '_lock'))
+

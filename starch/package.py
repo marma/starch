@@ -17,7 +17,7 @@ from shutil import move
 VERSION = 0.1
 
 class Package:
-    def __init__(self, dir=None, mode='r', parent=None, auth=None, encrypted=False, cert_path=None, metadata={}, **kwargs):
+    def __init__(self, dir=None, mode='r', parent=None, auth=None, metadata={}, **kwargs):
         if not dir and mode is 'r':
             raise Exception('\'%s\' mode and no dir not allowed' % mode)
 
@@ -49,7 +49,7 @@ class Package:
                 self._desc = loads(r.read())
 
             if mode is 'a' and self._desc['status'] == 'finalized':
-                raise Exception('packet is finalized, use patch(...)')
+                raise Exception('package is finalized, use patch(...)')
         else:
             raise Exception('unsupported mode (\'%s\')' % mode)
 
@@ -128,7 +128,7 @@ class Package:
         self.mode = 'r'
 
 
-    def validate(self, validate_content=True, cert_path=None):
+    def validate(self):
         return True
 
 
@@ -192,6 +192,10 @@ class Package:
 
         if path in self._desc['files']:
             del self._desc['files'][path]
+
+    
+    def status(self):
+        return self._desc['status']
 
 
     def __iter__(self):

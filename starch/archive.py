@@ -9,17 +9,15 @@ from random import random
 MAX_ID=2**38
 
 class Archive:
-    def __init__(self, root_dir, encrypted=False, cert_path=None):
+    def __init__(self, root_dir):
         self.root_dir = root_dir
-        self.cert_path = cert_path
-        self.encrypted = encrypted
 
 
     def new(self, **kwargs):
         key = self._generate_key()
         dir = self._directory(key)
 
-        return (key, Package(dir, mode='w', encrypted=self.encrypted, cert_path=self.cert_path, **kwargs))
+        return (key, Package(dir, mode='w', **kwargs))
 
 
     def ingest(self, package, key=None):
@@ -31,7 +29,7 @@ class Archive:
             for path in package:
                 self._copy(package.get_raw(path), join(dir, valid_path(path)))
 
-            Package(dir).validate(validate_content=True, cert_path=self.cert_path)
+            Package(dir).validate()
         except Exception as e:
             rmtree(dir)
             raise e
@@ -45,7 +43,7 @@ class Archive:
         d = self._directory(key)
         
         if exists(d) and not self._is_locked(key):
-            return Package(d, mode=mode, encrypted=self.encrypted, cert_path=self.cert_path)
+            return Package(d, mode=mode)
 
         return None
 

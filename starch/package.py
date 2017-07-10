@@ -3,7 +3,7 @@ from os import makedirs, walk, listdir, sep, remove
 from urllib.request import urlopen
 from urllib.parse import urlparse
 from uuid import uuid4
-from starch.utils import get_temp_dirname,valid_path, valid_file
+from starch.utils import get_temp_dirname,valid_path,valid_file,TEMP_DIRECTORY
 from contextlib import closing
 from hashlib import md5,sha1
 from random import random
@@ -12,17 +12,18 @@ from io import BytesIO
 from re import compile
 from json import loads,dumps
 from magic import Magic,MAGIC_MIME,MAGIC_RAW
-from shutil import move
+from shutil import move,rmtree
 
 VERSION = 0.1
 
 class Package:
     def __init__(self, dir=None, mode='r', parent=None, auth=None, metadata={}, **kwargs):
-        if not dir and mode is 'r':
+        if dir == None and mode == 'r':
             raise Exception('\'%s\' mode and no dir not allowed' % mode)
 
-        self.url = 'file://' + abspath(dir or get_temp_dirname()) + sep
-        self.mode = mode
+        self.url='file://' + abspath(dir or get_temp_dirname()) + sep
+        self.mode=mode
+        self.temporary = dir == None
 
         if mode == 'w':
             if exists(self.url[7:]):
@@ -48,7 +49,7 @@ class Package:
             with open(self._get_full_path('_package.json')) as r:
                 self._desc = loads(r.read())
 
-            if mode is 'a' and self._desc['status'] == 'finalized':
+            if mode is 'a' and self.is_finalized():
                 raise Exception('package is finalized, use patch(...)')
         else:
             raise Exception('unsupported mode (\'%s\')' % mode)
@@ -111,10 +112,7 @@ class Package:
         return list(self._desc['files'].keys())
 
 
-    def _get_full_path(self, path):
-        return join(self.url[7:], path)
-
-    def finalize(self):
+   def finalize(self):
         if self.mode == 'r':
             raise Exception('package is in read-only mode')
 
@@ -130,6 +128,37 @@ class Package:
 
     def validate(self):
         return True
+
+
+    def remove(self, path):
+        if self.mode == 'r':
+            raise Exception('package in read-only mode')
+
+        if self.is_finalized():
+            raise Exception('package is finalized, use patch(...)')
+
+        if path in self._desc['files']:
+            del self._desc['files'][path]
+            full_path = self._get_full_path(path)
+            if exists(full_path):
+                remove(full_path)
+        
+            self._log('DELETE %s' % path)
+            self.save()
+        else:
+            raise Exception('path (%s) not found in package' % path)
+
+
+    def status(self):
+        return self._desc['status']
+
+
+    def is_finalized(self):
+        return self._desc['status'] == 'finalized'
+
+
+    def _get_full_path(self, path):
+        return join(self.url[7:], path)
 
 
     def _add_directory(self, dir, path, exclude='^\\..*|^_.*'):
@@ -184,20 +213,6 @@ class Package:
         self.save()
 
 
-    def remove(self, path):
-        full_path = self._get_full_path(path)
-
-        if exists(full_path):
-            remove(full_path)
-
-        if path in self._desc['files']:
-            del self._desc['files'][path]
-
-    
-    def status(self):
-        return self._desc['status']
-
-
     def __iter__(self):
         return iter(self.list())
 
@@ -216,4 +231,10 @@ class Package:
 
     def __str__(self):
         return dumps(self._desc, indent=4)
+
+
+    def __del__(self):
+        if self.temporary and self.url.startswith('file://' + TEMP_DIRECTORY):
+            rmtree(self.url[7:])
+
 

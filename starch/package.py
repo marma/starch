@@ -112,7 +112,7 @@ class Package:
         return list(self._desc['files'].keys())
 
 
-   def finalize(self):
+    def finalize(self):
         if self.mode == 'r':
             raise Exception('package is in read-only mode')
 
@@ -180,7 +180,7 @@ class Package:
         temppath = join(self.url[7:], path + str(random()))
 
         f = { '@id': path, 'urn': uuid4().urn, '@type': 'Resource' }
-        h = md5()
+        h = sha256()
 
         try:
             with open(iname, 'rb') as stream:
@@ -203,7 +203,7 @@ class Package:
                 raise
 
         f['size'] = size
-        f['checksum'] = 'MD5:' + h.hexdigest()
+        f['checksum'] = 'sha256:' + h.hexdigest()
         self._desc['files'][path] = f
 
         with Magic(flags=MAGIC_MIME) as m:

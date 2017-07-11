@@ -4,17 +4,23 @@ from requests import head,get,post,delete,put
 from os.path import basename,abspath,isdir
 from starch.utils import valid_path,valid_key
 from hashlib import sha256
+import starch.package
 
 VERSION = 0.1
 
-class HttpPackage:
+class HttpPackage(starch.Package):
     def __init__(self, url, mode='r', auth=None):
         self.url = url
-        self.mode = mode
+        self._mode = mode
         self.auth = auth
 
         if mode in [ 'r', 'a' ]:
-            self._desc = loads(get(self.url, auth=self.auth).text)
+            r = get(self.url, auth=self.auth)
+
+            if r.status_code != 200:
+                raise Exception('%d %s' % (r.status_code, r.text))
+
+            self._desc = loads(r.text)
 
             if mode is 'a' and self._desc['status'] == 'finalized':
                 raise Exception('package is finalized, use patch(...)')
@@ -25,7 +31,7 @@ class HttpPackage:
 
 
     def add(self, fname, path=None, traverse=True, exclude='^\\..*|^_.*', replace=False, **kwargs):
-        if self.mode != 'a':
+        if self._mode != 'a':
             raise Exception('package not writable, open in \'a\' mode')
 
         path = path or basename(abspath(fname))
@@ -64,7 +70,7 @@ class HttpPackage:
 
 
     def finalize(self):
-        if self.mode == 'r':
+        if self._mode == 'r':
             raise Exception('package is in read-only mode')
 
         r = post(self.url + 'finalize', auth=self.auth)
@@ -73,11 +79,11 @@ class HttpPackage:
             raise Exception('%d %s' % (r.status_code, r.text))
 
         self._desc['status'] = 'finalized'
-        self.mode = 'r'
+        self._mode = 'r'
 
 
     def close(self):
-        self.mode = 'r'
+        self._mode = 'r'
 
 
     def _write(self, iname, path, replace=False):

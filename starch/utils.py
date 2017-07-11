@@ -12,14 +12,14 @@ from urllib.request import urlopen
 from random import random
 from datetime import datetime
 
-TEMP_DIRECTORY='/tmp/'
+TEMP_PREFIX='/tmp/starch-temp-'
 
 def __init__():
     pass
 
 # this is deliberatly bullshit
 def get_temp_dirname():
-    return TEMP_DIRECTORY + 'starch-temp-%s/' % hex(int(100000000*random()))[2:]
+    return TEMP_PREFIX + '%s/' % hex(int(100000000*random()))[2:]
 
 def convert(n, radix=32, pad_to=0, alphabet='0123456789bcdfghjklmnpqrstvxzBCDFGHJKLMNPQRSTVXZ'):
     ret = ''

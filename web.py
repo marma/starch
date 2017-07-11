@@ -111,6 +111,7 @@ def ingest():
 def new():
     return redirect('/%s/' % archive.new()[0], code=201)
 
+
 @app.route('/packages')
 def packages():
     return '\n'.join([ x for x in archive ])

@@ -1,10 +1,10 @@
-from starch import HttpPackage
 from requests import get,post
 from contextlib import closing
+import starch
 
 MAX_ID=2**38
 
-class HttpArchive:
+class HttpArchive(starch.Archive):
     def __init__(self, url, auth=None):
         self.url = url + ('/' if url[-1] != '/' else '')
         self.auth = auth

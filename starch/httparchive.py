@@ -1,24 +1,33 @@
 from requests import get,post
+from urllib.parse import urljoin
 from contextlib import closing
+from json import dumps,loads
 import starch
 
 MAX_ID=2**38
 
 class HttpArchive(starch.Archive):
-    def __init__(self, url, auth=None):
+    def __init__(self, url, base=None, auth=None):
         self.url = url + ('/' if url[-1] != '/' else '')
         self.auth = auth
+        self.base = base or url
+        self.server_base = get(urljoin(self.url, 'base')).text
 
 
     def new(self, **kwargs):
-        r = post(self.url + 'new', params=kwargs, auth=self.auth, allow_redirects=False)
+        r = post(urljoin(self.url,'new'), params=kwargs, auth=self.auth, allow_redirects=False)
         
         if r.status_code != 201:
             raise Exception('expected HTTP status 201, but got %d' % r.status_code)
 
         url = r.headers['Location']
 
-        return (self.get_key(url), HttpPackage(url, mode='a', auth=self.auth))
+        return (self.get_key(url),
+                starch.Package(
+                    url,
+                    mode='a',
+                    auth=self.auth,
+                    server_base=url.replace(self.url, self.base)))
 
 
     def ingest(self, package, key=None):
@@ -34,7 +43,22 @@ class HttpArchive(starch.Archive):
 
 
     def get(self, key, mode='r'):
-        return HttpPackage(self.url + key + '/', mode=mode, auth=self.auth)
+        return starch.Package(
+                urljoin(self.url, key + '/'),
+                mode=mode,
+                base=urljoin(self.base, key + '/'),
+                auth=self.auth,
+                server_base=urljoin(self.server_base, key + '/'))
+
+
+    def search(self, query):
+        with closing(get(urljoin(self.url, 'search'), params={ 'q': dumps(query) }, auth=self.auth, stream=True)) as r:
+
+            if r.status_code == 200:
+                for key in r.raw:
+                    yield key[:-1].decode('utf-8')
+            else:
+                raise Exception('Expected status 200, got %d' % r.status_code)
 
 
     def get_location(self, key, path):

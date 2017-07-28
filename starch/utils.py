@@ -17,9 +17,10 @@ TEMP_PREFIX='/tmp/starch-temp-'
 def __init__():
     pass
 
-# this is deliberatly bullshit
+
 def get_temp_dirname():
-    return TEMP_PREFIX + '%s/' % hex(int(100000000*random()))[2:]
+    return TEMP_PREFIX + '%s/' % uuid4()
+
 
 def convert(n, radix=32, pad_to=0, alphabet='0123456789bcdfghjklmnpqrstvxzBCDFGHJKLMNPQRSTVXZ'):
     ret = ''
@@ -36,11 +37,13 @@ def convert(n, radix=32, pad_to=0, alphabet='0123456789bcdfghjklmnpqrstvxzBCDFGH
 
     return ret or alphabet[0]
 
+
 def valid_path(path):
     if path[0] in [ '/' ] or '../' in path:
         raise Exception('invalid path (%s)' % path)
 
     return path
+
 
 def valid_file(path):
     if path[0] == '/' or '..' in path:
@@ -48,12 +51,28 @@ def valid_file(path):
 
     return path
 
+
 def valid_key(key):
     if '/' in key or '.' in key:
         raise Exception('invalid key (%s)' % key)
 
     return key
 
+
 def timestamp():
     return datetime.utcnow().isoformat() + 'Z'
+
+
+def dict_search(a, b):
+    if not (isinstance(a, dict) or isinstance(b, dict)):
+        return a == b
+    
+    for key in a:
+        if key not in b:
+            if a[key] != None:
+                return False
+        elif not dict_search(a[key], b[key]):
+            return False
+
+    return True
 

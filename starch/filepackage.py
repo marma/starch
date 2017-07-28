@@ -1,11 +1,12 @@
 from os.path import exists,dirname,abspath,join,basename,isdir,join
 from os import makedirs, walk, listdir, sep, remove
 from urllib.request import urlopen
-from urllib.parse import urlparse
+from urllib.parse import urlparse,urljoin
+from copy import deepcopy
 from uuid import uuid4
-from starch.utils import get_temp_dirname,valid_path,valid_file,TEMP_PREFIX
+from starch.utils import get_temp_dirname,valid_path,valid_file,valid_key,TEMP_PREFIX
 from contextlib import closing
-from hashlib import md5,sha1
+from hashlib import md5,sha256
 from random import random
 from datetime import datetime
 from io import BytesIO
@@ -18,30 +19,51 @@ import starch
 VERSION = 0.1
 
 class FilePackage(starch.Package):
-    def __init__(self, dir=None, mode='r', parent=None, auth=None, metadata={}, **kwargs):
-        if dir == None and mode == 'r':
-            raise Exception('\'%s\' mode and no dir not allowed' % mode)
+    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', metadata={}, **kwargs):
+        if root_dir == None and mode == 'r':
+            raise Exception('\'%s\' mode and empty dir not allowed' % mode)
 
-        self.url='file://' + abspath(dir or get_temp_dirname()) + sep
+        if patches and mode in [ 'r', 'a' ]:
+            raise Exception('only new packages can use the patch-parameter')
+
+        self._temporary = root_dir == None
         self._mode=mode
-        self.temporary = dir == None
+        self.root_dir=abspath(root_dir or get_temp_dirname()) + sep
+        self.patches = patches
+        self.patch_type = patch_type if patches else None
+        self.base = base
 
         if mode == 'w':
-            if exists(self.url[7:]):
-                raise Exception('path \'%s\' exists, use \'a\' mode' % dir)
+            if exists(self.root_dir):
+                raise Exception('path \'%s\' exists, use \'a\' mode' % self.root_dir)
 
-            makedirs(self.url[7:])
-            self._desc = { '@id': '.',
-                           '@context': '/context.jsonld',
+            makedirs(self.root_dir)
+            self._desc = { '@id': '',
                            '@type': 'Package',
-                           'key': None,
                            'urn': uuid4().urn,
                            'described_by': '_package.json',
                            'status': 'open',
                            'package_version': VERSION,
                            'metadata': metadata,
-                           'files': { '_package.json': { '@id': '_package.json', 'urn': uuid4().urn, '@type': 'Resource', 'mime_type': 'application/json' },
-                                      '_log': { '@id': '_log', 'urn': uuid4().urn, '@type': 'Resource', 'mime_type': 'text/plain' } } }
+                           'files': {
+                               '_package.json': {
+                                   '@id': '_package.json',
+                                   'urn': uuid4().urn,
+                                   '@type': 'Resource',
+                                   'mime_type': 'application/json',
+                                   'path': '_package.json' },
+                                '_log': {
+                                    '@id': '_log',
+                                    'urn': uuid4().urn,
+                                    '@type': 'Resource',
+                                    'mime_type': 'text/plain',
+                                    'path': '_log' }
+                                }
+                           }
+
+            if patches:
+                self._desc['patches'] = patches
+                self._desc['patch_type'] = patch_type
 
             self._desc['metadata'].update(kwargs)
             self._desc['created'] = datetime.utcnow().isoformat() + 'Z'
@@ -63,15 +85,39 @@ class FilePackage(starch.Package):
 
         path = path or basename(abspath(fname))
 
-        if path == '_package.json' or path == '_log':
+        if path in [ '_package.json', '_log' ] or path.startswith('_patches'):
             raise Exception('filename (%s) not allowed' % path)
 
         if traverse and isdir(fname):
-            self._add_directory(fname, path, exclude=exclude)
+            self._add_directory(fname, valid_path(path), exclude=exclude)
         else:
-            self._write(fname, valid_path(path), replace=replace)
-            self._desc['files'][path].update(kwargs)
+            f = self._write(fname, valid_path(path), replace=replace)
+            f.update(kwargs)
+            self._desc['files'][path] = f
+            self._log('STORE %s size:%i %s' % (path, f['size'], f['checksum']))
             self.save()
+
+
+    def remove(self, path):
+        if self._mode == 'r':
+            raise Exception('package in read-only mode')
+
+        if self.is_finalized():
+            raise Exception('package is finalized, use patch(...)')
+
+        if path in self:
+            del self._desc['files'][path]
+            full_path = self._get_full_path(path)
+
+            if exists(full_path):
+                remove(full_path)
+        
+            self._log('DELETE %s' % path)
+            self.save()
+        elif self.patches:
+            self[path] = { '@id': path, 'operation': 'delete', 'path': path }
+        else:
+            raise Exception('path (%s) not found in package' % path)
 
 
     def replace(self, fname, path=None, **kwargs):
@@ -97,22 +143,13 @@ class FilePackage(starch.Package):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package in read-only mode, use \'a\'')
 
-        self._desc['key'] = valid_(key)
-        self._desc['@id'] = '/%s/' % key
-
-
-    def _log(self, message):
-        if self._mode in [ 'a', 'w' ]:
-            with open(self._get_full_path('_log'), 'a') as logfile:
-                t = datetime.utcnow()
-                logfile.write(t.isoformat() + 'Z' + ' ' + message + '\n')
-        else:
-            Exception('package in read-only mode')
+        self._desc['key'] = valid_key(key)
+        self._desc['@id'] = '../%s/' % key
 
 
     def save(self):
         if self._mode in [ 'w', 'a' ]:
-            with open(self.url[7:] + '_package.json', 'w') as out:
+            with open(join(self.root_dir, '_package.json'), 'w') as out:
                 out.write(str(self))
         else:
             Exception('package in read-only mode')
@@ -124,12 +161,13 @@ class FilePackage(starch.Package):
 
     def finalize(self):
         if self._mode == 'r':
-            raise Exception('package is in read-only mode')
+            raise Exception('package in read-only mode')
 
-        self._desc['status'] = 'finalized'
-        self._log("FINALIZED")
-        self.save()
-        self._mode = 'r'
+        if not self.is_finalized():
+            self._desc['status'] = 'finalized'
+            self._log("FINALIZED")
+            self.save()
+            self._mode = 'r'
 
 
     def close(self):
@@ -137,26 +175,10 @@ class FilePackage(starch.Package):
 
 
     def validate(self):
+        for path in self:
+            pass
+
         return True
-
-
-    def remove(self, path):
-        if self._mode == 'r':
-            raise Exception('package in read-only mode')
-
-        if self.is_finalized():
-            raise Exception('package is finalized, use patch(...)')
-
-        if path in self._desc['files']:
-            del self._desc['files'][path]
-            full_path = self._get_full_path(path)
-            if exists(full_path):
-                remove(full_path)
-        
-            self._log('DELETE %s' % path)
-            self.save()
-        else:
-            raise Exception('path (%s) not found in package' % path)
 
 
     def status(self):
@@ -167,8 +189,30 @@ class FilePackage(starch.Package):
         return self._desc['status'] == 'finalized'
 
 
+    def description(self, rewrite_ids=True):
+        ret = deepcopy(self._desc)
+        
+        if self.base and rewrite_ids:
+            ret['@id'] = self.base
+            
+            for path in ret['files']:
+                f = ret['files'][path]
+                f['@id'] = urljoin(self.base, f['@id'])
+
+        return ret
+
+
+    def _log(self, message):
+        if self._mode in [ 'a', 'w' ]:
+            with open(self._get_full_path('_log'), 'a') as logfile:
+                t = datetime.utcnow()
+                logfile.write(t.isoformat() + 'Z' + ' ' + message + '\n')
+        else:
+            Exception('package in read-only mode')
+
+
     def _get_full_path(self, path):
-        return join(self.url[7:], path)
+        return join(self.root_dir, path)
 
 
     def _add_directory(self, dir, path, exclude='^\\..*|^_.*'):
@@ -179,7 +223,7 @@ class FilePackage(starch.Package):
 
 
     def _write(self, iname, path, replace=False):
-        oname = join(self.url[7:], path)
+        oname = join(self.root_dir, path)
 
         if not replace and exists(oname):
             raise Exception('file (%s) already exists, use replace' % path)
@@ -187,9 +231,9 @@ class FilePackage(starch.Package):
         if not exists(dirname(oname)):
             makedirs(dirname(oname))
 
-        temppath = join(self.url[7:], path + str(random()))
+        temppath = join(self.root_dir, path + str(random()))
 
-        f = { '@id': path, 'urn': uuid4().urn, '@type': 'Resource' }
+        f = { '@id': path, 'urn': uuid4().urn, '@type': 'Resource', 'path': path}
         h = sha256()
 
         try:
@@ -214,13 +258,11 @@ class FilePackage(starch.Package):
 
         f['size'] = size
         f['checksum'] = 'sha256:' + h.hexdigest()
-        self._desc['files'][path] = f
 
         with Magic(flags=MAGIC_MIME) as m:
             f['mime_type'] = m.id_filename(oname).split(';')[0]
 
-        self._log('STORE %s size:%i MD5:%s' % (path, size, h.hexdigest()))
-        self.save()
+        return f
 
 
     def __iter__(self):
@@ -240,11 +282,10 @@ class FilePackage(starch.Package):
 
 
     def __str__(self):
-        return dumps(self._desc, indent=4)
+        return dumps(self.description(), indent=4)
 
 
     def __del__(self):
-        if self.temporary and self.url.startswith('file://' + TEMP_PREFIX):
+        if self._temporary and exists(self.root_dir) and self.root_dir.startswith(TEMP_PREFIX):
             rmtree(self.url[7:])
-
 

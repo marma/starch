@@ -1,16 +1,19 @@
 from json import loads
 from os.path import exists,join,basename,dirname
+from urllib.parse import urljoin
 from os import remove,makedirs,walk
 from shutil import rmtree
-from starch.utils import convert,timestamp,valid_path,valid_key
+from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname,dict_search,TEMP_PREFIX
 from random import random
 import starch
 
 MAX_ID=2**38
 
 class FileArchive(starch.Archive):
-    def __init__(self, root_dir):
-        self.root_dir = root_dir
+    def __init__(self, root_dir=None, base=None):
+        self.temporary = root_dir == None
+        self.root_dir = root_dir or get_temp_dirname()
+        self.base = base
 
 
     def new(self, **kwargs):
@@ -18,6 +21,8 @@ class FileArchive(starch.Archive):
         dir = self._directory(key)
         p = starch.Package(dir, mode='w', **kwargs)
         p.set_key(key)
+
+        self._log_add_package(key)
 
         return (key, p)
 
@@ -45,16 +50,26 @@ class FileArchive(starch.Archive):
         else:
             self._unlock(key)
 
+        self._log_add_package(key)
+
         return key
 
 
+    def patch(self, key, package):
+        pass
+
+
     def get(self, key, mode='r'):
+        if mode is 'w':
+            raise Exception('mode \'w\' not allowed, use \'a\'')
+
         d = self._directory(key)
-        
+
         if exists(d) and not self._is_locked(key):
-            return starch.Package(d, mode=mode)
+            return starch.Package(d, mode=mode, base=urljoin(self.base, key + '/') if self.base else None)
 
         return None
+
 
     def get_location(self, key, path):
         d = self._directory(valid_key(key))
@@ -64,6 +79,14 @@ class FileArchive(starch.Archive):
             return 'file://' + p
         else:
             return None
+
+
+    def search(self, query):
+        for key in self:
+            p = self.get(key)
+
+            if dict_search(query, p.description()):
+                yield key
 
 
     def _directory(self, key):
@@ -102,10 +125,10 @@ class FileArchive(starch.Archive):
 
 
     def __iter__(self):
-        # this is non optimal
-        for x in walk(self.root_dir):
-            if '_package.json' in x[2] and '_lock' not in x[2]:
-                yield basename(x[0])
+        # @todo: better locking
+        with open(join(self.root_dir, 'packages')) as f:
+            for line in f:
+                yield line[:-1]
 
 
     def _log(self, message, t=timestamp()):
@@ -120,6 +143,13 @@ class FileArchive(starch.Archive):
     def _is_locked(self, key):
         return exists(join(self._directory(key), '_lock'))
 
+
+    def _log_add_package(self, key):
+        # @todo: better locking
+        with open(join(self.root_dir, 'packages'), 'a') as f:
+            f.write(key + '\n')
+
+
     def _copy(self, s, loc):
         if exists(loc):
             raise Exception('location already exists (%s)' % s)
@@ -133,4 +163,7 @@ class FileArchive(starch.Archive):
                 b = i.read(100*1024)
                 o.write(b)
 
+    def __del__(self):
+        if self.temporary and self.root_dir.startswith(TEMP_PREFIX) and exists(self.root_dir):
+            rmtree(self.root_dir)
 

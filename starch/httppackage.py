@@ -4,15 +4,19 @@ from requests import head,get,post,delete,put
 from os.path import basename,abspath,isdir
 from starch.utils import valid_path,valid_key
 from hashlib import sha256
+from copy import deepcopy
+from urllib.parse import urljoin
 import starch.package
 
 VERSION = 0.1
 
 class HttpPackage(starch.Package):
-    def __init__(self, url, mode='r', auth=None):
+    def __init__(self, url, mode='r', base=None, auth=None, server_base=None):
         self.url = url
         self._mode = mode
         self.auth = auth
+        self.base = base or url
+        self.server_base = server_base or url
 
         if mode in [ 'r', 'a' ]:
             r = get(self.url, auth=self.auth)
@@ -82,12 +86,30 @@ class HttpPackage(starch.Package):
         self._mode = 'r'
 
 
+    def description(self, rewrite_ids=False):
+        ret = deepcopy(self._desc)
+        server_base = self.server_base
+
+        if self.base != server_base:
+            ret['@id'] = ret['@id'].replace(server_base, self.base)
+
+            for path in ret['files']:
+                f = ret['files'][path]
+                f['@id'] = f['@id'].replace(server_base, self.base)
+
+        return ret
+
+
     def close(self):
         self._mode = 'r'
 
 
     def _write(self, iname, path, replace=False):
-        r = put(self.url + path, params={ 'replace': replace, 'expected_hash': do_hash(iname) }, files={ path: open(iname) }, auth=self.auth)
+        r = put(self.url + path,
+                params={ 'replace': replace,
+                         'expected_hash': do_hash(iname) },
+                files={ path: open(iname) },
+                auth=self.auth)
 
         if r.status_code not in[ 200, 204 ]:
             raise Exception('%d %s' % (r.status_code, r.text))
@@ -127,7 +149,7 @@ class HttpPackage(starch.Package):
 
 
     def __str__(self):
-        return dumps(self._desc, indent=4)
+        return dumps(self.description(), indent=4)
 
 
 def do_hash(fname):

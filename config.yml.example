@@ -1,3 +1,4 @@
 archive:
     root: /data/archive
+    #base: http://example.org/
 

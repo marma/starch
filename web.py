@@ -12,17 +12,20 @@ from contextlib import closing
 from starch.utils import valid_key,valid_path
 from hashlib import sha256,md5
 from tempfile import NamedTemporaryFile
+from json import loads,dumps
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
 with open('config.yml') as f:
     config = load(f)
-archive = Archive(config['archive']['root'])
+archive = Archive(config['archive']['root'], base=config['archive']['base'])
 
 @app.route('/<key>/')
 def package(key):
-    return return_file(key, '_package.json')
+    p = archive.get(key)
+
+    return dumps(p.description(), indent=4) if p else ('Not found', 404)
 
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
@@ -109,7 +112,8 @@ def ingest():
 
 @app.route('/new', methods=[ 'POST' ])
 def new():
-    return redirect('/%s/' % archive.new()[0], code=201)
+    print({k:v for k,v in request.args.items() })
+    return redirect('/%s/' % archive.new(**{k:v for k,v in request.args.items() })[0], code=201)
 
 
 @app.route('/packages')
@@ -127,6 +131,21 @@ def finalize(key):
         archive.get(key, mode='a').finalize()
 
         return 'finalized', 200
+
+@app.route('/base')
+def base():
+    return config['archive']['base']
+
+
+@app.route('/search')
+def search():
+    def response(q):
+        for key in archive.search(q):
+            yield key + '\n'
+
+    q = loads(request.args['q'])
+
+    return Response(response(q), mimetype='application/json')
 
 
 def return_file(key, path, as_attachment=False):

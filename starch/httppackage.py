@@ -1,11 +1,13 @@
 from contextlib import closing
 from json import loads,dumps
 from requests import head,get,post,delete,put
-from os.path import basename,abspath,isdir
+from os.path import join,basename,abspath,isdir
 from starch.utils import valid_path,valid_key
 from hashlib import sha256
 from copy import deepcopy
 from urllib.parse import urljoin
+from re import compile
+from os import listdir
 import starch.package
 
 VERSION = 0.1
@@ -108,7 +110,7 @@ class HttpPackage(starch.Package):
         r = put(self.url + path,
                 params={ 'replace': replace,
                          'expected_hash': do_hash(iname) },
-                files={ path: open(iname) },
+                files={ path: open(iname, mode='rb') },
                 auth=self.auth)
 
         if r.status_code not in[ 200, 204 ]:
@@ -126,6 +128,13 @@ class HttpPackage(starch.Package):
 
     def status(self):
         return self._desc['status']
+
+
+    def _add_directory(self, dir, path, exclude='^\\..*|^_.*'):
+        ep = compile(exclude)
+        for f in listdir(dir):
+            if not ep.match(f):
+                self.add(join(dir, f), path=join(path, f), exclude=exclude)
 
 
     def _reload(self):

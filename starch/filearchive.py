@@ -38,12 +38,6 @@ class FileArchive(starch.Archive):
 
             p = starch.Package(dir)
             p.validate()
-
-            # do sneaky "out-of-band" stuff to add key information and ingest log to package
-            p._mode = 'a'
-            p.set_key(key)
-            p._log('INGEST key:%s' % key)
-            p.save()
         except Exception as e:
             rmtree(dir)
             raise e
@@ -126,9 +120,12 @@ class FileArchive(starch.Archive):
 
     def __iter__(self):
         # @todo: better locking
-        with open(join(self.root_dir, 'packages')) as f:
-            for line in f:
-                yield line[:-1]
+        if exists(join(self.root_dir, 'packages')):
+            with open(join(self.root_dir, 'packages')) as f:
+                for line in f:
+                    yield line[:-1]
+        else:
+            return iter([])
 
 
     def _log(self, message, t=timestamp()):
@@ -162,6 +159,7 @@ class FileArchive(starch.Archive):
             while b == None or b != b'':
                 b = i.read(100*1024)
                 o.write(b)
+
 
     def __del__(self):
         if self.temporary and self.root_dir.startswith(TEMP_PREFIX) and exists(self.root_dir):

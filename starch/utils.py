@@ -11,6 +11,7 @@ from io import BytesIO
 from urllib.request import urlopen
 from random import random
 from datetime import datetime
+from flask import request
 
 TEMP_PREFIX='/tmp/starch-temp-'
 
@@ -75,4 +76,8 @@ def dict_search(a, b):
             return False
 
     return True
+
+def wants_json():
+    best = request.accept_mimetypes.best_match(['application/json', 'text/html'])
+    return best == 'application/json' and request.accept_mimetypes[best] > request.accept_mimetypes['text/html']
 

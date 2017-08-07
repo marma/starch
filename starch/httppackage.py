@@ -21,7 +21,7 @@ class HttpPackage(starch.Package):
         self.server_base = server_base or url
 
         if mode in [ 'r', 'a' ]:
-            r = get(self.url, auth=self.auth)
+            r = get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth)
 
             if r.status_code != 200:
                 raise Exception('%d %s' % (r.status_code, r.text))

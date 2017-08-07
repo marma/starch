@@ -9,7 +9,7 @@ from yaml import load
 from starch import Archive,Package
 from tempfile import TemporaryDirectory
 from contextlib import closing
-from starch.utils import valid_key,valid_path
+from starch.utils import valid_key,valid_path,wants_json
 from hashlib import sha256,md5
 from tempfile import NamedTemporaryFile
 from json import loads,dumps
@@ -21,11 +21,24 @@ with open('config.yml') as f:
     config = load(f)
 archive = Archive(config['archive']['root'], base=config['archive']['base'])
 
+@app.route('/')
+def index():
+    p = archive.search(loads(request.args['q']) if 'q' in request.args else {})
+
+    return render_template('index.html', packages=p)
+
+
 @app.route('/<key>/')
 def package(key):
     p = archive.get(key)
 
-    return dumps(p.description(), indent=4) if p else ('Not found', 404)
+    if p:
+        if wants_json():
+            return dumps(p.description(), indent=4)
+        else:
+            return render_template('package.html', package=p)
+    else:
+        return 'Not found', 404
 
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
@@ -149,6 +162,7 @@ def search():
 
 
 def return_file(key, path, as_attachment=False):
+    p = archive.get(key)
     url = archive.get_location(key, path)
 
     if url:
@@ -157,7 +171,8 @@ def return_file(key, path, as_attachment=False):
                         dirname(url[7:]),
                         basename(url),
                         as_attachment=as_attachment,
-                        attachment_filename=path)
+                        attachment_filename=path,
+                        mimetype=p[path]['mime_type'])
         elif loc.startswith('http://') or loc.startswith('https://'):
             return Response(iter_response(loc, path))
         else:

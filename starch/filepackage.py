@@ -247,20 +247,21 @@ class FilePackage(starch.Package):
                         h.update(data)
                         size = out.tell()
         except:
-            remove(temppath)
             raise
         else:
-            try:
+            f['size'] = size
+            f['checksum'] = 'sha256:' + h.hexdigest()
+
+            if path in self and self[path]['checksum'] == f['checksum']:
+                f = self[path]
+            else:
                 move(temppath, oname)
-            except:
+
+                with Magic(flags=MAGIC_MIME) as m:
+                    f['mime_type'] = m.id_filename(oname).split(';')[0]
+        finally:
+            if exists(temppath):
                 remove(temppath)
-                raise
-
-        f['size'] = size
-        f['checksum'] = 'sha256:' + h.hexdigest()
-
-        with Magic(flags=MAGIC_MIME) as m:
-            f['mime_type'] = m.id_filename(oname).split(';')[0]
 
         return f
 
@@ -287,5 +288,5 @@ class FilePackage(starch.Package):
 
     def __del__(self):
         if self._temporary and exists(self.root_dir) and self.root_dir.startswith(TEMP_PREFIX):
-            rmtree(self.url[7:])
+            rmtree(self.root_dir)
 

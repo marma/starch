@@ -1,0 +1,19 @@
+<html>
+    <head>
+    </head>
+    <body>
+        <table>
+            <thead>
+                <tr>
+                    <td>Filename</td>
+                    <td>size</td>
+                </tr>
+            </thead>
+            {% for path in package %}
+            <tr>
+                <td><a href="{{ path }}">{{ path }}</a></td>
+                <td>{{ package[path]['size'] }}</td>
+            </tr>
+            {% endfor %}
+    </body>
+</html>

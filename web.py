@@ -4,6 +4,7 @@ from flask import Flask,request,render_template,Response,redirect,send_from_dire
 from flask_cache import Cache
 from os import makedirs
 from os.path import dirname,basename,join,exists
+from sys import stdout
 from requests import get
 from yaml import load
 from starch import Archive,Package
@@ -13,6 +14,7 @@ from starch.utils import valid_key,valid_path,wants_json
 from hashlib import sha256,md5
 from tempfile import NamedTemporaryFile
 from json import loads,dumps
+from traceback import print_exc
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -23,9 +25,9 @@ archive = Archive(config['archive']['root'], base=config['archive']['base'])
 
 @app.route('/')
 def index():
-    p = archive.search(loads(request.args['q']) if 'q' in request.args else {})
+    ps = iter(archive) if 'q' not in request.args else archive.search(loads(request.args['q']))
 
-    return render_template('index.html', packages=p)
+    return render_template('index.html', packages=ps)
 
 
 @app.route('/<key>/')
@@ -34,7 +36,7 @@ def package(key):
 
     if p:
         if wants_json():
-            return dumps(p.description(), indent=4)
+            return Response(dumps(p.description(), indent=4), mimetype='application/json')
         else:
             return render_template('package.html', package=p)
     else:
@@ -57,10 +59,14 @@ def put_file(key, path):
         expected_hash = request.args['expected_hash']
         replace = 'replace' in request.args and request.args['replace'] == 'True'
 
+        print(path, flush=True)
+        print(request.files, flush=True)
+        print(request.files[path], flush=True)
+
         if path in request.files:
-            if expected_hash.startswith('md5'):
+            if expected_hash.startswith('md5:'):
                 h = md5()
-            elif expected_hash.startswith('sha256'):
+            elif expected_hash.startswith('sha256:'):
                 h = sha256()
             else:
                 return 'unsupported hash function \'%s\'' % expected_hash.split(':')[0], 400
@@ -84,6 +90,7 @@ def put_file(key, path):
         else:
             return 'path (%s) not found in request' % path, 400
     except Exception as e:
+        print_exc(file=stdout)
         return str(e), 400
 
 
@@ -189,6 +196,6 @@ def iter_response(url, path):
 
 if __name__ == "__main__":
     app.debug=True
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', threaded=True)
 
 

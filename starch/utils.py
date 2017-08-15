@@ -66,9 +66,11 @@ def timestamp():
 
 def dict_search(a, b):
     if not (isinstance(a, dict) or isinstance(b, dict)):
-        return a == b
+        return wildcard_match(a, b)
     
     for key in a:
+        if key == '*':
+            return any([ dict_search(a[key], x) for x in b.values() ])
         if key not in b:
             if a[key] != None:
                 return False
@@ -76,6 +78,11 @@ def dict_search(a, b):
             return False
 
     return True
+
+
+def wildcard_match(a, b):
+    return a == b or a == '*'
+
 
 def wants_json():
     best = request.accept_mimetypes.best_match(['application/json', 'text/html'])

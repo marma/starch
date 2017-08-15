@@ -9,6 +9,9 @@ from urllib.parse import urljoin
 from re import compile
 from os import listdir
 import starch.package
+from urllib.parse import urljoin
+from werkzeug.urls import url_fix
+from tempfile import TemporaryFile
 
 VERSION = 0.1
 
@@ -107,14 +110,24 @@ class HttpPackage(starch.Package):
 
 
     def _write(self, iname, path, replace=False):
-        r = put(self.url + path,
-                params={ 'replace': replace,
-                         'expected_hash': do_hash(iname) },
-                files={ path: open(iname, mode='rb') },
-                auth=self.auth)
+        with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') as i:
+            hasher = sha256()
+            b = None
+            while b == None or b != b'':
+                b = i.read(100*1024)
+                f.write(b)
+                hasher.update(b)
 
-        if r.status_code not in[ 200, 204 ]:
-            raise Exception('%d %s' % (r.status_code, r.text))
+            f.seek(0)
+
+            r = put(url_fix(urljoin(self.url, path)),
+                    params={ 'replace': replace,
+                             'expected_hash': 'sha256:' + hasher.digest().hex() },
+                    files={ path: f },
+                    auth=self.auth)
+
+            if r.status_code not in[ 200, 204 ]:
+                raise Exception('%d %s' % (r.status_code, r.text))
     
 
     def remove(self, path):

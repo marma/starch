@@ -1,7 +1,7 @@
 from os.path import exists,dirname,abspath,join,basename,isdir,join
 from os import makedirs, walk, listdir, sep, remove
 from urllib.request import urlopen
-from urllib.parse import urlparse,urljoin
+from urllib.parse import urlparse,urljoin,quote
 from copy import deepcopy
 from uuid import uuid4
 from starch.utils import get_temp_dirname,valid_path,valid_file,valid_key,TEMP_PREFIX
@@ -39,7 +39,7 @@ class FilePackage(starch.Package):
 
             makedirs(self.root_dir)
             self._desc = { '@id': '',
-                           '@type': 'Package',
+                           '@type': 'Package' if not patches else 'Patch',
                            'urn': uuid4().urn,
                            'described_by': '_package.json',
                            'status': 'open',
@@ -94,7 +94,7 @@ class FilePackage(starch.Package):
             f = self._write(fname, valid_path(path), replace=replace)
             f.update(kwargs)
             self._desc['files'][path] = f
-            self._log('STORE %s size:%i %s' % (path, f['size'], f['checksum']))
+            self._log('STORE "%s" size:%i %s' % (path, f['size'], f['checksum']))
             self.save()
 
 
@@ -233,7 +233,7 @@ class FilePackage(starch.Package):
 
         temppath = join(self.root_dir, path + str(random()))
 
-        f = { '@id': path, 'urn': uuid4().urn, '@type': 'Resource', 'path': path}
+        f = { '@id': quote(path), 'urn': uuid4().urn, '@type': 'Resource', 'path': path}
         h = sha256()
 
         try:

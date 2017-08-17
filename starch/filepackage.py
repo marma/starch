@@ -40,11 +40,14 @@ class FilePackage(starch.Package):
             makedirs(self.root_dir)
             self._desc = { '@id': '',
                            '@type': 'Package' if not patches else 'Patch',
+                           'patches': patches,
+                           'patch_type': patch_type,
                            'urn': uuid4().urn,
                            'described_by': '_package.json',
                            'status': 'open',
                            'package_version': VERSION,
                            'metadata': metadata,
+                           'created': None,
                            'files': {
                                '_package.json': {
                                    '@id': '_package.json',
@@ -61,9 +64,9 @@ class FilePackage(starch.Package):
                                 }
                            }
 
-            if patches:
-                self._desc['patches'] = patches
-                self._desc['patch_type'] = patch_type
+            if not patches:
+                del(self._desc['patches'])
+                del(self._desc['patch_type'])
 
             self._desc['metadata'].update(kwargs)
             self._desc['created'] = datetime.utcnow().isoformat() + 'Z'
@@ -137,14 +140,6 @@ class FilePackage(starch.Package):
 
         with open(self._get_full_path(path)) as o:
             return o.read()
-
-
-    def set_key(self, key):
-        if self._mode not in [ 'w', 'a' ]:
-            raise Exception('package in read-only mode, use \'a\'')
-
-        self._desc['key'] = valid_key(key)
-        self._desc['@id'] = '../%s/' % key
 
 
     def save(self):
@@ -275,7 +270,7 @@ class FilePackage(starch.Package):
 
 
     def __getitem__(self, key):
-        return self._desc['files'][key]
+        return self.description()['files'][key]
 
 
     def __setitem__(self, key, value):

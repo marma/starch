@@ -19,8 +19,7 @@ class FileArchive(starch.Archive):
     def new(self, **kwargs):
         key = self._generate_key()
         dir = self._directory(key)
-        p = starch.Package(dir, mode='w', **kwargs)
-        p.set_key(key)
+        p = starch.Package(dir, mode='w', base=self.base + key + '/' if self.base else None, **kwargs)
 
         self._log_add_package(key)
 

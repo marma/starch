@@ -1,1 +1,1 @@
-from starch.package import Packagefrom starch.filepackage import FilePackagefrom starch.httppackage import HttpPackagefrom starch.archive import Archivefrom starch.filearchive import FileArchivefrom starch.httparchive import HttpArchive
+from starch.package import Packagefrom starch.filepackage import FilePackagefrom starch.httppackage import HttpPackagefrom starch.archive import Archivefrom starch.filearchive import FileArchivefrom starch.httparchive import HttpArchivefrom starch.multiarchive import MultiArchivefrom starch.multipackage import MultiPackage

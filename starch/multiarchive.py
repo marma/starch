@@ -20,7 +20,7 @@ class MultiArchive(starch.Archive):
                 return starch.MultiPackage(
                             package,
                             with_patches=patches,
-                            base=self.base
+                            base=self.base + key + '/' if self.base else None
                        )
 
 

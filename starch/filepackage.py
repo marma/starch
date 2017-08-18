@@ -96,6 +96,7 @@ class FilePackage(starch.Package):
         else:
             f = self._write(fname, valid_path(path), replace=replace)
             f.update(kwargs)
+    
             self._desc['files'][path] = f
             self._log('STORE "%s" size:%i %s' % (path, f['size'], f['checksum']))
             self.save()
@@ -127,6 +128,15 @@ class FilePackage(starch.Package):
         self.add(fname, path, replace=True, **kwargs)        
 
 
+    def get(self, path, base=None):
+        ret = deepcopy(self._desc['files'][path])
+
+        if base or self.base:
+            ret['@id'] = (base or self.base or '') + ret['@id']
+
+        return ret
+
+
     def get_raw(self, path):
         if not exists(self._get_full_path(path)):
             raise Exception('%s does not exist in package' % path)
@@ -145,7 +155,7 @@ class FilePackage(starch.Package):
     def save(self):
         if self._mode in [ 'w', 'a' ]:
             with open(join(self.root_dir, '_package.json'), 'w') as out:
-                out.write(str(self))
+                out.write(dumps(self._desc, indent=4))
         else:
             Exception('package in read-only mode')
 
@@ -184,15 +194,16 @@ class FilePackage(starch.Package):
         return self._desc['status'] == 'finalized'
 
 
-    def description(self, rewrite_ids=True):
+    def description(self, base=None):
         ret = deepcopy(self._desc)
-        
-        if self.base and rewrite_ids:
-            ret['@id'] = self.base
+        base = base or self.base
+
+        if base:
+            ret['@id'] = base
             
             for path in ret['files']:
                 f = ret['files'][path]
-                f['@id'] = urljoin(self.base, f['@id'])
+                f['@id'] = urljoin(base, f['@id'])
 
         return ret
 
@@ -269,8 +280,8 @@ class FilePackage(starch.Package):
         return key in self._desc['files']
 
 
-    def __getitem__(self, key):
-        return self.description()['files'][key]
+    def __getitem__(self, path):
+        return self.get(path)
 
 
     def __setitem__(self, key, value):

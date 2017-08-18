@@ -11,8 +11,6 @@ class MultiPackage(starch.Package):
         self.base = base
         self._desc=None
 
-        print(self.patches)
-
 
     def get_raw(self, path):
         for patch in reversed(self.patches):
@@ -46,9 +44,12 @@ class MultiPackage(starch.Package):
 
 
     def _description(self):
-        ret = deepcopy(self.package.description())
+        ret = deepcopy(self.package.description(base=self.base))
+        ret['patches'] = []
 
         for patch in self.patches:
+            ret['patches'] += [ patch.description()['urn'] ]
+
             if patch.patch_type == 'version':
                 ret['files'] = {}
 
@@ -56,10 +57,13 @@ class MultiPackage(starch.Package):
                 if 'operation' in patch[path] and patch[path]['operation'] == 'delete':
                     if path in ret['files']:
                         del(ret['files'][path])
-                elif path not in [ '_package', '_log' ]:
-                    ret['files'][path] = patch[path]
+                elif path not in [ '_package.json', '_log' ]:
+                    ret['files'][path] = patch.get(path, base=self.base)
 
-        self._descr = ret
+        if ret['patches'] == []:
+            del(ret['patches'])
+
+        self._desc = ret
 
         return ret
 

@@ -15,7 +15,7 @@ class MultiArchive(starch.Archive):
             if key in archive:
                 package = archive.get(key)
 
-                patches = [ extra.get(pkey) for extra in self.extras for pkey in extra.search({ 'patches': package.description()['@id'] }) ]
+                patches = [ extra.get(pkey) for extra in self.extras for pkey in extra.search({ 'patches': package.description()['urn'] }) ]
 
                 return starch.MultiPackage(
                             package,

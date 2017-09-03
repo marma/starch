@@ -51,9 +51,16 @@ class HttpArchive(starch.Archive):
                 server_base=urljoin(self.server_base, key + '/'))
 
 
-    def search(self, query):
-        with closing(get(urljoin(self.url, 'search'), params={ 'q': dumps(query) }, auth=self.auth, stream=True)) as r:
+    def search(self, query, frm=None, max=None):
+        params = { 'q': dumps(query) }
 
+        if frm: params.update({ 'from': frm })
+        if max: params.update({ 'max': max })
+
+        with closing(get(urljoin(self.url, 'search'),
+                         params=params,
+                         auth=self.auth,
+                         stream=True)) as r:
             if r.status_code == 200:
                 for key in r.raw:
                     yield key[:-1].decode('utf-8')

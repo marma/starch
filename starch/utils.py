@@ -88,3 +88,14 @@ def wants_json():
     best = request.accept_mimetypes.best_match(['application/json', 'text/html'])
     return best == 'application/json' and request.accept_mimetypes[best] > request.accept_mimetypes['text/html']
 
+def chunked(f, chunk_size=10*1024, max=None):
+    pos,b = 0,None
+    while b != b'' and b != '':
+        b = f.read(chunk_size if not max else min(chunk_size, max - pos))
+        pos += len(b)
+
+        if b != b'' and b != '':
+            yield b
+
+
+

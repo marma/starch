@@ -4,7 +4,7 @@ from urllib.request import urlopen
 from urllib.parse import urlparse,urljoin,quote
 from copy import deepcopy
 from uuid import uuid4
-from starch.utils import get_temp_dirname,valid_path,valid_file,valid_key,TEMP_PREFIX
+from starch.utils import get_temp_dirname,valid_path,valid_file,valid_key,TEMP_PREFIX,chunked
 from contextlib import closing
 from hashlib import md5,sha256
 from random import random
@@ -49,18 +49,18 @@ class FilePackage(starch.Package):
                            'metadata': metadata,
                            'created': None,
                            'files': {
-                               '_package.json': {
-                                   '@id': '_package.json',
-                                   'urn': uuid4().urn,
-                                   '@type': 'Resource',
-                                   'mime_type': 'application/json',
-                                   'path': '_package.json' },
-                                '_log': {
-                                    '@id': '_log',
-                                    'urn': uuid4().urn,
-                                    '@type': 'Resource',
-                                    'mime_type': 'text/plain',
-                                    'path': '_log' }
+#                               '_package.json': {
+#                                   '@id': '_package.json',
+#                                   'urn': uuid4().urn,
+#                                   '@type': 'Resource',
+#                                   'mime_type': 'application/json',
+#                                   'path': '_package.json' },
+#                                '_log': {
+#                                    '@id': '_log',
+#                                    'urn': uuid4().urn,
+#                                    '@type': 'Resource',
+#                                    'mime_type': 'text/plain',
+#                                    'path': '_log' }
                                 }
                            }
 
@@ -137,19 +137,33 @@ class FilePackage(starch.Package):
         return ret
 
 
-    def get_raw(self, path):
-        if not exists(self._get_full_path(path)):
-            raise Exception('%s does not exist in package' % path)
+    def get_raw(self, path, range=None):
+        if path in self:
+            f = open(self._get_full_path(path), mode='rb')
 
-        return open(self._get_full_path(path), mode='rb')
+            if range:
+                f.seek(range[0])
+            
+            return f
+
+        
+        raise Exception('%s does not exist in package' % path)
+
+
+    def get_iter(self, path, chunk_size=10*1024, range=None):
+        if path in self:
+            with self.get_raw(path, range=range) as f:
+                yield from chunked(f, chunk_size=chunk_size, max=range[1]-range[0] if range and range[1] else None)
+
+        raise Exception('%s does not exist in package' % path)
 
 
     def read(self, path):
-        if not exists(self._get_full_path(path)):
-            raise Exception('%s does not exist in package' % path)
+        if path in self:
+            with open(self._get_full_path(path)) as o:
+                return o.read()
 
-        with open(self._get_full_path(path)) as o:
-            return o.read()
+        raise Exception('%s does not exist in package' % path)
 
 
     def save(self):

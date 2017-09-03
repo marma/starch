@@ -60,14 +60,30 @@ class HttpPackage(starch.Package):
         self.add(fname, path, replace=True, **kwargs)        
 
 
-    def get_raw(self, path):
-        r = get(self.url + path, stream=True, auth=self.auth)
+    def get_raw(self, path, range=None):
+        headers = {}
+
+        if range:
+            headers['Range'] = 'bytes=%d-%s' % (range[0], str(int(range[1])) if range[1] else '')
+
+        r = get(self.url + path, stream=True, auth=self.auth, headers=headers)
         r.raw.decode_stream = True
 
         if r.status_code != 200:
             raise Exception('path (%s) not found' % path)
 
         return r.raw
+
+
+    def get_iter(self, path, chunk_size=10*1024, range=None):
+        if path in self:
+            with self.get_raw(path, range=range) as f:
+                yield from chunked(
+                            f, 
+                            chunk_size=chunk_size,
+                            max=range[1]-range[0] if range and range[1] else None)
+
+        raise Exception('%s does not exist in package' % path)
 
 
     def read(self, path):

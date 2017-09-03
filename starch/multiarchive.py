@@ -19,12 +19,13 @@ class MultiArchive(starch.Archive):
 
                 return starch.MultiPackage(
                             package,
-                            with_patches=patches,
+                            with_patches=sorted(patches, key=lambda x: x.description()['created']),
                             base=self.base + key + '/' if self.base else None
                        )
 
 
-    def search(self, query):
+    def search(self, query, frm=None, max=None):
+        # @TODO implement from and max parameters
         for archive in self.archives:
             for key in archive.search(query):
                 yield key

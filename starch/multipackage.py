@@ -1,5 +1,6 @@
 from json import dumps
 from copy import deepcopy
+from starch.utils import chunked
 import starch.package
 
 VERSION = 0.1
@@ -12,13 +13,13 @@ class MultiPackage(starch.Package):
         self._desc=None
 
 
-    def get_raw(self, path):
+    def get_raw(self, path, range=None):
         for patch in reversed(self.patches):
             if path in patch:
-                return patch.get_raw(path)
+                return patch.get_raw(path, range=range)
 
         if path in self.package:
-            return self.package.get_raw(path)
+            return self.package.get_raw(path, range=range)
 
         raise Exception('path (%s) not found' % path)
 
@@ -39,16 +40,24 @@ class MultiPackage(starch.Package):
         return list(ret)
 
 
+    def get_iter(self, path, chunk_size=10*1024, range=None):
+        if path in self:
+            with self.get_raw(path, range=range) as f:
+                yield from chunked(f, chunk_size=chunk_size, max=range[1]-range[0] if range and range[1] else None)
+        else:
+            raise Exception('%s does not exist in package' % path)
+
+
     def description(self):
         return self._desc if self._desc else self._description()
 
 
     def _description(self):
         ret = deepcopy(self.package.description(base=self.base))
-        ret['patches'] = []
+        ret['has_patches'] = []
 
         for patch in self.patches:
-            ret['patches'] += [ patch.description()['urn'] ]
+            ret['has_patches'] += [ patch.description()['urn'] ]
 
             if patch.patch_type == 'version':
                 ret['files'] = {}
@@ -60,8 +69,8 @@ class MultiPackage(starch.Package):
                 elif path not in [ '_package.json', '_log' ]:
                     ret['files'][path] = patch.get(path, base=self.base)
 
-        if ret['patches'] == []:
-            del(ret['patches'])
+        if ret['has_patches'] == []:
+            del(ret['has_patches'])
 
         self._desc = ret
 

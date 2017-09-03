@@ -152,6 +152,7 @@ def finalize(key):
 
         return 'finalized', 200
 
+
 @app.route('/base')
 def base():
     return config['archive']['base']
@@ -159,13 +160,13 @@ def base():
 
 @app.route('/search')
 def search():
-    def response(q):
-        for key in archive.search(q):
-            yield key + '\n'
-
-    q = loads(request.args['q'])
-
-    return Response(response(q), mimetype='application/json')
+    return Response(
+            newliner(
+                archive.search(
+                    loads(request.args['q']),
+                    from=int(request.args['from']) if 'from' in request else None,
+                    max=int(request.args['max']) if 'max' in request else None)),
+            mimetype='text/plain')
 
 
 def return_file(key, path, as_attachment=False):
@@ -193,6 +194,9 @@ def iter_response(url, path):
         for chunk in r.iter_content(100*1024):
             yield chunk
 
+def newliner(g):
+    for x in g:
+        yield x + '\n'
 
 if __name__ == "__main__":
     app.debug=True

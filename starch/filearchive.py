@@ -10,9 +10,9 @@ import starch
 MAX_ID=2**38
 
 class FileArchive(starch.Archive):
-    def __init__(self, root_dir=None, base=None):
-        self.temporary = root_dir == None
-        self.root_dir = root_dir or get_temp_dirname()
+    def __init__(self, root=None, base=None):
+        self.temporary = root == None
+        self.root_dir = root or get_temp_dirname()
         self.base = base
 
 
@@ -74,12 +74,25 @@ class FileArchive(starch.Archive):
             return None
 
 
-    def search(self, query):
+    def search(self, query=None, frm=0, max=None):
+        # This is deliberatly non-optimal for small
+        # resultsets in large archives and/or paging.
+        # Use an index and the web frontend instead
+        if max == 0:
+            return
+
+        n=0
         for key in self:
             p = self.get(key)
 
             if dict_search(query, p.description()):
-                yield key
+                if n > frm: 
+                    yield key
+
+                n += 1
+
+                if max and max < n:
+                    return
 
 
     def _directory(self, key):

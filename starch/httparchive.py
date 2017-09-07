@@ -14,6 +14,13 @@ class HttpArchive(starch.Archive):
         self.base = base or url
         self.server_base = get(urljoin(self.url, 'base')).text
 
+        if auth:
+            if isinstance(auth, dict) and auth['type'] == 'basic':
+                self.auth = (auth['user'], auth['pass'])
+            else:
+                raise Exception('unsupported auth configuration')
+
+
     def new(self, **kwargs):
         r = post(urljoin(self.url,'new'), params=kwargs, auth=self.auth, allow_redirects=False)
         

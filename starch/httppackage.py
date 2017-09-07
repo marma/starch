@@ -63,14 +63,18 @@ class HttpPackage(starch.Package):
     def get_raw(self, path, range=None):
         headers = {}
 
-        if range:
+        if range and not (range[0] == 0 and not range[1]):
             headers['Range'] = 'bytes=%d-%s' % (range[0], str(int(range[1])) if range[1] else '')
 
+        # @TODO potential resource leak
         r = get(self.url + path, stream=True, auth=self.auth, headers=headers)
         r.raw.decode_stream = True
 
-        if r.status_code != 200:
-            raise Exception('path (%s) not found' % path)
+        if range and not (range[0] == 0 and not range[1]) and r.status_code == 200:
+            raise Exception('Range not supported')
+
+        if r.status_code not in [ 200, 216 ]:
+            raise Exception('Unexpected status %d' % r.status_code)
 
         return r.raw
 
@@ -82,8 +86,8 @@ class HttpPackage(starch.Package):
                             f, 
                             chunk_size=chunk_size,
                             max=range[1]-range[0] if range and range[1] else None)
-
-        raise Exception('%s does not exist in package' % path)
+        else:
+            raise Exception('%s does not exist in package' % path)
 
 
     def read(self, path):
@@ -107,7 +111,7 @@ class HttpPackage(starch.Package):
         self._mode = 'r'
 
 
-    def description(self, rewrite_ids=False):
+    def description(self):
         ret = deepcopy(self._desc)
         server_base = self.server_base
 

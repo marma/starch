@@ -24,6 +24,14 @@ class MultiPackage(starch.Package):
         raise Exception('path (%s) not found' % path)
 
 
+    def get_iter(self, path, chunk_size=10*1024, range=None):
+        if path in self:
+            with self.get_raw(path, range=range) as f:
+                yield from chunked(f, chunk_size=chunk_size, max=range[1]-range[0] + 1 if range and range[1] else None)
+        else:
+            raise Exception('%s does not exist in package' % path)
+
+
     def read(self, path):
         return self.get_raw(path).read()
        
@@ -40,20 +48,12 @@ class MultiPackage(starch.Package):
         return list(ret)
 
 
-    def get_iter(self, path, chunk_size=10*1024, range=None):
-        if path in self:
-            with self.get_raw(path, range=range) as f:
-                yield from chunked(f, chunk_size=chunk_size, max=range[1]-range[0] if range and range[1] else None)
-        else:
-            raise Exception('%s does not exist in package' % path)
-
-
     def description(self):
         return self._desc if self._desc else self._description()
 
 
     def _description(self):
-        ret = deepcopy(self.package.description(base=self.base))
+        ret = deepcopy(self.package.description())
         ret['has_patches'] = []
 
         for patch in self.patches:

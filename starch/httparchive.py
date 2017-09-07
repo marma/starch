@@ -7,12 +7,12 @@ import starch
 MAX_ID=2**38
 
 class HttpArchive(starch.Archive):
-    def __init__(self, url, base=None, auth=None):
+    def __init__(self, root=None, base=None, auth=None):
+        url=root
         self.url = url + ('/' if url[-1] != '/' else '')
         self.auth = auth
         self.base = base or url
         self.server_base = get(urljoin(self.url, 'base')).text
-
 
     def new(self, **kwargs):
         r = post(urljoin(self.url,'new'), params=kwargs, auth=self.auth, allow_redirects=False)
@@ -43,12 +43,15 @@ class HttpArchive(starch.Archive):
 
 
     def get(self, key, mode='r'):
-        return starch.Package(
-                urljoin(self.url, key + '/'),
-                mode=mode,
-                base=urljoin(self.base, key + '/'),
-                auth=self.auth,
-                server_base=urljoin(self.server_base, key + '/'))
+        try:
+            return starch.Package(
+                    self.url + key + '/',
+                    mode=mode,
+                    base=urljoin(self.base, key + '/'),
+                    auth=self.auth,
+                    server_base=urljoin(self.server_base, key + '/'))
+        except:
+            return None
 
 
     def search(self, query, frm=None, max=None):
@@ -74,8 +77,11 @@ class HttpArchive(starch.Archive):
 
     def __iter__(self):
         with closing(get(self.url + 'packages', auth=self.auth, stream=True)) as r:
-            for key in r.raw:
-                yield key[:-1].decode('utf-8')
+            if r.status_code == 200:
+                for key in r.raw:
+                    yield key[:-1].decode('utf-8')
+            elif r.status_code != 404:
+                raise Exception('server returned status %d' % r.status)
 
 
     def get_key(self, url):
@@ -83,4 +89,10 @@ class HttpArchive(starch.Archive):
             return url[len(self.url):].split('/')[0]
 
         raise Exception('url (%s) does start with %s' % (url, self.url))
+
+
+    def __contains__(self, key):
+        with closing(get(self.url + key + '/')) as r:
+            return r.status_code == 200
+
 

@@ -86,7 +86,7 @@ class FileArchive(starch.Archive):
             p = self.get(key)
 
             if dict_search(query, p.description()):
-                if n > frm: 
+                if n >= frm: 
                     yield key
 
                 n += 1

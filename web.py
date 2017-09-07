@@ -164,7 +164,7 @@ def search():
             newliner(
                 archive.search(
                     loads(request.args['q']),
-                    from=int(request.args['from']) if 'from' in request else None,
+                    frm=int(request.args['from']) if 'from' in request else None,
                     max=int(request.args['max']) if 'max' in request else None)),
             mimetype='text/plain')
 
@@ -200,6 +200,6 @@ def newliner(g):
 
 if __name__ == "__main__":
     app.debug=True
-    app.run(host='0.0.0.0', threaded=True)
+    app.run(host='0.0.0.0', threaded=True, port=int(config['server']['port']))
 
 

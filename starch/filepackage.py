@@ -132,7 +132,7 @@ class FilePackage(starch.Package):
         ret = deepcopy(self._desc['files'][path])
 
         if base or self.base:
-            ret['@id'] = (base or self.base or '') + ret['@id']
+            ret['@id'] = (base or self.base) + ret['@id']
 
         return ret
 
@@ -208,16 +208,15 @@ class FilePackage(starch.Package):
         return self._desc['status'] == 'finalized'
 
 
-    def description(self, base=None):
+    def description(self):
         ret = deepcopy(self._desc)
-        base = base or self.base
 
-        if base:
-            ret['@id'] = base
+        if self.base:
+            ret['@id'] = self.base
             
             for path in ret['files']:
                 f = ret['files'][path]
-                f['@id'] = urljoin(base, f['@id'])
+                f['@id'] = urljoin(self.base, f['@id'])
 
         return ret
 
@@ -228,7 +227,7 @@ class FilePackage(starch.Package):
                 t = datetime.utcnow()
                 logfile.write(t.isoformat() + 'Z' + ' ' + message + '\n')
         else:
-            Exception('package in read-only mode')
+            raise Exception('package in read-only mode')
 
 
     def _get_full_path(self, path):

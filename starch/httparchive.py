@@ -88,7 +88,7 @@ class HttpArchive(starch.Archive):
                 for key in r.raw:
                     yield key[:-1].decode('utf-8')
             elif r.status_code != 404:
-                raise Exception('server returned status %d' % r.status)
+                raise Exception('server returned status %d' % r.status_code)
 
 
     def get_key(self, url):

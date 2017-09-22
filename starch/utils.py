@@ -84,6 +84,16 @@ def wildcard_match(a, b):
     return a == b or a == '*'
 
 
+def dict_grab(d, path):
+    for x in path.split('.'):
+        if x in d:
+            d = d[x]
+        else:
+            return []
+
+    return d if isinstance(d, list) else [ d ]
+
+
 def wants_json():
     best = request.accept_mimetypes.best_match(['application/json', 'text/html'])
     return best == 'application/json' and request.accept_mimetypes[best] > request.accept_mimetypes['text/html']

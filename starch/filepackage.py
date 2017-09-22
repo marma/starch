@@ -269,7 +269,7 @@ class FilePackage(starch.Package):
             raise
         else:
             f['size'] = size
-            f['checksum'] = 'sha256:' + h.hexdigest()
+            f['checksum'] = 'SHA256:' + h.hexdigest()
 
             if path in self and self[path]['checksum'] == f['checksum']:
                 f = self[path]

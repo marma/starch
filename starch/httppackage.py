@@ -3,6 +3,7 @@ from json import loads,dumps
 from requests import head,get,post,delete,put
 from os.path import join,basename,abspath,isdir
 from starch.utils import valid_path,valid_key
+from starch.exceptions import RangeNotSupported
 from hashlib import sha256
 from copy import deepcopy
 from urllib.parse import urljoin
@@ -63,6 +64,9 @@ class HttpPackage(starch.Package):
     def get_raw(self, path, range=None):
         headers = {}
 
+        if path not in self:
+            raise Exception('%s does not exist in package' % path)
+
         if range and not (range[0] == 0 and not range[1]):
             headers['Range'] = 'bytes=%d-%s' % (range[0], str(int(range[1])) if range[1] else '')
 
@@ -70,10 +74,10 @@ class HttpPackage(starch.Package):
         r = get(self.url + path, stream=True, auth=self.auth, headers=headers)
         r.raw.decode_stream = True
 
-        if range and not (range[0] == 0 and not range[1]) and r.status_code == 200:
-            raise Exception('Range not supported')
+        if range and 'Accept-Ranges' not in r.headers or ('Accept-Ranges' in r.headers and r.headers['Accept-Ranges'] != 'bytes'):
+            raise RangeNotSupported()
 
-        if r.status_code not in [ 200, 216 ]:
+        if r.status_code not in [ 200, 206 ]:
             raise Exception('Unexpected status %d' % r.status_code)
 
         return r.raw
@@ -81,13 +85,17 @@ class HttpPackage(starch.Package):
 
     def get_iter(self, path, chunk_size=10*1024, range=None):
         if path in self:
-            with self.get_raw(path, range=range) as f:
-                yield from chunked(
-                            f, 
-                            chunk_size=chunk_size,
-                            max=range[1]-range[0] if range and range[1] else None)
+            return self._get_iter(
+                        self.get_raw(path, range=range),
+                        chunk_size=chunk_size,
+                        max=range[1]-range[0] if range and range[1] else None)
         else:
             raise Exception('%s does not exist in package' % path)
+
+
+    def _get_iter(self, raw, chunk_size=10*1024, max=None):
+        with raw as f:
+            yield from chunked(f, chunk_size=chunk_size, max=max)
 
 
     def read(self, path):
@@ -142,7 +150,7 @@ class HttpPackage(starch.Package):
 
             r = put(url_fix(urljoin(self.url, path)),
                     params={ 'replace': replace,
-                             'expected_hash': 'sha256:' + hasher.digest().hex() },
+                             'expected_hash': 'SHA256:' + hasher.digest().hex() },
                     files={ path: f },
                     auth=self.auth)
 
@@ -202,5 +210,5 @@ def do_hash(fname):
             b = f.read(100*1024)
             h.update(b)
 
-    return 'sha256:' + h.digest().hex()
+    return 'SHA256:' + h.digest().hex()
 

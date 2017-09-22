@@ -3,8 +3,9 @@ from os.path import exists,join,basename,dirname
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
 from shutil import rmtree
-from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname,dict_search,TEMP_PREFIX
+from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname,dict_search,dict_grab,TEMP_PREFIX
 from random import random
+from collections import Counter
 import starch
 
 MAX_ID=2**38
@@ -74,25 +75,37 @@ class FileArchive(starch.Archive):
             return None
 
 
-    def search(self, query=None, frm=0, max=None):
+    def search(self, query, start=0, max=None, sort=None):
         # This is deliberatly non-optimal for small
         # resultsets in large archives and/or paging.
         # Use an index and the web frontend instead
-        if max == 0:
-            return
+        hits = [ x for x in self._search_iterator(query, start, max, sort) ]
+        max = max or len(hits)
 
-        n=0
+        if start >= len(hits):
+            return (start, 0, len(hits), iter([]))
+
+        return (start, min(max, len(hits), len(hits) - start), len(hits), iter(hits[start:start + max]))
+
+
+    def count(self, query, cats={}):
+        ret = { k:Counter() for k in cats }
+
+        for key in self.search(query)[3]:
+            desc = self.get(key).description()
+
+            for key in cats:
+                ret[key].update(dict_grab(desc, cats[key]))
+            
+        return ret
+
+
+    def _search_iterator(self, query, start=0, max=None, sort=None):
         for key in self:
             p = self.get(key)
 
             if dict_search(query, p.description()):
-                if n >= frm: 
-                    yield key
-
-                n += 1
-
-                if max and max < n:
-                    return
+                yield key
 
 
     def _directory(self, key):

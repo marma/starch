@@ -3,7 +3,7 @@ from os.path import exists,join,basename,dirname
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
 from shutil import rmtree
-from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname,dict_search,dict_grab,TEMP_PREFIX
+from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname,dict_search,dict_values,TEMP_PREFIX
 from random import random
 from collections import Counter
 import starch
@@ -93,9 +93,10 @@ class FileArchive(starch.Archive):
 
         for key in self.search(query)[3]:
             desc = self.get(key).description()
+            desc['files'] = [ x for x in desc['files'].values() ]
 
             for key in cats:
-                ret[key].update(dict_grab(desc, cats[key]))
+                ret[key].update(dict_values(desc, cats[key]))
             
         return ret
 
@@ -189,4 +190,3 @@ class FileArchive(starch.Archive):
     def __del__(self):
         if self.temporary and self.root_dir.startswith(TEMP_PREFIX) and exists(self.root_dir):
             rmtree(self.root_dir)
-

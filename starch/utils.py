@@ -84,14 +84,26 @@ def wildcard_match(a, b):
     return a == b or a == '*'
 
 
-def dict_grab(d, path):
-    for x in path.split('.'):
-        if x in d:
-            d = d[x]
-        else:
-            return []
+def dict_values(d, path):
+    return _dict_values(d, path.split('.'))
 
-    return d if isinstance(d, list) else [ d ]
+
+def _dict_values(d, path):
+    if path == []:
+        if isinstance(d, list):
+            return set([ x for x in d if not isinstance(x, (list, dict, tuple)) ])
+        elif not isinstance(d, (list, dict, tuple)):
+            return set([d])
+    else:
+        if isinstance(d, (list, tuple)):
+            s=set()
+            for x in d:
+                s.update(_dict_values(x, path))
+            return s
+        elif isinstance(d, dict) and path[0] in d:
+            return _dict_values(d[path[0]], path[1:])
+    
+    return set()
 
 
 def wants_json():

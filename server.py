@@ -62,7 +62,7 @@ def package_file(key, path):
                 i,
                 headers=headers,
                 mimetype=p[path]['mime_type'],
-                code=200 if range == (0, None) else 206)
+                status=200 if range == (0, None) else 206)
 
     return 'Not found', 404
 

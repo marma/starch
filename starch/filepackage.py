@@ -86,9 +86,11 @@ class FilePackage(starch.Package):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
 
+        print(fname, path)
+
         path = path or basename(abspath(fname))
 
-        if path in [ '_package.json', '_log' ] or path.startswith('_patches'):
+        if path in [ '_package.json', '_log' ]:
             raise Exception('filename (%s) not allowed' % path)
 
         if traverse and isdir(fname):
@@ -107,7 +109,7 @@ class FilePackage(starch.Package):
             raise Exception('package in read-only mode')
 
         if self.is_finalized():
-            raise Exception('package is finalized, use patch(...)')
+            raise Exception('package is finalized, use patches')
 
         if path in self:
             del self._desc['files'][path]
@@ -168,8 +170,8 @@ class FilePackage(starch.Package):
 
     def save(self):
         if self._mode in [ 'w', 'a' ]:
-            with open(join(self.root_dir, '_package.json'), 'w') as out:
-                out.write(dumps(self._desc, indent=4))
+            with open(join(self.root_dir, '_package.json'), 'wb') as out:
+                out.write(dumps(self._desc, indent=4).encode('utf-8'))
         else:
             Exception('package in read-only mode')
 

@@ -61,19 +61,36 @@ class HttpArchive(starch.Archive):
             return None
 
 
-    def search(self, query, frm=None, max=None):
-        params = { 'q': dumps(query) }
+    def search(self, query, start=0, max=None):
+        g = self._search_iter(query, start, max)
+        i,r,c = next(i).split()
 
-        if frm: params.update({ 'from': frm })
+        return i,r,c,g
+
+
+    def _search_iter(self, query, start=0, max=None):
+        params = { 'q': dumps(query), 'start': start }
         if max: params.update({ 'max': max })
 
         with closing(get(urljoin(self.url, 'search'),
-                         params=params,
-                         auth=self.auth,
-                         stream=True)) as r:
+            params=params,
+            auth=self.auth,
+            stream=True)) as r:
+
             if r.status_code == 200:
-                for key in r.raw:
-                    yield key[:-1].decode('utf-8')
+                 for key in r.raw:
+                     yield key[:-1].decode('utf-8')
+            else:
+                raise Exception('Expected status 200, got %d' % r.status_code)
+
+
+    def count(self, query, cats={}):
+        with closing(get(urljoin(self.url, 'count'),
+                         params={ 'q': dumps(query), 'c': dumps(cats) },
+                         auth=self.auth)) as r:
+                
+            if r.status_code == 200:
+                return loads(r.text)
             else:
                 raise Exception('Expected status 200, got %d' % r.status_code)
 

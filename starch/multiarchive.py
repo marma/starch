@@ -1,4 +1,5 @@
 import starch
+from collections import Counter
 
 class MultiArchive(starch.Archive):
     def __init__(self, root=None, extras=[], base=None):
@@ -28,17 +29,42 @@ class MultiArchive(starch.Archive):
         return None
 
 
-    def search(self, query, frm=None, max=None):
-        # @TODO implement from and max parameters
+    def search(self, query, start=0, max=None, sort=None):
+        s, r_tot, c_tot, iters = start, 0, 0, []
+
+        for archive in archives:
+            i,r,c,g = archive.search(query, s, max, sort)
+            
+            s = max(0, s-c)
+            iters += [ g ]
+            r_tot += r
+            c_tot += c
+
+            if max:
+                max -= r
+
+        return start, r_tot, c_tot, _iter_search(iters)
+
+
+    def count(self, query, cats={}):
+        ret = { key:Counter() for key in cats }
+
         for archive in self.archives:
-            for key in archive.search(query):
-                yield key
+            for k,c in archive.count(query, cats).items():
+                ret[k].update(c)
+
+
+    def _iter_search(iters):
+        for i in iters:
+            for x in i:
+                yield x
 
 
     def __iter__(self):
         for archive in self.archives:
             for key in archive:
                 yield key
+
 
     def __contains__(self, key):
         for archive in self.archives:

@@ -1,4 +1,33 @@
+server:
+    port: 5000
+
 archive:
     root: /data/archive
     #base: http://example.org/
+
+auth:
+    type: simple
+    user: demo
+    pass: demo
+
+    #type: file
+    #userfile: users.txt
+    #groupfile: groups.txt
+
+    #type: ldap
+    #server: example.org
+    #port: 1234
+    #key: xxx
+    #read-group: starch-reader
+    #write-group: starch-writer
+    #admin-group: starch-admin
+
+#locking:
+    #type: simple
+
+    #type: redlock
+    #server: example.org
+    #port: 1234
+    #user: xxxx
+    #pass: yyyy
 

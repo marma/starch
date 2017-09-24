@@ -1,0 +1,33 @@
+version: "3"
+
+services:
+    server:
+        build:
+            context: .
+        ports:
+            - 5000:5000
+        volumes:
+            - .:/app:ro
+        #    - /<local path>:/data/archive
+        links:
+            - elastic
+
+    elastic:
+        image: elasticsearch:5.5
+        ports:
+            - 9200:9200
+        #volumes:
+        #    - /<local path>:/usr/share/elasticsearch/data
+
+    nginx:
+        restart: always
+        image: nginx:latest
+        ports:
+            - "8080:8080"
+        volumes:
+            - ./static:/www/static:ro
+            - ./etc/nginx.conf:/etc/nginx/conf.d/default.conf
+        links:
+            - server
+
+

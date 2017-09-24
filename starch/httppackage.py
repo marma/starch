@@ -179,7 +179,7 @@ class HttpPackage(starch.Package):
 
 
     def _reload(self):
-        self._desc = loads(get(self.url + '_package.json', auth=self.auth).text)
+        self._desc = loads(get(self.url, auth=self.auth).text)
 
 
     def __iter__(self):

@@ -12,6 +12,7 @@ from urllib.request import urlopen
 from random import random
 from datetime import datetime
 from flask import request
+from re import match
 
 TEMP_PREFIX='/tmp/starch-temp-'
 
@@ -121,4 +122,8 @@ def chunked(f, chunk_size=10*1024, max=None):
             yield b
 
 
+def decode_range(srange):
+    s = match('bytes=(\\d+)-(\\d*)', srange).groups()
+
+    return ( int(s[0]), int(s[1]) if s[1] != '' else None )
 

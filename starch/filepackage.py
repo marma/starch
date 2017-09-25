@@ -154,10 +154,17 @@ class FilePackage(starch.Package):
 
     def get_iter(self, path, chunk_size=10*1024, range=None):
         if path in self:
-            with self.get_raw(path, range=range) as f:
-                yield from chunked(f, chunk_size=chunk_size, max=range[1]-range[0] if range and range[1] else None)
+            return self._get_iter(
+                        self.get_raw(path, range=range),
+                        chunk_size=chunk_size,
+                        max=range[1]-range[0] if range and range[1] else None)
+        else:
+            raise Exception('%s does not exist in package' % path)
 
-        raise Exception('%s does not exist in package' % path)
+
+    def _get_iter(self, raw, chunk_size=10*1024, max=None):
+        with raw as f:
+            yield from chunked(f, chunk_size=chunk_size, max=max)
 
 
     def read(self, path):

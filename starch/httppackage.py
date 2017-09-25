@@ -2,7 +2,7 @@ from contextlib import closing
 from json import loads,dumps
 from requests import head,get,post,delete,put
 from os.path import join,basename,abspath,isdir
-from starch.utils import valid_path,valid_key
+from starch.utils import valid_path,valid_key,chunked
 from starch.exceptions import RangeNotSupported
 from hashlib import sha256
 from copy import deepcopy

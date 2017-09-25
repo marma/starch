@@ -43,16 +43,23 @@ def package_file(key, path):
     p = archive.get(key)
 
     if p and path in p:
+        size = int(p[path]['size'])
         headers = { 'ETag': p[path]['checksum'].split(':')[1],
                     'Content-Length': p[path]['size'] }
 
-        range = decode_range(request.args.get('Range', default='bytes=0-'))
+        range = decode_range(request.headers.get('Range', default='bytes=0-'))
 
         # @TODO optimization using get_location and send_from_directory
 
+        print(range, range == (0,None), request.headers.get('Range', 'BLA'))
+
         try:
             i = p.get_iter(path, range=range)
-            headers.update({ 'Accept-Range': 'bytes' })
+            headers.update({ 'Accept-Ranges': 'bytes' })
+
+            if range != ( 0, None ):
+                headers.update({ 'Content-Range': 'bytes %d-%s/%d' % (range[0], str(range[1]) if range[1] != None else size-1, size) })
+                headers.update({ 'Content-Length': range[1]-range[0] + 1 if range[1] != None else size-range[0] })
         except RangeNotSupported:
             i = p.get_iter(path)
         except:

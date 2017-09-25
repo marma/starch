@@ -130,7 +130,7 @@ class ElasticIndex():
                                     'path': vs[0]
                                 },
                                 'aggregations': {
-                                    k: { 'terms': { 'field': v } }
+                                    k: { 'terms': { 'field': v, 'size': 100 } }
                                 }
                          }
             else:

@@ -17,7 +17,9 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config.update(load(open(join(app.root_path, 'config.yml')).read()))
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
-archive = Archive(app.config['archive']['root'], base=app.config['archive']['base'])
+archive = Archive(
+            app.config['archive']['root'],
+            base=app.config['archive']['base'] if 'base' in app.config['archive'] else None)
 index = ElasticIndex(
             app.config['archive']['index']['base'],
             app.config['archive']['index']['name']) if 'index' in app.config['archive'] else None
@@ -50,8 +52,6 @@ def package_file(key, path):
         range = decode_range(request.headers.get('Range', default='bytes=0-'))
 
         # @TODO optimization using get_location and send_from_directory
-
-        print(range, range == (0,None), request.headers.get('Range', 'BLA'))
 
         try:
             i = p.get_iter(path, range=range)

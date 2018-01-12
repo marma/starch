@@ -1,8 +1,8 @@
 from os.path import exists,dirname,abspath,join,basename,isdir,join
 from os import makedirs, walk, listdir, sep, remove
 from urllib.request import urlopen
-from urllib.parse import urlparse,urljoin,quote
-from copy import deepcopy
+from urllib.parse import urlparse,urljoin,quote,unquote
+from copy import deepcopy,copy
 from uuid import uuid4
 from starch.utils import get_temp_dirname,valid_path,valid_file,valid_key,TEMP_PREFIX,chunked
 from contextlib import closing
@@ -19,7 +19,7 @@ import starch
 VERSION = 0.1
 
 class FilePackage(starch.Package):
-    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', metadata={}, **kwargs):
+    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=None, metadata={}, **kwargs):
         if root_dir == None and mode == 'r':
             raise Exception('\'%s\' mode and empty dir not allowed' % mode)
 
@@ -32,37 +32,27 @@ class FilePackage(starch.Package):
         self.patches = patches
         self.patch_type = patch_type if patches else None
         self.base = base
+        self.callback = callback
 
         if mode == 'w':
             if exists(self.root_dir):
                 raise Exception('path \'%s\' exists, use \'a\' mode' % self.root_dir)
 
             makedirs(self.root_dir)
-            self._desc = { '@id': '',
-                           '@type': 'Package' if not patches else 'Patch',
-                           'patches': patches,
-                           'patch_type': patch_type,
-                           'urn': uuid4().urn,
-                           'described_by': '_package.json',
-                           'status': 'open',
-                           'package_version': VERSION,
-                           'metadata': metadata,
-                           'created': None,
-                           'files': {
-#                               '_package.json': {
-#                                   '@id': '_package.json',
-#                                   'urn': uuid4().urn,
-#                                   '@type': 'Resource',
-#                                   'mime_type': 'application/json',
-#                                   'path': '_package.json' },
-#                                '_log': {
-#                                    '@id': '_log',
-#                                    'urn': uuid4().urn,
-#                                    '@type': 'Resource',
-#                                    'mime_type': 'text/plain',
-#                                    'path': '_log' }
-                                }
-                           }
+            self._desc = {
+                            '@id': '',
+                            '@type': 'Package' if not patches else 'Patch',
+                            'patches': patches,
+                            'patch_type': patch_type,
+                            'urn': uuid4().urn,
+                            'described_by': '_package.json',
+                            'status': 'open',
+                            'package_version': VERSION,
+                            'metadata': metadata,
+                            'created': None,
+                            'tag': uuid4().urn,
+                            'files': {}
+                         }
 
             if not patches:
                 del(self._desc['patches'])
@@ -75,6 +65,7 @@ class FilePackage(starch.Package):
         elif mode in [ 'r', 'a' ]:
             with open(self._get_full_path('_package.json')) as r:
                 self._desc = loads(r.read())
+                self._desc['files'] = { unquote(v['@path']):v for v in self._desc['files'] }
 
             if mode is 'a' and self.is_finalized():
                 raise Exception('package is finalized, use patch(...)')
@@ -85,8 +76,6 @@ class FilePackage(starch.Package):
     def add(self, fname, path=None, traverse=True, exclude='^\\..*|^_.*', replace=False, **kwargs):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
-
-        print(fname, path)
 
         path = path or basename(abspath(fname))
 
@@ -177,8 +166,20 @@ class FilePackage(starch.Package):
 
     def save(self):
         if self._mode in [ 'w', 'a' ]:
+            desc = copy(self._desc)
+            desc['tag'] =  uuid4().urn
+
+            # de-dict files
+            desc['files'] = [ x for x in desc['files'] ]
+
             with open(join(self.root_dir, '_package.json'), 'wb') as out:
-                out.write(dumps(self._desc, indent=4).encode('utf-8'))
+                out.write(dumps(desc, indent=4).encode('utf-8'))
+
+            self._desc['tag'] = desc['tag']
+            self._log('TAG %s' % desc['tag'])
+
+            if self.callback:
+                self.callback('save', self)
         else:
             Exception('package in read-only mode')
 
@@ -226,6 +227,9 @@ class FilePackage(starch.Package):
             for path in ret['files']:
                 f = ret['files'][path]
                 f['@id'] = urljoin(self.base, f['@id'])
+
+        # de-dict files
+        ret['files'] = [ x for key,x in ret['files'].items() ]
 
         return ret
 

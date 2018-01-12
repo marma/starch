@@ -66,19 +66,16 @@ def timestamp():
 
 
 def dict_search(a, b):
-    if not (isinstance(a, dict) or isinstance(b, dict)):
-        return wildcard_match(a, b)
-    
-    for key in a:
-        if key == '*':
-            return any([ dict_search(a[key], x) for x in b.values() ])
-        if key not in b:
-            if a[key] != None:
-                return False
-        elif not dict_search(a[key], b[key]):
-            return False
+    if isinstance(a, (str, int, float)):
+        if isinstance(b, (str, int, float)):
+            return a == b
+        elif isinstance(b, list):
+            return any([ dict_search(a, x) for x in b ])
+    elif isinstance(a, dict) and isinstance(b, dict):
+        if set(a).issubset(b):
+            return all([ dict_search(a[key], b[key]) for key in a ])
 
-    return True
+    return False
 
 
 def wildcard_match(a, b):

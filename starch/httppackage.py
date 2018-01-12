@@ -6,7 +6,7 @@ from starch.utils import valid_path,valid_key,chunked
 from starch.exceptions import RangeNotSupported
 from hashlib import sha256
 from copy import deepcopy
-from urllib.parse import urljoin
+from urllib.parse import urljoin,unquote
 from re import compile
 from os import listdir
 import starch.package
@@ -25,17 +25,18 @@ class HttpPackage(starch.Package):
         self.server_base = server_base or url
 
         if mode in [ 'r', 'a' ]:
-            r = get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth)
+            with closing(get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth)) as r:
+                if r.status_code != 200:
+                    raise Exception('%d %s' % (r.status_code, r.text))
 
-            if r.status_code != 200:
-                raise Exception('%d %s' % (r.status_code, r.text))
+                self._desc = loads(r.text)
 
-            self._desc = loads(r.text)
+                if mode is 'a' and self._desc['status'] == 'finalized':
+                    raise Exception('package is finalized, use patch(...)')
 
-            if mode is 'a' and self._desc['status'] == 'finalized':
-                raise Exception('package is finalized, use patch(...)')
+                self._desc['files'] = { x['path']:x for x in self._desc['files'].values() }
         elif mode == 'w':
-            raise Exception('mode \'w\' not supported for HttpPackage(), use \'a\'')
+            raise Exception('mode \'w\' not supported for HttpPackage(), use mode \'a\' or HttpArchive.new(...)')
         else:
             raise Exception('unsupported mode (\'%s\')' % mode)
 
@@ -130,6 +131,8 @@ class HttpPackage(starch.Package):
                 f = ret['files'][path]
                 f['@id'] = f['@id'].replace(server_base, self.base)
 
+        ret['files'] = [ x for x in ret['files'].values() ]
+
         return ret
 
 
@@ -164,7 +167,8 @@ class HttpPackage(starch.Package):
         if r.status_code not in [ 200, 204 ]:
             raise Exception('%d %s' % (r.status_code, r.text))
 
-        del self._desc['files'][path]
+        self._reload()
+        #del self._desc['files'][path]
 
 
     def status(self):

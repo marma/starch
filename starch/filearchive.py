@@ -1,4 +1,5 @@
 from json import loads
+from sys import stdin, stderr
 from os.path import exists,join,basename,dirname
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
@@ -11,16 +12,18 @@ import starch
 MAX_ID=2**38
 
 class FileArchive(starch.Archive):
-    def __init__(self, root=None, base=None):
+    def __init__(self, root=None, base=None, index=None):
         self.temporary = root == None
         self.root_dir = root or get_temp_dirname()
         self.base = base
+        self.index = index
 
 
     def new(self, **kwargs):
         key = self._generate_key()
         dir = self._directory(key)
-        p = starch.Package(dir, mode='w', base=self.base + key + '/' if self.base else None, **kwargs)
+        cb=lambda msg, package, key=key, archive=self, **kwargs: archive._index(key=key, package=package)
+        p = starch.Package(dir, mode='w', base=self.base + key + '/' if self.base else None, callback=cb, **kwargs)
 
         self._log_add_package(key)
 
@@ -36,6 +39,8 @@ class FileArchive(starch.Archive):
             for path in package:
                 self._copy(package.get_raw(path), join(dir, valid_path(path)))
 
+            # TODO make @ids relative in _package.json?
+
             p = starch.Package(dir)
             p.validate()
         except Exception as e:
@@ -45,6 +50,7 @@ class FileArchive(starch.Archive):
             self._unlock(key)
 
         self._log_add_package(key)
+        self._index(key, p)
 
         return key
 
@@ -79,6 +85,9 @@ class FileArchive(starch.Archive):
         # This is deliberatly non-optimal for small
         # resultsets in large archives and/or paging.
         # Use an index and the web frontend instead
+        if self.index:
+            return self.index.search(query, start, max, sort)
+
         hits = [ x for x in self._search_iterator(query, start, max, sort) ]
         max = max or len(hits)
 
@@ -89,6 +98,9 @@ class FileArchive(starch.Archive):
 
 
     def count(self, query, cats={}):
+        if self.index:
+            return self.index.count(query, cats)
+
         ret = { k:Counter() for k in cats }
 
         for key in self.search(query)[3]:
@@ -96,6 +108,7 @@ class FileArchive(starch.Archive):
             desc['files'] = [ x for x in desc['files'].values() ]
 
             for key in cats:
+                print(dict_values(desc, cats[key]))
                 ret[key].update(dict_values(desc, cats[key]))
             
         return ret
@@ -187,6 +200,13 @@ class FileArchive(starch.Archive):
                 o.write(b)
 
 
+    def _index(self, key, package=None):
+        if self.index:
+            print('index %s' % key, file=stderr)
+            self.index.update(key, package or self.get(key))
+
+
     def __del__(self):
         if self.temporary and self.root_dir.startswith(TEMP_PREFIX) and exists(self.root_dir):
             rmtree(self.root_dir)
+

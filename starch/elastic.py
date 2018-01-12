@@ -4,7 +4,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.client import IndicesClient
 from elasticsearch.exceptions import NotFoundError
 from copy import deepcopy
-
+from enqp import parse
 
 class ElasticIndex():
     def __init__(self, base, index):
@@ -110,13 +110,14 @@ class ElasticIndex():
 
 
     def _create_query(self, query):
-        return {
-                'query': {
-                    'bool': {
-                        'must': [ { 'match': { x[0]: x[1] } } for x in query.items() ]
-                    }
-                }
-            }
+        return parse(dumps(query))
+        #return {
+        #        'query': {
+        #            'bool': {
+        #                'must': [ { 'match': { x[0]: x[1] } } for x in query.items() ]
+        #            }
+        #        }
+        #    }
 
 
     def _create_aggs(self, cats={}):
@@ -135,8 +136,6 @@ class ElasticIndex():
                          }
             else:
                 ret[k] = { 'terms': { 'field': v, 'size': 100 } }
-
-        #print(ret)
 
         return ret
         #return { k:{ 'terms': { 'field': v, 'size': 100 } } for k,v in cats.items() }

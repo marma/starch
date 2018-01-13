@@ -105,10 +105,9 @@ class FileArchive(starch.Archive):
 
         for key in self.search(query)[3]:
             desc = self.get(key).description()
-            desc['files'] = [ x for x in desc['files'].values() ]
 
             for key in cats:
-                print(dict_values(desc, cats[key]))
+                #print(dict_values(desc, cats[key]))
                 ret[key].update(dict_values(desc, cats[key]))
             
         return ret
@@ -202,7 +201,7 @@ class FileArchive(starch.Archive):
 
     def _index(self, key, package=None):
         if self.index:
-            print('index %s' % key, file=stderr)
+            #print('index %s' % key, file=stderr)
             self.index.update(key, package or self.get(key))
 
 

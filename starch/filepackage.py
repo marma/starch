@@ -65,7 +65,8 @@ class FilePackage(starch.Package):
         elif mode in [ 'r', 'a' ]:
             with open(self._get_full_path('_package.json')) as r:
                 self._desc = loads(r.read())
-                self._desc['files'] = { unquote(v['@path']):v for v in self._desc['files'] }
+                #print(self._desc)
+                self._desc['files'] = { v['path']:v for v in self._desc['files'] }
 
             if mode is 'a' and self.is_finalized():
                 raise Exception('package is finalized, use patch(...)')
@@ -170,7 +171,7 @@ class FilePackage(starch.Package):
             desc['tag'] =  uuid4().urn
 
             # de-dict files
-            desc['files'] = [ x for x in desc['files'] ]
+            desc['files'] = [ x for x in desc['files'].values() ]
 
             with open(join(self.root_dir, '_package.json'), 'wb') as out:
                 out.write(dumps(desc, indent=4).encode('utf-8'))

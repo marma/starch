@@ -40,7 +40,7 @@ class MemoryIndex(Index):
         return (start, min(max, len(hits), len(hits) - start), len(hits), iter(hits[start:start + max]))
 
 
-    def count(self, query, cats={}):
+    def count(self, query, cats):
         ret = { k:Counter() for k in cats }
 
         for key in self.search(query)[3]:

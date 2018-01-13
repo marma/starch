@@ -13,6 +13,8 @@ from random import random
 from datetime import datetime
 from flask import request
 from re import match
+from copy import deepcopy
+from collections import Counter
 
 TEMP_PREFIX='/tmp/starch-temp-'
 
@@ -69,7 +71,7 @@ def dict_search(a, b):
     if isinstance(a, (str, int, float)):
         if isinstance(b, (str, int, float)):
             return a == b
-        elif isinstance(b, list):
+        elif isinstance(b, (list, iter)):
             return any([ dict_search(a, x) for x in b ])
     elif isinstance(a, dict) and isinstance(b, dict):
         if set(a).issubset(b):
@@ -83,25 +85,33 @@ def wildcard_match(a, b):
 
 
 def dict_values(d, path):
-    return _dict_values(d, path.split('.'))
+    p,di = [], deepcopy(path)
+
+    while isinstance(di, dict):
+        p += [ next(iter(di.keys())) ]
+        di = next(iter(di.values()))
+
+    p += [ di ]
+
+    return _dict_values(d, p)
 
 
 def _dict_values(d, path):
     if path == []:
         if isinstance(d, list):
-            return set([ x for x in d if not isinstance(x, (list, dict, tuple)) ])
+            return Counter([ x for x in d if not isinstance(x, (list, dict, tuple)) ])
         elif not isinstance(d, (list, dict, tuple)):
-            return set([d])
+            return Counter([d])
     else:
         if isinstance(d, (list, tuple)):
-            s=set()
+            s=Counter()
             for x in d:
                 s.update(_dict_values(x, path))
             return s
         elif isinstance(d, dict) and path[0] in d:
             return _dict_values(d[path[0]], path[1:])
     
-    return set()
+    return Counter()
 
 
 def wants_json():

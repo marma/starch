@@ -167,7 +167,7 @@ class FileArchive(starch.Archive):
 
 
     def _log(self, message, t=timestamp()):
-        with open("%s_log" % self.root_dir, 'a') as logfile:
+        with open("%s/_log" % self.root_dir, 'a') as logfile:
             logfile.write(t + ' ' + message + '\n')
 
 
@@ -208,4 +208,7 @@ class FileArchive(starch.Archive):
     def __del__(self):
         if self.temporary and self.root_dir.startswith(TEMP_PREFIX) and exists(self.root_dir):
             rmtree(self.root_dir)
+
+            if self.index:
+                self.index.destroy()
 

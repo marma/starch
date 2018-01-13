@@ -1,13 +1,17 @@
+import starch
 from json import dumps,loads
 from elasticsearch_dsl import Keyword, Mapping, Nested, Text
 from elasticsearch import Elasticsearch
 from elasticsearch.client import IndicesClient
 from elasticsearch.exceptions import NotFoundError
 from copy import deepcopy
-from enqp import parse
+from enqp import parse,flatten_aggs,create_aggregations
 
-class ElasticIndex():
-    def __init__(self, base, index):
+class ElasticIndex(starch.Index):
+    def __init__(self, type='elastic', base=None, index=None):
+        if not (base and index):
+            raise Exception('both base- and index-parametera required')
+
         self.base = base
         self.index = index
         self.elastic = Elasticsearch(base)
@@ -16,6 +20,9 @@ class ElasticIndex():
         if not self.indices.exists(self.index):
             self.indices.create(self.index)
             self._install_mapping()
+            self.index_existed = False
+        else:
+            self.index_existed = True
 
 
     def get(self, id):
@@ -26,21 +33,18 @@ class ElasticIndex():
         except:
             raise
 
-        # inflate dict
-        if ret:
-            ret['files'] = { x['path']:x for x in ret['files'] }
-
         return ret
 
 
     def search(self, q, start=0, max=None, sort=None):
-        query = self._create_query(q)
+        query = parse(dumps(q))
 
         #print(query)
 
         res = self.elastic.search(index=self.index, doc_type='package', from_=0, size=0, body=query)
         count = int(res['hits']['total'])
 
+        # TODO: use scan for large datasets
         return (start,
                 min(count-start, max) if max else count-start,
                 count,
@@ -55,6 +59,8 @@ class ElasticIndex():
 
     def _search_iterator(self, q, start, max, count, sort):
         max = max or count
+
+        # TODO: use scan for large datasets
         for n in range(0, min(max-1, (count-start-1))//100 + 1):
             res = self.elastic.search(
                     index=self.index,
@@ -67,9 +73,11 @@ class ElasticIndex():
                 yield id
 
 
-    def count(self, query, categories={}):
-        q = self._create_query(query)
-        q['aggregations'] = self._create_aggs(categories)
+    def count(self, q, cats):
+        q = parse(dumps(q))
+        q.update(create_aggregations(cats))
+
+        #print(q)
 
         res = self.elastic.search(
             index=self.index,
@@ -80,66 +88,37 @@ class ElasticIndex():
         #print(dumps(res, indent=4))
 
         ret = {}
-        for k,v in res['aggregations'].items():
-            if k in categories:
-                ret[k] = { x['key']:x['doc_count'] for x in v['buckets'] }
-            else:
-                # nested category
-                # @TODO deal with more than one level of nesting
-                for c in categories:
-                    if c in v:
-                        ret[c] = { x['key']:x['doc_count'] for x in v[c]['buckets'] }
+        for k,v in flatten_aggs(res)['aggregations'].items():
+            ret[k] = { x['key']:x['doc_count'] for x in v['buckets'] }
 
         return ret
             
 
     def update(self, key, package):
-        desc = deepcopy(package.description())
-
-        # deflate dict
-        desc['files'] = [ x for x in desc['files'].values() ]
-
-        self.elastic.index(index=self.index, doc_type='package', id=key, body=desc, refresh=True)
+        self.elastic.index(
+                index=self.index,
+                doc_type='package',
+                id=key,
+                body=package.description(),
+                refresh=True)
 
 
     def iter_packages(self, start=0, max=None):
         s,r,c,g = self.search({}, start, max)
 
+        # TODO: use scan
         for i in self._search_iterator({}, start, max, c, None):
             yield i
 
-
-    def _create_query(self, query):
-        return parse(dumps(query))
-        #return {
-        #        'query': {
-        #            'bool': {
-        #                'must': [ { 'match': { x[0]: x[1] } } for x in query.items() ]
-        #            }
-        #        }
-        #    }
-
-
-    def _create_aggs(self, cats={}):
-        ret = {}
-        for k,v in cats.items():
-            if '.' in v:
-                vs = v.split('.')
-
-                ret[vs[0]] = {
-                                'nested': {
-                                    'path': vs[0]
-                                },
-                                'aggregations': {
-                                    k: { 'terms': { 'field': v, 'size': 100 } }
-                                }
-                         }
-            else:
-                ret[k] = { 'terms': { 'field': v, 'size': 100 } }
-
         return ret
-        #return { k:{ 'terms': { 'field': v, 'size': 100 } } for k,v in cats.items() }
 
+
+    def destroy(self, force=False):
+        if self.index_existed and not force:
+            raise Exception('Elastic index existed before creation of this Index instance, and force parameter not set to True')
+
+        i = IndicesClient(self.elastic)
+        i.delete(self.index)
 
     def _install_mapping(self):
         m = Mapping('package')

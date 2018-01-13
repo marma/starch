@@ -3,17 +3,17 @@ from starch.utils import dict_search,dict_values
 from collections import Counter
 
 class Index():
-    def __new__(cls, type='memory'):
+    def __new__(cls, type='memory', **kwargs):
         if type == 'memory':
             return super().__new__(starch.MemoryIndex)
         elif type == 'elastic':
-            return super().__new__(starch.MemoryIndex)
+            return super().__new__(starch.ElasticIndex)
 
         raise Exception('Unknown index type')
 
 
 class MemoryIndex(Index):
-    def __init__(self):
+    def __init__(self, type='memory'):
         self.index = {}
 
 
@@ -65,4 +65,7 @@ class MemoryIndex(Index):
         for key in self.index:
             if dict_search(query, self.get(key)):
                 yield key
+
+    def destroy(self):
+        pass
 

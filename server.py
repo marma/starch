@@ -2,6 +2,7 @@
 
 from flask import Flask,request,render_template,Response,redirect,send_from_directory
 from flask_caching import Cache
+from flask_basicauth import BasicAuth
 from yaml import load
 from starch import Archive,Package
 from starch.exceptions import RangeNotSupported
@@ -16,13 +17,17 @@ from tempfile import NamedTemporaryFile,TemporaryDirectory
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config.update(load(open(join(app.root_path, 'config.yml')).read()))
+app.config['BASIC_AUTH_USERNAME'] = app.config['auth']['user']
+app.config['BASIC_AUTH_PASSWORD'] = app.config['auth']['pass']
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
+basic_auth = BasicAuth(app)
+ 
 archive = Archive(
             app.config['archive']['root'],
-            base=app.config['archive']['base'] if 'base' in app.config['archive'] else None)
-index = ElasticIndex(
-            app.config['archive']['index']['base'],
-            app.config['archive']['index']['name']) if 'index' in app.config['archive'] else None
+            base=app.config['archive']['base'] if 'base' in app.config['archive'] else None,
+            index=Index(**app.config['archive']['index']) if 'index' in app.config['archive'] else None)
+
+index = Index(**app.config['index']) if 'index' in app.config else None
 
 @app.route('/<key>/')
 @app.route('/<key>/_package.json')
@@ -40,6 +45,7 @@ def log(key):
     ...
 
 
+@basic_auth.required
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
 def package_file(key, path):
     p = archive.get(key)
@@ -51,7 +57,7 @@ def package_file(key, path):
 
         range = decode_range(request.headers.get('Range', default='bytes=0-'))
 
-        # @TODO optimization using get_location and send_from_directory
+        # TODO optimization using get_location and send_from_directory
 
         try:
             i = p.get_iter(path, range=range)
@@ -73,7 +79,7 @@ def package_file(key, path):
 
     return 'Not found', 404
 
-
+@basic_auth.required
 @app.route('/<key>/<path:path>', methods=[ 'PUT' ])
 def put_file(key, path):
     if 'expected_hash' not in request.args:
@@ -110,8 +116,6 @@ def put_file(key, path):
                     p = archive.get(key, mode='a')
                     p.add(tempfile.name, path, replace=replace)
 
-                _index(key, p)
-
                 return 'done', 204
             else:
                 return 'path (%s) not found in request' % path, 400
@@ -121,6 +125,7 @@ def put_file(key, path):
         return str(e), 500
 
 
+@basic_auth.required
 @app.route('/<key>/<path:path>', methods=[ 'DELETE' ])
 def delete_file(key, path):
     package = archive.get(key, mode='a')
@@ -133,10 +138,11 @@ def delete_file(key, path):
     return 'Not found', 404
 
 
+@basic_auth.required
 @app.route('/ingest', methods=[ 'POST' ])
 def ingest():
     with TemporaryDirectory() as tempdir:
-        # @todo: this probably breaks with very large packages
+        # TODO: this probably breaks with very large packages
         for path in request.files:
             temppath=join(tempdir, valid_path(path))
 
@@ -151,22 +157,22 @@ def ingest():
 
         key = archive.ingest(Package(tempdir), key=requests.args.get('key', None))
         package = archive.get(key)
-        _index(key, package)
 
         return redirect('/%s/' % key, code=201)
 
 
+@basic_auth.required
 @app.route('/new', methods=[ 'POST' ])
 def new():
     key, package = archive.new(**{k:v for k,v in request.args.items() })
-    _index(key, package)
 
     return redirect('/%s/' % key, code=201)
 
 
+@basic_auth.required
 @app.route('/packages')
 def packages():
-    i,r,c,g = (index or archive).search(
+    i,r,c,g = archive.search(
                                     {},
                                     int(request.args.get('start', '0')),
                                     request.args.get('max', None),
@@ -175,6 +181,7 @@ def packages():
     return Response(newliner(g), mimetype='text/plain')
 
 
+@basic_auth.required
 @app.route('/<key>/finalize', methods=[ 'POST' ])
 def finalize(key):
     p = archive.get(key)
@@ -184,18 +191,19 @@ def finalize(key):
             return 'packet is finalized, use patches', 400
         else:
             p.finalize()
-            _index(key, p)
 
             return 'finalized', 200
     else:
         return 'Not found', 404
 
 
+@basic_auth.required
 @app.route('/base')
 def base():
     return app.config['archive']['base']
 
 
+@basic_auth.required
 @app.route('/search')
 def search():
     q = loads(request.args['q'])
@@ -203,44 +211,26 @@ def search():
     max = int(request.args['max']) if 'max' in request.args else None
     sort = request.args.get('sort', None)
 
-    s, r, c, g = (index or archive).search(q, start, max, sort)
+    s, r, c, g = archive.search(q, start, max, sort)
 
     return Response(iter_search(s, r, c, g), mimetype='text/plain')
 
 
+@basic_auth.required
 @app.route('/count')
 def count():
     return Response(
                 dumps(
-                    (index or archive).count(
+                    archive.count(
                         loads(request.args['q']),
                         loads(request.args['c']))) + '\n',
                 mimetype='application/json')
 
 
+@basic_auth.required
 @app.route('/reindex/<key>')
 def reindex(key):
-    if index:
-        package = archive.get(key)
-
-        if package:
-            _index(key, package)
-            return 'indexed'
-        else:
-            return 'Not found', 404
-    else:
-        return 'No index', 500
-
-
-def _index(key, package=None):
-    if index:
-        if not package:
-            package = archive.get(key)
-
-        try:
-            index.update(key, package)
-        except Exception as e:
-            print('WARNING: exception while indexing, index not updated for %s (%s)' % (key, str(e)))
+    return 'indexed' if archive.update(key) else ('Not found', 404)
 
 
 def iter_search(start, returned, count, gen):

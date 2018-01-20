@@ -2,11 +2,12 @@ import starch
 from collections import Counter
 
 class MultiArchive(starch.Archive):
-    def __init__(self, root=None, extras=[], base=None):
+    def __init__(self, root=None, extras=[], base=None, index=None):
         archives=root
         self.archives = [ archives ] if not isinstance(archives, list) else archives
         self.extras = [ extras ] if not isinstance(extras, list) else extras
-        self.base=base
+        self.base = base
+        self.index = index
 
 
     def get(self, key, mode='r'):
@@ -15,11 +16,13 @@ class MultiArchive(starch.Archive):
 
         for archive in self.archives:
             package = archive.get(key)
+
             if package:
             #if key in archive:
             #    package = archive.get(key)
 
-                patches = [ extra.get(pkey) for extra in self.extras for pkey in extra.search({ 'patches': package.description()['urn'] }) ]
+                # not really proud of this ...
+                patches = [ extra.get(pkey) for extra in ([ archive ] + self.extras) for pkey in extra.search({ 'patches': package.description()['urn'] }) ]
 
                 return starch.MultiPackage(
                             package,

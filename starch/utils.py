@@ -134,3 +134,13 @@ def decode_range(srange):
 
     return ( int(s[0]), int(s[1]) if s[1] != '' else None )
 
+
+@contextmanager
+def nullctxmgr():
+    yield
+
+
+def nullcallback(msg, **kwargs):
+    if msg == 'lock':
+        return nullctxmgr()
+

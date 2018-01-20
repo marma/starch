@@ -4,7 +4,7 @@ from urllib.request import urlopen
 from urllib.parse import urlparse,urljoin,quote,unquote
 from copy import deepcopy,copy
 from uuid import uuid4
-from starch.utils import get_temp_dirname,valid_path,valid_file,valid_key,TEMP_PREFIX,chunked
+from starch.utils import get_temp_dirname,valid_path,valid_file,valid_key,TEMP_PREFIX,chunked,nullcallback
 from contextlib import closing
 from hashlib import md5,sha256
 from random import random
@@ -19,7 +19,7 @@ import starch
 VERSION = 0.1
 
 class FilePackage(starch.Package):
-    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=None, metadata={}, **kwargs):
+    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, metadata={}, main_entity=None, **kwargs):
         if root_dir == None and mode == 'r':
             raise Exception('\'%s\' mode and empty dir not allowed' % mode)
 
@@ -44,6 +44,7 @@ class FilePackage(starch.Package):
                             '@type': 'Package' if not patches else 'Patch',
                             'patches': patches,
                             'patch_type': patch_type,
+                            'main_entity': main_entity,
                             'urn': uuid4().urn,
                             'described_by': '_package.json',
                             'status': 'open',
@@ -51,14 +52,17 @@ class FilePackage(starch.Package):
                             'metadata': metadata,
                             'created': None,
                             'tag': uuid4().urn,
-                            'files': {}
+                            'files': { }
                          }
 
             if not patches:
                 del(self._desc['patches'])
                 del(self._desc['patch_type'])
 
-            self._desc['metadata'].update(kwargs)
+            if not metadata:
+                del(self._desc['metadata'])
+
+            #self._desc['metadata'].update(kwargs)
             self._desc['created'] = datetime.utcnow().isoformat() + 'Z'
             self.save()
             self._log('CREATED')
@@ -74,24 +78,28 @@ class FilePackage(starch.Package):
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname, path=None, traverse=True, exclude='^\\..*|^_.*', replace=False, **kwargs):
+    def add(self, fname, path=None, traverse=True, check_tag=None, exclude='^\\..*|^_.*', replace=False, **kwargs):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
 
-        path = path or basename(abspath(fname))
+        with self.callback('lock'):
+            #if check_tag and check_tag != self._desc['tag']:
+            #    raise Exception()
 
-        if path in [ '_package.json', '_log' ]:
-            raise Exception('filename (%s) not allowed' % path)
+            path = path or basename(abspath(fname))
 
-        if traverse and isdir(fname):
-            self._add_directory(fname, valid_path(path), exclude=exclude)
-        else:
-            f = self._write(fname, valid_path(path), replace=replace)
-            f.update(kwargs)
-    
-            self._desc['files'][path] = f
-            self._log('STORE "%s" size:%i %s' % (path, f['size'], f['checksum']))
-            self.save()
+            if path in [ '_package.json', '_log' ]:
+                raise Exception('filename (%s) not allowed' % path)
+
+            if traverse and isdir(fname):
+                self._add_directory(fname, valid_path(path), exclude=exclude)
+            else:
+                f = self._write(fname, valid_path(path), replace=replace)
+                f.update(kwargs)
+        
+                self._desc['files'][path] = f
+                self._log('STORE "%s" size:%i %s' % (path, f['size'], f['checksum']))
+                self.save()
 
 
     def remove(self, path):
@@ -179,8 +187,7 @@ class FilePackage(starch.Package):
             self._desc['tag'] = desc['tag']
             self._log('TAG %s' % desc['tag'])
 
-            if self.callback:
-                self.callback('save', self)
+            self.callback('save')
         else:
             Exception('package in read-only mode')
 

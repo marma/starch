@@ -5,29 +5,55 @@ archive:
     root: /data/archive
     #base: http://example.org/
 
+    index:
+        #type: memory
+
+        type: elastic
+        base: http://localhost:9200/
+        name: demo
+
+        auth:
+            user: xyz
+            pass: 123
+
+    triple_store:
+        base: http://localhost:8080/
+
+        auth:
+            user: xyz
+            pass: 123
+
+
+# Index can also go here which will bypass archive on certain requests
+index:
+    base: http://localhost:9200/
+    name: demo
+
 auth:
     type: simple
     user: demo
     pass: demo
 
-    #type: file
-    #userfile: users.txt
-    #groupfile: groups.txt
+# Not yes implemented
+#    type: file
+#    userfile: users.txt
+#    groupfile: groups.txt
+#
+#    type: ldap
+#    server: example.org
+#    port: 1234
+#    key: xxx
+#    read-group: starch-reader
+#    write-group: starch-writer
+#    admin-group: starch-admin
 
-    #type: ldap
-    #server: example.org
-    #port: 1234
-    #key: xxx
-    #read-group: starch-reader
-    #write-group: starch-writer
-    #admin-group: starch-admin
+locking:
+    type: memory
 
-#locking:
-    #type: simple
-
-    #type: redlock
-    #server: example.org
-    #port: 1234
-    #user: xxxx
-    #pass: yyyy
+# Not yet implemented
+#    type: redlock
+#    server: example.org
+#    port: 1234
+#    user: xxxx
+#    pass: yyyy
 

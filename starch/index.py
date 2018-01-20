@@ -1,6 +1,7 @@
 import starch
 from starch.utils import dict_search,dict_values
 from collections import Counter
+from copy import deepcopy
 
 class Index():
     def __new__(cls, type='memory', **kwargs):
@@ -13,12 +14,24 @@ class Index():
 
 
 class MemoryIndex(Index):
-    def __init__(self, type='memory'):
+    def __init__(self, type='memory', base=None, index_base=None):
+        self.base = base
+        self.index_base = index_base
         self.index = {}
 
 
     def get(self, key):
-        return self.index.get(key)
+        if self.base or self.index_base:
+            ret = deepcopy(self.index.get(key))
+
+            ret['@id'] = self._rebase(ret['@id'])
+
+            for f in ret['files']:
+                f['@id'] = self._rebase(f['@id'])
+
+            return ret
+        else:
+            return self.index.get(key)
 
 
     def update(self, key, package):
@@ -65,6 +78,11 @@ class MemoryIndex(Index):
         for key in self.index:
             if dict_search(query, self.get(key)):
                 yield key
+
+
+    def _rebase(self, u):
+        (self.base or '') + (u[len(index_base):] if external_base else u)
+
 
     def destroy(self):
         pass

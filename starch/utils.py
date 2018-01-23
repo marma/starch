@@ -141,6 +141,25 @@ def nullctxmgr():
 
 
 def nullcallback(msg, **kwargs):
+    print(msg, kwargs)
+
     if msg == 'lock':
         return nullctxmgr()
+
+
+def rebase(desc, base, index_base, in_place=False):
+    if base or index_base:
+        ret = deepcopy(desc) if in_place else desc
+        ret['@id'] = rebase_uri(['@id'], base, index_base)
+
+        for f in ret['files']:
+            f['@id'] = rebase_uri(f['@id'])
+
+        return ret
+    else:
+        return desc
+
+
+def rebase_uri(u, base, index_base):
+    return (base or '') + (u[len(index_base):] if index_base else u)
 

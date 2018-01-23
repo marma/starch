@@ -1,14 +1,14 @@
 import starch
-from starch.utils import dict_search,dict_values
+from starch.utils import dict_search,dict_values,rebase
 from collections import Counter
 from copy import deepcopy
 
 class Index():
-    def __new__(cls, type='memory', **kwargs):
-        if type == 'memory':
-            return super().__new__(starch.MemoryIndex)
-        elif type == 'elastic':
+    def __new__(cls, **kwargs):
+        if ('type' in kwargs and kwargs['type'] == 'elastic') or ('url' in kwargs and 'index_name' in kwargs):
             return super().__new__(starch.ElasticIndex)
+        elif 'type' not in kwargs or kwargs['type'] == 'memory':
+            return super().__new__(starch.MemoryIndex)
 
         raise Exception('Unknown index type')
 
@@ -21,17 +21,10 @@ class MemoryIndex(Index):
 
 
     def get(self, key):
-        if self.base or self.index_base:
-            ret = deepcopy(self.index.get(key))
-
-            ret['@id'] = self._rebase(ret['@id'])
-
-            for f in ret['files']:
-                f['@id'] = self._rebase(f['@id'])
-
-            return ret
+        if key in self.index:
+            return rebase(self.index.get(key), self.index, self.index_base)
         else:
-            return self.index.get(key)
+            return None
 
 
     def update(self, key, package):
@@ -78,10 +71,6 @@ class MemoryIndex(Index):
         for key in self.index:
             if dict_search(query, self.get(key)):
                 yield key
-
-
-    def _rebase(self, u):
-        (self.base or '') + (u[len(index_base):] if external_base else u)
 
 
     def destroy(self):

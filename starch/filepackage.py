@@ -19,7 +19,7 @@ import starch
 VERSION = 0.1
 
 class FilePackage(starch.Package):
-    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, metadata={}, main_entity=None, **kwargs):
+    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, metadata={}, **kwargs):
         if root_dir == None and mode == 'r':
             raise Exception('\'%s\' mode and empty dir not allowed' % mode)
 
@@ -44,7 +44,6 @@ class FilePackage(starch.Package):
                             '@type': 'Package' if not patches else 'Patch',
                             'patches': patches,
                             'patch_type': patch_type,
-                            'main_entity': main_entity,
                             'urn': uuid4().urn,
                             'described_by': '_package.json',
                             'status': 'open',
@@ -82,7 +81,7 @@ class FilePackage(starch.Package):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
 
-        with self.callback('lock'):
+        with self._lock_ctx():
             #if check_tag and check_tag != self._desc['tag']:
             #    raise Exception()
 
@@ -109,19 +108,21 @@ class FilePackage(starch.Package):
         if self.is_finalized():
             raise Exception('package is finalized, use patches')
 
-        if path in self:
-            del self._desc['files'][path]
-            full_path = self._get_full_path(path)
+        with _lock_ctx():
+            if path in self:
+                del self._desc['files'][path]
+                full_path = self._get_full_path(path)
 
-            if exists(full_path):
-                remove(full_path)
-        
+                if exists(full_path):
+                    remove(full_path)
+            
+            elif self.patches:
+                self[path] = { '@id': path, 'operation': 'delete', 'path': path }
+            else:
+                raise Exception('path (%s) not found in package' % path)
+
             self._log('DELETE %s' % path)
             self.save()
-        elif self.patches:
-            self[path] = { '@id': path, 'operation': 'delete', 'path': path }
-        else:
-            raise Exception('path (%s) not found in package' % path)
 
 
     def replace(self, fname, path=None, **kwargs):
@@ -240,6 +241,10 @@ class FilePackage(starch.Package):
         ret['files'] = [ x for key,x in ret['files'].items() ]
 
         return ret
+
+
+    def _lock_ctx(self):
+        return self.callback('lock')
 
 
     def _log(self, message):

@@ -20,9 +20,6 @@ class FileArchive(starch.Archive):
         self.index = index
         self.lockm = lockm
 
-        if index:
-            index.base = base or index.base
-            index.index_base = index_base 
 
     def new(self, **kwargs):
         key = self._generate_key()
@@ -215,7 +212,7 @@ class FileArchive(starch.Archive):
     def _callback(self, msg, key, package=None):
         if msg == 'lock':
             return self.lock(key)
-        elif msg == 'save':
+        elif msg in [ 'new', 'save', 'ingest' ]:
             if self.index:
                 #print('index %s' % key, file=stderr)
                 self.index.update(key, package or self.get(key))

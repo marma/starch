@@ -11,13 +11,17 @@ services:
         #    - /<local path>:/data/archive
         links:
             - elastic
+            - fuseki
 
     elastic:
-        image: elasticsearch:5.5
+        image: docker.elastic.co/elasticsearch/elasticsearch:6.1.1
         ports:
             - 9200:9200
         #volumes:
         #    - /<local path>:/usr/share/elasticsearch/data
+
+    fuseki:
+        image: fuseki:2
 
     nginx:
         restart: always

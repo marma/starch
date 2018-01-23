@@ -6,19 +6,22 @@ from elasticsearch.client import IndicesClient
 from elasticsearch.exceptions import NotFoundError
 from copy import deepcopy
 from enqp import parse,flatten_aggs,create_aggregations
+from starch.utils import rebase
 
 class ElasticIndex(starch.Index):
-    def __init__(self, type='elastic', base=None, index=None):
-        if not (base and index):
-            raise Exception('both base- and index-parametera required')
+    def __init__(self, type='elastic', url=None, base=None, index_name=None, server_base=None):
+        if not (url and index_name):
+            raise Exception('both url and index_name-parameters required')
 
+        self.url = url
         self.base = base
-        self.index = index
-        self.elastic = Elasticsearch(base)
+        self.server_base = server_base
+        self.index_name = index_name
+        self.elastic = Elasticsearch(url)
         self.indices = IndicesClient(self.elastic)
 
-        if not self.indices.exists(self.index):
-            self.indices.create(self.index)
+        if not self.indices.exists(self.index_name):
+            self.indices.create(self.index_name)
             self._install_mapping()
             self.index_existed = False
         else:
@@ -27,13 +30,15 @@ class ElasticIndex(starch.Index):
 
     def get(self, id):
         try:
-            ret = self.elastic.get(self.index, id)['_source']
+            return rebase(
+                    self.elastic.get(self.index_name, id)['_source'],
+                    self.base,
+                    self.server_base,
+                    in_place=True)
         except NotFoundError:
             return None
         except:
             raise
-
-        return ret
 
 
     def search(self, q, start=0, max=None, sort=None):
@@ -41,7 +46,7 @@ class ElasticIndex(starch.Index):
 
         #print(query)
 
-        res = self.elastic.search(index=self.index, doc_type='package', from_=0, size=0, body=query)
+        res = self.elastic.search(index=self.index_name, doc_type='package', from_=0, size=0, body=query)
         count = int(res['hits']['total'])
 
         # TODO: use scan for large datasets
@@ -63,7 +68,7 @@ class ElasticIndex(starch.Index):
         # TODO: use scan for large datasets
         for n in range(0, min(max-1, (count-start-1))//100 + 1):
             res = self.elastic.search(
-                    index=self.index,
+                    index=self.index_name,
                     doc_type='package',
                     from_=start+n*100,
                     size=min(100, count-start-100*n),
@@ -80,7 +85,7 @@ class ElasticIndex(starch.Index):
         #print(q)
 
         res = self.elastic.search(
-            index=self.index,
+            index=self.index_name,
             doc_type='package',
             size=0,
             body=q)
@@ -96,7 +101,7 @@ class ElasticIndex(starch.Index):
 
     def update(self, key, package):
         self.elastic.index(
-                index=self.index,
+                index=self.index_name,
                 doc_type='package',
                 id=key,
                 body=package.description(),
@@ -115,10 +120,10 @@ class ElasticIndex(starch.Index):
 
     def destroy(self, force=False):
         if self.index_existed and not force:
-            raise Exception('Elastic index existed before creation of this Index instance, and force parameter not set to True')
+            raise Exception('Elastic index existed before creation of this Index instance and force parameter not set')
 
-        i = IndicesClient(self.elastic)
-        i.delete(self.index)
+        self.indices.delete(self.index_name)
+
 
     def _install_mapping(self):
         m = Mapping('package')
@@ -147,5 +152,5 @@ class ElasticIndex(starch.Index):
 
         m.field('files', f)
 
-        m.save(self.index, using=self.elastic)
+        m.save(self.index_name, using=self.elastic)
 

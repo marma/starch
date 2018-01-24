@@ -100,6 +100,7 @@ class ElasticIndex(starch.Index):
             
 
     def update(self, key, package):
+        print('index')
         self.elastic.index(
                 index=self.index_name,
                 doc_type='package',

@@ -17,8 +17,8 @@ class FileArchive(starch.Archive):
         self.temporary = root == None
         self.root_dir = root or get_temp_dirname()
         self.base = base
-        self.index = index
-        self.lockm = lockm
+        self.index = starch.Index(**index) if isinstance(index, dict) else index
+        self.lockm = starch.LockManager(**lockm) if isinstance(lockm, dict) else lockm
 
 
     def new(self, **kwargs):
@@ -75,7 +75,10 @@ class FileArchive(starch.Archive):
         d = self._directory(key)
 
         if exists(d):
-            return starch.Package(d, mode=mode, base=urljoin(self.base, key + '/') if self.base else None)
+            p=starch.Package(d, mode=mode, base=urljoin(self.base, key + '/') if self.base else None)
+            p.callback=lambda msg, key=key, package=p, archive=self, **kwargs: archive._callback(msg, key=key, package=package)
+
+            return p
 
         return None
 
@@ -210,6 +213,7 @@ class FileArchive(starch.Archive):
 
 
     def _callback(self, msg, key, package=None):
+        #print('callback')
         if msg == 'lock':
             return self.lock(key)
         elif msg in [ 'new', 'save', 'ingest' ]:
@@ -225,4 +229,6 @@ class FileArchive(starch.Archive):
             if self.index:
                 self.index.destroy()
 
+    def __str__(self):
+        return repr([ self.root_dir, self.temporary, self.index, self.lockm ])
 

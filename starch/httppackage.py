@@ -34,7 +34,7 @@ class HttpPackage(starch.Package):
                 if mode is 'a' and self._desc['status'] == 'finalized':
                     raise Exception('package is finalized, use patch(...)')
 
-                self._desc['files'] = { x['path']:x for x in self._desc['files'].values() }
+                self._desc['files'] = { x['path']:x for x in self._desc['files'] }
         elif mode == 'w':
             raise Exception('mode \'w\' not supported for HttpPackage(), use mode \'a\' or HttpArchive.new(...)')
         else:
@@ -130,8 +130,6 @@ class HttpPackage(starch.Package):
             for path in ret['files']:
                 f = ret['files'][path]
                 f['@id'] = f['@id'].replace(server_base, self.base)
-
-        ret['files'] = [ x for x in ret['files'].values() ]
 
         return ret
 

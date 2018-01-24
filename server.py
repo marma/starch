@@ -4,7 +4,7 @@ from flask import Flask,request,render_template,Response,redirect,send_from_dire
 from flask_caching import Cache
 from flask_basicauth import BasicAuth
 from yaml import load
-from starch import Archive,Package
+from starch import Archive,Package,Index
 from starch.exceptions import RangeNotSupported
 from contextlib import closing
 from json import loads,dumps
@@ -22,12 +22,11 @@ app.config['BASIC_AUTH_PASSWORD'] = app.config['auth']['pass']
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
 basic_auth = BasicAuth(app)
  
-archive = Archive(
-            app.config['archive']['root'],
-            base=app.config['archive']['base'] if 'base' in app.config['archive'] else None,
-            index=Index(**app.config['archive']['index']) if 'index' in app.config['archive'] else None)
-
+archive = Archive(**app.config['archive'])
 index = Index(**app.config['index']) if 'index' in app.config else None
+
+print(archive)
+print(index)
 
 @app.route('/<key>/')
 @app.route('/<key>/_package.json')
@@ -78,6 +77,7 @@ def package_file(key, path):
                 status=200 if range == (0, None) else 206)
 
     return 'Not found', 404
+
 
 @basic_auth.required
 @app.route('/<key>/<path:path>', methods=[ 'PUT' ])

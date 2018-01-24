@@ -141,7 +141,7 @@ def nullctxmgr():
 
 
 def nullcallback(msg, **kwargs):
-    print(msg, kwargs)
+    #print(msg, kwargs)
 
     if msg == 'lock':
         return nullctxmgr()

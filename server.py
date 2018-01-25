@@ -175,7 +175,7 @@ def new():
 @app.route('/packages')
 #@basic_auth.required
 def packages():
-    i,r,c,g = archive.search(
+    i,r,c,g = (index or archive).search(
                 {},
                 int(request.args.get('start', '0')),
                 request.args.get('max', None),

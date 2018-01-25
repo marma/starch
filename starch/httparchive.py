@@ -10,15 +10,19 @@ class HttpArchive(starch.Archive):
     def __init__(self, root=None, base=None, auth=None):
         url=root
         self.url = url + ('/' if url[-1] != '/' else '')
-        self.auth = auth
         self.base = base or url
-        self.server_base = get(urljoin(self.url, 'base')).text
 
         if auth:
             if isinstance(auth, dict) and auth['type'] == 'basic':
                 self.auth = (auth['user'], auth['pass'])
+            elif isinstance(auth, tuple) and len(auth) == 2:
+                self.auth = auth
             else:
                 raise Exception('unsupported auth configuration')
+        else:
+            self.auth = None
+
+        self.server_base = get(urljoin(self.url, 'base'), auth=self.auth).text
 
 
     def new(self, **kwargs):
@@ -50,20 +54,17 @@ class HttpArchive(starch.Archive):
 
 
     def get(self, key, mode='r'):
-        try:
-            return starch.Package(
-                    self.url + key + '/',
-                    mode=mode,
-                    base=urljoin(self.base, key + '/'),
-                    auth=self.auth,
-                    server_base=urljoin(self.server_base, key + '/'))
-        except:
-            return None
+        return starch.Package(
+                self.url + key + '/',
+                mode=mode,
+                base=urljoin(self.base, key + '/'),
+                auth=self.auth,
+                server_base=urljoin(self.server_base, key + '/'))
 
 
     def search(self, query, start=0, max=None):
         g = self._search_iter(query, start, max)
-        i,r,c = next(i).split()
+        i,r,c = next(g).split()
 
         return i,r,c,g
 

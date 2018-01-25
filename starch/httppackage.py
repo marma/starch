@@ -131,6 +131,9 @@ class HttpPackage(starch.Package):
                 f = ret['files'][path]
                 f['@id'] = f['@id'].replace(server_base, self.base)
 
+        # de-dict
+        ret['files'] = [ x for x in ret['files'].values() ]
+
         return ret
 
 

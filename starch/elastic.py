@@ -100,12 +100,20 @@ class ElasticIndex(starch.Index):
             
 
     def update(self, key, package):
-        print('index')
+        #print('index')
         self.elastic.index(
                 index=self.index_name,
                 doc_type='package',
                 id=key,
                 body=package.description(),
+                refresh=True)
+
+
+    def delete(self, key):
+        self.elastic.delete(
+                index=self.index_name,
+                doc_type='package',
+                id=key,
                 refresh=True)
 
 

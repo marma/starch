@@ -21,12 +21,14 @@ app.config['BASIC_AUTH_USERNAME'] = app.config['auth']['user']
 app.config['BASIC_AUTH_PASSWORD'] = app.config['auth']['pass']
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
 basic_auth = BasicAuth(app)
- 
+
+if 'auth' in app.config:
+    app.config['BASIC_AUTH_USERNAME'] = app.config['auth']['user']
+    app.config['BASIC_AUTH_PASSWORD'] = app.config['auth']['pass']
+    app.config['BASIC_AUTH_FORCE'] = True
+
 archive = Archive(**app.config['archive'])
 index = Index(**app.config['index']) if 'index' in app.config else None
-
-print(archive)
-print(index)
 
 @app.route('/<key>/')
 @app.route('/<key>/_package.json')
@@ -40,12 +42,13 @@ def package(key):
 
 
 @app.route('/<key>/_log')
+#@basic_auth.required
 def log(key):
     ...
 
 
-@basic_auth.required
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
+#@basic_auth.required
 def package_file(key, path):
     p = archive.get(key)
 
@@ -79,8 +82,8 @@ def package_file(key, path):
     return 'Not found', 404
 
 
-@basic_auth.required
 @app.route('/<key>/<path:path>', methods=[ 'PUT' ])
+#@basic_auth.required
 def put_file(key, path):
     if 'expected_hash' not in request.args:
         return 'parameter expected_hash missing', 400
@@ -125,8 +128,8 @@ def put_file(key, path):
         return str(e), 500
 
 
-@basic_auth.required
 @app.route('/<key>/<path:path>', methods=[ 'DELETE' ])
+#@basic_auth.required
 def delete_file(key, path):
     package = archive.get(key, mode='a')
 
@@ -138,8 +141,8 @@ def delete_file(key, path):
     return 'Not found', 404
 
 
-@basic_auth.required
 @app.route('/ingest', methods=[ 'POST' ])
+#@basic_auth.required
 def ingest():
     with TemporaryDirectory() as tempdir:
         # TODO: this probably breaks with very large packages
@@ -161,28 +164,28 @@ def ingest():
         return redirect('/%s/' % key, code=201)
 
 
-@basic_auth.required
 @app.route('/new', methods=[ 'POST' ])
+#@basic_auth.required
 def new():
     key, package = archive.new(**{k:v for k,v in request.args.items() })
 
     return redirect('/%s/' % key, code=201)
 
 
-@basic_auth.required
 @app.route('/packages')
+#@basic_auth.required
 def packages():
     i,r,c,g = archive.search(
-                                    {},
-                                    int(request.args.get('start', '0')),
-                                    request.args.get('max', None),
-                                    sort='created:asc')
+                {},
+                int(request.args.get('start', '0')),
+                request.args.get('max', None),
+                sort='created:asc')
 
     return Response(newliner(g), mimetype='text/plain')
 
 
-@basic_auth.required
 @app.route('/<key>/finalize', methods=[ 'POST' ])
+#@basic_auth.required
 def finalize(key):
     p = archive.get(key)
 
@@ -197,40 +200,50 @@ def finalize(key):
         return 'Not found', 404
 
 
-@basic_auth.required
 @app.route('/base')
+#@basic_auth.required
 def base():
     return app.config['archive']['base']
 
 
-@basic_auth.required
 @app.route('/search')
+#@basic_auth.required
 def search():
     q = loads(request.args['q'])
     start = int(request.args.get('from', '0'))
     max = int(request.args['max']) if 'max' in request.args else None
     sort = request.args.get('sort', None)
 
-    s, r, c, g = archive.search(q, start, max, sort)
+    s, r, c, g = (index or archive).search(q, start, max, sort)
 
     return Response(iter_search(s, r, c, g), mimetype='text/plain')
 
 
-@basic_auth.required
 @app.route('/count')
+#@basic_auth.required
 def count():
     return Response(
                 dumps(
-                    archive.count(
+                    (index or archive).count(
                         loads(request.args['q']),
                         loads(request.args['c']))) + '\n',
                 mimetype='application/json')
 
 
-@basic_auth.required
 @app.route('/reindex/<key>')
+#@basic_auth.required
 def reindex(key):
-    return 'indexed' if archive.update(key) else ('Not found', 404)
+    if index:
+        p = archive.get(key)
+
+        if p:
+            index.update(key, p)
+            
+            return 'indexed'
+        else:
+            return 'Not found', 404
+
+    return 'no index', 500
 
 
 def iter_search(start, returned, count, gen):

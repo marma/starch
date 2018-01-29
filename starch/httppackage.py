@@ -17,7 +17,7 @@ from tempfile import TemporaryFile
 VERSION = 0.1
 
 class HttpPackage(starch.Package):
-    def __init__(self, url, mode='r', base=None, auth=None, server_base=None):
+    def __init__(self, url, mode='r', base=None, auth=None, server_base=None, label=None):
         self.url = url
         self._mode = mode
         self.auth = auth
@@ -205,6 +205,10 @@ class HttpPackage(starch.Package):
 
     def __str__(self):
         return dumps(self.description(), indent=4)
+
+
+#    def __len__(self):
+#        return len(self._desc['files'])
 
 
 def do_hash(fname):

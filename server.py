@@ -17,18 +17,25 @@ from tempfile import NamedTemporaryFile,TemporaryDirectory
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config.update(load(open(join(app.root_path, 'config.yml')).read()))
-app.config['BASIC_AUTH_USERNAME'] = app.config['auth']['user']
-app.config['BASIC_AUTH_PASSWORD'] = app.config['auth']['pass']
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
-basic_auth = BasicAuth(app)
 
 if 'auth' in app.config:
+    basic_auth = BasicAuth(app)
     app.config['BASIC_AUTH_USERNAME'] = app.config['auth']['user']
     app.config['BASIC_AUTH_PASSWORD'] = app.config['auth']['pass']
     app.config['BASIC_AUTH_FORCE'] = True
 
 archive = Archive(**app.config['archive'])
 index = Index(**app.config['index']) if 'index' in app.config else None
+
+@app.route('/')
+def site_index():
+    q = loads(request.args['q']) if 'q' in request.args else {}
+    packages = (index or archivei).search(q)
+    counts = (index or archive).count(q, { 'type': { 'files': 'mime_type' } } )
+
+    return render_template('test.html', start=packages[0], max=packages[1], archive=archive, packages=packages[3], counts=counts)
+
 
 @app.route('/<key>/')
 @app.route('/<key>/_package.json')
@@ -245,6 +252,10 @@ def reindex(key):
 
     return 'no index', 500
 
+
+#@app.route('/static/<path:path>')
+#def static(path):
+#    return send_from_directory('static', path)
 
 def iter_search(start, returned, count, gen):
     yield '%d %d %d\n' % (start, returned, count)

@@ -232,3 +232,7 @@ class FileArchive(starch.Archive):
     def __str__(self):
         return repr([ self.root_dir, self.temporary, self.index, self.lockm ])
 
+
+    def __getitem__(self, key):
+        return self.get(key)
+

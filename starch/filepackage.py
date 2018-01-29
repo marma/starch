@@ -19,7 +19,7 @@ import starch
 VERSION = 0.1
 
 class FilePackage(starch.Package):
-    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, metadata={}, **kwargs):
+    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, metadata={}, label=None, **kwargs):
         if root_dir == None and mode == 'r':
             raise Exception('\'%s\' mode and empty dir not allowed' % mode)
 
@@ -42,6 +42,7 @@ class FilePackage(starch.Package):
             self._desc = {
                             '@id': '',
                             '@type': 'Package' if not patches else 'Patch',
+                            'label': label,
                             'patches': patches,
                             'patch_type': patch_type,
                             'urn': uuid4().urn,
@@ -334,4 +335,7 @@ class FilePackage(starch.Package):
     def __del__(self):
         if self._temporary and exists(self.root_dir) and self.root_dir.startswith(TEMP_PREFIX):
             rmtree(self.root_dir)
+
+#    def __len__(self):
+#        return len(self._desc['files'])
 

@@ -121,3 +121,6 @@ class HttpArchive(starch.Archive):
             return r.status_code == 200
 
 
+    def __getitem__(self, key):
+        return self.get(key)
+

@@ -19,7 +19,7 @@ class MultiArchive(starch.Archive):
 
             if package:
                 # not really proud of this ...
-                print('PATCHES:', [ pkey for extra in (self.extras) for pkey in extra.search({ 'patches': package.description()['urn'] })[3] ])
+                #print('PATCHES:', [ pkey for extra in (self.extras) for pkey in extra.search({ 'patches': package.description()['urn'] })[3] ])
                 patches = [ extra.get(pkey) for extra in (self.extras) for pkey in extra.search({ 'patches': package.description()['urn'] })[3] ]
 
                 return starch.MultiPackage(

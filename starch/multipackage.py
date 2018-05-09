@@ -10,26 +10,24 @@ class MultiPackage(starch.Package):
         self.package = package
         self.patches = with_patches
         self.base = base
-        self._desc=None
+        self._desc=self._description()
 
 
     def get_raw(self, path, range=None):
-        for patch in reversed(self.patches):
-            if path in patch:
-                return patch.get_raw(path, range=range)
+        if path in self:
+            for patch in reversed(self.patches):
+                if path in patch:
+                    return patch.get_raw(path, range=range)
 
-        if path in self.package:
-            return self.package.get_raw(path, range=range)
+            if path in self.package:
+                return self.package.get_raw(path, range=range)
 
-        raise Exception('path (%s) not found' % path)
+        raise Exception('path (%s) does not exist in package' % path)
 
 
     def get_iter(self, path, chunk_size=10*1024, range=None):
-        if path in self:
-            with self.get_raw(path, range=range) as f:
-                yield from chunked(f, chunk_size=chunk_size, max=range[1]-range[0] + 1 if range and range[1] else None)
-        else:
-            raise Exception('%s does not exist in package' % path)
+        with self.get_raw(path, range=range) as f:
+            yield from chunked(f, chunk_size=chunk_size, max=range[1]-range[0] + 1 if range and range[1] else None)
 
 
     def read(self, path):
@@ -49,28 +47,38 @@ class MultiPackage(starch.Package):
 
 
     def description(self):
-        return self._desc if self._desc else self._description()
+        ret = deepcopy(self._desc)
+        ret['files'] = [ v for k,v in ret['files'].items() ]
+
+        return ret
 
 
     def _description(self):
-        ret = deepcopy(self.package.description())
-        ret['has_patches'] = []
+        ret = self.package.description()
+        ret['files'] = { v['path']:v for v in ret['files'] }
+        ret['instances'] = [ ret['urn'] ]
 
         for patch in self.patches:
-            ret['has_patches'] += [ patch.description()['urn'] ]
+            ret['instances'] += [ patch.description()['urn'] ]
 
             if patch.patch_type == 'version':
                 ret['files'] = {}
+                ret['tags'] = []
+                ret['label'] = patch.description()['label']
+
+            s = set(ret['tags'])
+            s.update(patch.description()['tags'])
+            ret['tags'] = list(s)
 
             for path in patch:
                 if 'operation' in patch[path] and patch[path]['operation'] == 'delete':
                     if path in ret['files']:
                         del(ret['files'][path])
-                elif path not in [ '_package.json', '_log' ]:
+                else:
                     ret['files'][path] = patch.get(path, base=self.base)
 
-        if ret['has_patches'] == []:
-            del(ret['has_patches'])
+        if ret['instances'] == []:
+            del(ret['instances'])
 
         self._desc = ret
 
@@ -90,7 +98,9 @@ class MultiPackage(starch.Package):
 
 
     def __contains__(self, key):
-        return key in self.list()
+        return key in self._desc['files'] and \
+               'operation' in self[key] and \
+               self[key]['operation'] != 'delete'
 
 
     def __getitem__(self, key):

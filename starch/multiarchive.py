@@ -18,11 +18,9 @@ class MultiArchive(starch.Archive):
             package = archive.get(key)
 
             if package:
-            #if key in archive:
-            #    package = archive.get(key)
-
                 # not really proud of this ...
-                patches = [ extra.get(pkey) for extra in ([ archive ] + self.extras) for pkey in extra.search({ 'patches': package.description()['urn'] }) ]
+                print('PATCHES:', [ pkey for extra in (self.extras) for pkey in extra.search({ 'patches': package.description()['urn'] })[3] ])
+                patches = [ extra.get(pkey) for extra in (self.extras) for pkey in extra.search({ 'patches': package.description()['urn'] })[3] ]
 
                 return starch.MultiPackage(
                             package,

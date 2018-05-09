@@ -19,7 +19,7 @@ import starch
 VERSION = 0.1
 
 class FilePackage(starch.Package):
-    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, metadata={}, label=None, **kwargs):
+    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, tags=[], label=None, **kwargs):
         if root_dir == None and mode == 'r':
             raise Exception('\'%s\' mode and empty dir not allowed' % mode)
 
@@ -43,13 +43,13 @@ class FilePackage(starch.Package):
                             '@id': '',
                             '@type': 'Package' if not patches else 'Patch',
                             'label': label,
+                            'tags': tags,
                             'patches': patches,
                             'patch_type': patch_type,
                             'urn': uuid4().urn,
                             'described_by': '_package.json',
                             'status': 'open',
                             'package_version': VERSION,
-                            'metadata': metadata,
                             'created': None,
                             'tag': uuid4().urn,
                             'files': { }
@@ -59,10 +59,6 @@ class FilePackage(starch.Package):
                 del(self._desc['patches'])
                 del(self._desc['patch_type'])
 
-            if not metadata:
-                del(self._desc['metadata'])
-
-            #self._desc['metadata'].update(kwargs)
             self._desc['created'] = datetime.utcnow().isoformat() + 'Z'
             self.save()
             self._log('CREATED')

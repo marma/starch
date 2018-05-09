@@ -71,7 +71,7 @@ class ElasticIndex(starch.Index):
                     index=self.index_name,
                     doc_type='package',
                     from_=start+n*100,
-                    size=min(100, count-start-100*n),
+                    size=min(max, min(100, count-start-100*n)),
                     body=q)
 
             for id in [ x['_id'] for x in res['hits']['hits'] ]:

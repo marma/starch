@@ -31,10 +31,11 @@ index = Index(**app.config['index']) if 'index' in app.config else None
 @app.route('/')
 def site_index():
     q = loads(request.args['q']) if 'q' in request.args else {}
-    packages = (index or archivei).search(q)
+    packages = (index or archive).search(q, max=20)
+    descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
     counts = (index or archive).count(q, { 'type': { 'files': 'mime_type' } } )
 
-    return render_template('test.html', start=packages[0], max=packages[1], archive=archive, packages=packages[3], counts=counts)
+    return render_template('test.html', start=packages[0], max=packages[1], archive=archive, descriptions=descriptions, counts=counts)
 
 
 @app.route('/<key>/')

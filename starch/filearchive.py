@@ -72,6 +72,7 @@ class FileArchive(starch.Archive):
         if mode is 'w':
             raise Exception('mode \'w\' not allowed, use \'a\'')
 
+        print('GET:', key)
         d = self._directory(key)
 
         if exists(d):
@@ -97,6 +98,8 @@ class FileArchive(starch.Archive):
         # This is deliberatly non-optimal for small
         # resultsets in large archives and/or paging.
         # Use an index and the web frontend instead
+        print(query)
+
         if self.index:
             return self.index.search(query, start, max, sort)
 

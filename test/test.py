@@ -7,17 +7,21 @@ patches = Archive()
 ma = Archive(archive, extras=patches, base='https://example.net/')
 
 key, p1 = archive.new()
+urn = p1.description()['urn']
 p1.add('README.md')
 p1.finalize()
-p2 = patches.new(patches=p1.description()['urn'])[1]
+k2,p2 = patches.new(patches=urn)
 p2.add('README.md')
-p3 = patches.new(patches=p1.description()['urn'])[1]
-p3.add('test.py')
+k3,p3 = patches.new(patches=urn)
+p3.add('server.py')
 p3.add('README.md')
 
-print(p1)
-print(p2)
-print(p3)
+print(archive.search({'patches': urn }))
+print(patches.search({'patches': urn }))
+
+print('KEY: ', key)
+print('KEY: ', k2)
+print('KEY: ', k3)
 
 print(ma.get(key))
 

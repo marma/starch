@@ -8,3 +8,4 @@ gunicorn>=19.7.0
 elasticsearch>=5.0.0,<6.0.0
 elasticsearch-dsl>=5.0.0,<6.0.0
 lark-parser>=0.4.1
+gevent>=1.3a2

@@ -15,6 +15,7 @@ p2.add('README.md')
 k3,p3 = patches.new(patches=urn)
 p3.add('server.py')
 p3.add('README.md')
+p3.tag('test:test')
 
 print(archive.search({'patches': urn }))
 print(patches.search({'patches': urn }))

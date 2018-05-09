@@ -51,7 +51,7 @@ class FilePackage(starch.Package):
                             'status': 'open',
                             'package_version': VERSION,
                             'created': None,
-                            'tag': uuid4().urn,
+                            'version': uuid4().urn,
                             'files': { }
                          }
 
@@ -74,12 +74,12 @@ class FilePackage(starch.Package):
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname, path=None, traverse=True, check_tag=None, exclude='^\\..*|^_.*', replace=False, **kwargs):
+    def add(self, fname, path=None, traverse=True, check_version=None, exclude='^\\..*|^_.*', replace=False, **kwargs):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
 
         with self._lock_ctx():
-            #if check_tag and check_tag != self._desc['tag']:
+            #if check_version and check_version != self._desc['version']:
             #    raise Exception()
 
             path = path or basename(abspath(fname))
@@ -174,7 +174,7 @@ class FilePackage(starch.Package):
     def save(self):
         if self._mode in [ 'w', 'a' ]:
             desc = copy(self._desc)
-            desc['tag'] =  uuid4().urn
+            desc['version'] =  uuid4().urn
 
             # de-dict files
             desc['files'] = [ x for x in desc['files'].values() ]
@@ -182,8 +182,8 @@ class FilePackage(starch.Package):
             with open(join(self.root_dir, '_package.json'), 'wb') as out:
                 out.write(dumps(desc, indent=4).encode('utf-8'))
 
-            self._desc['tag'] = desc['tag']
-            self._log('TAG %s' % desc['tag'])
+            self._desc['version'] = desc['version']
+            self._log('VERSION %s' % desc['version'])
 
             self.callback('save')
         else:
@@ -238,6 +238,22 @@ class FilePackage(starch.Package):
         ret['files'] = [ x for key,x in ret['files'].items() ]
 
         return ret
+
+
+    def tag(self, tag):
+        if self._mode in [ 'a', 'w' ]:
+            self._desc['tags'] += [ tag ]
+            self.save()
+        else:
+            raise Exception('package in read-only mode')
+
+
+    def untag(self, tag):
+        if self._mode in [ 'a', 'w' ]:
+            self._desc['tags'] = [ x for x in self._desc['tag'] if x != tag ]
+            self.save()
+        else:
+            raise Exception('package in read-only mode')
 
 
     def _lock_ctx(self):

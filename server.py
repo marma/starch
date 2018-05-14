@@ -33,9 +33,15 @@ def site_index():
     q = loads(request.args['q']) if 'q' in request.args else {}
     packages = (index or archive).search(q, max=20)
     descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
-    counts = (index or archive).count(q, { 'type': { 'files': 'mime_type' } } )
+    counts = (index or archive).count(q, { 'type': { 'files': 'mime_type' }, 'tag': 'tags', 'size': 'sum(size)' } )
+    counts['size']['value'] = int(counts['size']['value'])
 
-    return render_template('test.html', start=packages[0], max=packages[1], archive=archive, descriptions=descriptions, counts=counts)
+    return render_template('index.html',
+                           start=packages[0],
+                           max=packages[1],
+                           archive=archive,
+                           descriptions=descriptions,
+                           counts=counts)
 
 
 @app.route('/<key>/')
@@ -49,16 +55,35 @@ def package(key):
         return 'Not found', 404
 
 
-@app.route('/<key>/_log')
-#@basic_auth.required
-def log(key):
-    ...
+@app.route('/<key>/_tag', methods=[ 'POST' ])
+def tag(key):
+    p = archive.get(key, mode='a')
+
+    if p:
+        if 'tag' in request.form or 'untag' in request.form:
+            for tag in request.form.getlist('tag'):
+                p.tag(tag)
+
+            for tag in request.form.getlist('untag'):
+                p.untag(tag)
+
+            return 'Done', 200
+        else:
+            return "parameter 'tag' or 'untag' missing", 400
+    else:
+        return 'Not found', 404
 
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
-#@basic_auth.required
 def package_file(key, path):
     p = archive.get(key)
+
+    # must be some other way to get correct routing
+    if p and path == '_log':
+        return Response(p.log(), mimetype='text/plain')
+
+    if p and path == '_view':
+        return render_template('package.html', package=p, mimetype='text/html')
 
     if p and path in p:
         size = int(p[path]['size'])
@@ -91,7 +116,6 @@ def package_file(key, path):
 
 
 @app.route('/<key>/<path:path>', methods=[ 'PUT' ])
-#@basic_auth.required
 def put_file(key, path):
     if 'expected_hash' not in request.args:
         return 'parameter expected_hash missing', 400
@@ -137,7 +161,6 @@ def put_file(key, path):
 
 
 @app.route('/<key>/<path:path>', methods=[ 'DELETE' ])
-#@basic_auth.required
 def delete_file(key, path):
     package = archive.get(key, mode='a')
 
@@ -150,7 +173,6 @@ def delete_file(key, path):
 
 
 @app.route('/ingest', methods=[ 'POST' ])
-#@basic_auth.required
 def ingest():
     with TemporaryDirectory() as tempdir:
         # TODO: this probably breaks with very large packages
@@ -173,7 +195,6 @@ def ingest():
 
 
 @app.route('/new', methods=[ 'POST' ])
-#@basic_auth.required
 def new():
     key, package = archive.new(**{k:v for k,v in request.args.items() })
 
@@ -181,7 +202,6 @@ def new():
 
 
 @app.route('/packages')
-#@basic_auth.required
 def packages():
     i,r,c,g = (index or archive).search(
                 {},
@@ -193,9 +213,8 @@ def packages():
 
 
 @app.route('/<key>/finalize', methods=[ 'POST' ])
-#@basic_auth.required
 def finalize(key):
-    p = archive.get(key)
+    p = archive.get(key, mode='a')
 
     if p:
         if p.status() == 'finalized':
@@ -209,13 +228,11 @@ def finalize(key):
 
 
 @app.route('/base')
-#@basic_auth.required
 def base():
     return app.config['archive']['base']
 
 
 @app.route('/search')
-#@basic_auth.required
 def search():
     q = loads(request.args['q'])
     start = int(request.args.get('from', '0'))
@@ -228,7 +245,6 @@ def search():
 
 
 @app.route('/count')
-#@basic_auth.required
 def count():
     return Response(
                 dumps(
@@ -239,7 +255,6 @@ def count():
 
 
 @app.route('/reindex/<key>')
-#@basic_auth.required
 def reindex(key):
     if index:
         p = archive.get(key)

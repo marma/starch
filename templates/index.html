@@ -1,17 +1,74 @@
+<!DOCTYPE html>
 <html>
     <head>
+        <link rel="stylesheet" type="text/css" href="static/Semantic-UI-CSS-Master/semantic.min.css">
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+        <script src="static/Semantic-UI-CSS-Master/semantic.min.js"></script>
+        <style>
+            body {
+                padding: 1em;
+            }
+
+            #content {
+                padding-left: 19em;
+                padding-top: 0.25em;
+            }
+
+            #menu {
+                padding-top: 1em;
+            }
+        </style>
     </head>
-    <body>
-        <table>
-            <thead>
-                <tr>
-                    <td>Package</td>
-                </tr>
-            </thead>
-            {% for package in packages[3] %}
-            <tr>
-                <td><a href="{{ package }}/">{{ package }}</a></td>
-            </tr>
+    
+    <body class="">
+        <div id="menu" class="ui visible sidebar inverted left vertical menu list">
+            <div class="item"><b>File types</b></div>
+            {% for type in counts['type'] %}
+            <a class="item" href="?q=%7B+%22files%22%3A%20%7B%20%22mime_type%22%3A%20%22{{ type | urlencode }}%22%20%7D%20%7D">{{ type }} ({{ counts['type'][type]  }})</a>
             {% endfor %}
+            <div class="item"><b>Tags</b></div>
+            {% for tag in counts['tag'] %}
+            <div class="item">
+                <div class="right floated content">
+                    <div class="ui circular label">{{ counts['tag'][tag] }}</div>
+                </div>
+                <a class="content" href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}">{{ tag | truncate(16) }}</a>
+            </div>
+            <!--a class="item" href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}">{{ tag | truncate(16) }} ({{ counts['tag'][tag] }})</a-->
+            {% endfor %}
+            <div class="item"><b>Number of packages:</b> {{ max }}</div>
+            <div class="item"><b>Total size:</b> {{ counts['size']['value'] | filesizeformat }}</div>
+        </div>
+        <div class="pushable">
+            <!--button id="sidebar_left_toggle" onclick="$('.ui.sidebar').sidebar('toggle');">show sidebar</button-->
+            <div id="content" class="ui article" id="content">
+                <div class="ui cards">
+                    {% for key,description in descriptions %}
+                    <div class="ui link card" href="/{{ key }}/">
+                        <a class="image" href="/{{ key }}/_view">
+                            
+                            <img src="static/img/white-image.png"/>
+                        </a>
+                        <div class="content">
+                            <span class="header">{{ description['label'] }}</span>
+                            <!--a href="/{{ key }}/_view">{{ key }}</a-->
+                            {% for tag in description['tags'] %}<a href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}" class="ui blue label">{{ tag | truncate(16) }}</a>{% endfor %}
+                        </div>
+                        <!--div class="extra content">
+                        {% for tag in description['tags'] %}
+                            <span class="ui label">{{ tag }}</span>
+                        {% endfor %}
+                        </div-->
+                        <div class="extra content">
+                            <span>{{ description['files'] | length }} Files</span> - <span>{{ description['size'] | filesizeformat }}</span> - <span>{{ [ description['instances'] | length, 1] | max }} instance(s)</span>
+                        </div>
+                        <div class="extra content">
+                            <span>{{ description['created'] }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </body>
-</html>
+<html>

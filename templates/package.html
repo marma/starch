@@ -1,19 +1,45 @@
+<!DOCTYPE html>
 <html>
     <head>
+        <link rel="stylesheet" type="text/css" href="/static/Semantic-UI-CSS-Master/semantic.min.css">
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+        <script src="/static/Semantic-UI-CSS-Master/semantic.min.js"></script>
+        <style>
+            body {
+                padding: 1em;
+            }
+
+            #content {
+                padding-left: 19em;
+                padding-top: 0.25em;
+            }
+        </style>
     </head>
-    <body>
-        <table>
-            <thead>
-                <tr>
-                    <td>Filename</td>
-                    <td>size</td>
-                </tr>
-            </thead>
-            {% for path in package['files'] %}
-            <tr>
-                <td><a href="{{ path|urlencode }}">{{ path }}</a></td>
-                <td>{{ package['files'][path]['size'] }}</td>
-            </tr>
-            {% endfor %}
+    
+    <body class="">
+        <div class="ui visible sidebar inverted left vertical menu">
+            <div class="item"><b>Package size:</b> {{ package.description()['size'] | filesizeformat }}</div>
+        </div>
+        <div class="pushable">
+            <div id="content">
+                <table class="ui celled padded striped selectable large table">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Type</th>
+                            <th>size</th>
+                    </thead>
+                    <tbody>
+                    {% for path in package | sort %}
+                        <tr>
+                            <td><a class="header" href="{{ path }}"><b>{{ path }}</b></a></td>
+                            <td>{{ package[path]['mime_type'] }}</td>
+                            <td><span class="ui circular label">{{ package[path]['size'] | filesizeformat}}</span</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </body>
 </html>

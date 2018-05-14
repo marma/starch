@@ -5,7 +5,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.client import IndicesClient
 from elasticsearch.exceptions import NotFoundError
 from copy import deepcopy
-from enqp import parse,flatten_aggs,create_aggregations
+from starch.enqp import parse,flatten_aggs,create_aggregations
 from starch.utils import rebase
 
 class ElasticIndex(starch.Index):
@@ -44,8 +44,6 @@ class ElasticIndex(starch.Index):
     def search(self, q, start=0, max=None, sort=None):
         query = parse(dumps(q))
 
-        #print(query)
-
         res = self.elastic.search(index=self.index_name, doc_type='package', from_=0, size=0, body=query)
         count = int(res['hits']['total'])
 
@@ -82,25 +80,20 @@ class ElasticIndex(starch.Index):
         q = parse(dumps(q))
         q.update(create_aggregations(cats))
 
-        #print(q)
-
         res = self.elastic.search(
             index=self.index_name,
             doc_type='package',
             size=0,
             body=q)
 
-        #print(dumps(res, indent=4))
-
         ret = {}
         for k,v in flatten_aggs(res)['aggregations'].items():
-            ret[k] = { x['key']:x['doc_count'] for x in v['buckets'] }
+            ret[k] = { x['key']:x['doc_count'] for x in v['buckets'] } if 'buckets' in v else v
 
         return ret
             
 
     def update(self, key, package):
-        #print('index')
         self.elastic.index(
                 index=self.index_name,
                 doc_type='package',
@@ -140,6 +133,8 @@ class ElasticIndex(starch.Index):
 
         m.field('@id', 'keyword', multi=False, required=True)
         m.field('@type', 'keyword')
+        m.field('tags', 'keyword')
+        m.field('version', 'keyword')
         m.field('urn', 'keyword')
         m.field('described_by', 'keyword')
         m.field('label', 'text', fields={ 'raw': Keyword() })
@@ -148,7 +143,7 @@ class ElasticIndex(starch.Index):
         m.field('has_patches', 'keyword', multi=True)
         m.field('status', 'keyword')
         m.field('package_version', 'keyword')
-        m.field('metadata', 'object')
+        m.field('size', 'integer')
 
         f = Nested()
         f.field('@id', 'keyword', multi=False)

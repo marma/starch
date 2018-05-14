@@ -107,6 +107,32 @@ class HttpPackage(starch.Package):
         return list(self._desc['files'].keys())
 
 
+    def tag(self, tag):
+        if self._mode in [ 'a', 'w' ]:
+            r = post(self.url + '_tag', data={ 'tag': tag }, auth=self.auth)
+
+            if r.status_code != 200:
+                raise Exception('expected 200, got %d with message "%s"' % (r.status_code, r.text))
+
+            self._desc['tags'] += [ tag ]
+            #self._reload()
+        else:
+            raise Exception('package in read-only mode')
+
+
+    def untag(self, tag):
+        if self._mode in [ 'a', 'w' ]:
+            r = post(self.url + '_tag', data={ 'untag': tag }, auth=self.auth)
+
+            if r.status_code != 200:
+                raise Exception('expected 200, got %d with message "%s"' % (r.status_code, r.text))
+
+            self._desc['tags'] = [ x for x in self._desc['tags'] if x != tag ]
+            #self._reload()
+        else:
+            raise Exception('package in read-only mode')
+
+
     def finalize(self):
         if self._mode == 'r':
             raise Exception('package is in read-only mode')

@@ -70,6 +70,9 @@ class MultiPackage(starch.Package):
             s.update(patch.description()['tags'])
             ret['tags'] = list(s)
 
+            if patch.description()['label']:
+                ret['label'] = patch.description()['label']
+
             for path in patch:
                 if 'operation' in patch[path] and patch[path]['operation'] == 'delete':
                     if path in ret['files']:
@@ -80,6 +83,7 @@ class MultiPackage(starch.Package):
         if ret['instances'] == []:
             del(ret['instances'])
 
+        ret['size'] = sum([ v['size'] for k,v in ret['files'].items() ])
         self._desc = ret
 
         return ret

@@ -52,6 +52,7 @@ class FilePackage(starch.Package):
                             'package_version': VERSION,
                             'created': None,
                             'version': uuid4().urn,
+                            'size': 0,
                             'files': { }
                          }
 
@@ -175,6 +176,7 @@ class FilePackage(starch.Package):
         if self._mode in [ 'w', 'a' ]:
             desc = copy(self._desc)
             desc['version'] =  uuid4().urn
+            desc['size'] = sum([ v['size'] for k,v in self._desc['files'].items() ])
 
             # de-dict files
             desc['files'] = [ x for x in desc['files'].values() ]
@@ -182,8 +184,9 @@ class FilePackage(starch.Package):
             with open(join(self.root_dir, '_package.json'), 'wb') as out:
                 out.write(dumps(desc, indent=4).encode('utf-8'))
 
+            self._desc['size'] = desc['size']
             self._desc['version'] = desc['version']
-            self._log('VERSION %s' % desc['version'])
+            self._log('VERSION', desc['version'])
 
             self.callback('save')
         else:
@@ -200,8 +203,8 @@ class FilePackage(starch.Package):
 
         if not self.is_finalized():
             self._desc['status'] = 'finalized'
-            self._log("FINALIZED")
             self.save()
+            self._log("FINALIZED")
             self._mode = 'r'
 
 
@@ -242,7 +245,10 @@ class FilePackage(starch.Package):
 
     def tag(self, tag):
         if self._mode in [ 'a', 'w' ]:
-            self._desc['tags'] += [ tag ]
+            if tag not in self._desc['tags']:
+                self._desc['tags'] += [ tag ]
+
+            self._log('TAG', tag)
             self.save()
         else:
             raise Exception('package in read-only mode')
@@ -250,7 +256,8 @@ class FilePackage(starch.Package):
 
     def untag(self, tag):
         if self._mode in [ 'a', 'w' ]:
-            self._desc['tags'] = [ x for x in self._desc['tag'] if x != tag ]
+            self._desc['tags'] = [ x for x in self._desc['tags'] if x != tag ]
+            self._log('UNTAG', tag)
             self.save()
         else:
             raise Exception('package in read-only mode')
@@ -260,7 +267,14 @@ class FilePackage(starch.Package):
         return self.callback('lock')
 
 
-    def _log(self, message):
+    def log(self):
+        with open(self._get_full_path('_log'), 'r') as logfile:
+            return logfile.read()
+
+
+    def _log(self, *args):
+        message = ' '.join(args)
+
         if self._mode in [ 'a', 'w' ]:
             with open(self._get_full_path('_log'), 'a') as logfile:
                 t = datetime.utcnow()

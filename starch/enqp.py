@@ -22,6 +22,7 @@ from sys import argv,stdin,stderr
 from lark import Lark
 from json import dumps
 from copy import deepcopy
+from re import match
 
 debug = False
 
@@ -168,6 +169,9 @@ def _handle_agg(name, value, prefix=None):
     #    path = prefix + '.' + s[0] if prefix else s[0]
     #
     #    return { 'nested': { 'path': path }, 'aggregations': { name: _handle_agg(name, '.'.join(s[1:]), path) } }
+    elif match(r'sum\(([a-z0-9]*)\)', value):
+        value = match(r'sum\(([a-z]*)\)', value).group(1)
+        return { 'sum' : { 'field' : value } }
     else:
         return { 'terms': { 'field': prefix + '.' + value if prefix else value } }
 

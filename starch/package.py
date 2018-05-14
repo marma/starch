@@ -33,6 +33,9 @@ class Package:
 
     #def get_location(self, path):
     #    raise Exception('Not implemented')
+    
+    def log(self):
+        raise Exception('Not implemented')
 
     def status(self):
         raise Exception('Not implemented')

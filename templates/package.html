@@ -32,7 +32,7 @@
                     <tbody>
                     {% for path in package | sort %}
                         <tr>
-                            <td><a class="header" href="{{ path }}"><b>{{ path }}</b></a></td>
+                            <td><a class="header" href="./{{ path | urlencode }}"><b>{{ path }}</b></a></td>
                             <td>{{ package[path]['mime_type'] }}</td>
                             <td><span class="ui circular label">{{ package[path]['size'] | filesizeformat}}</span</td>
                         </tr>

@@ -16,28 +16,53 @@
 
             #menu {
                 padding-top: 1em;
+                background: #efeff5;
             }
         </style>
     </head>
     
     <body class="">
-        <div id="menu" class="ui visible sidebar inverted left vertical menu list">
-            <div class="item"><b>File types</b></div>
-            {% for type in counts['type'] %}
-            <a class="item" href="?q=%7B+%22files%22%3A%20%7B%20%22mime_type%22%3A%20%22{{ type | urlencode }}%22%20%7D%20%7D">{{ type }} ({{ counts['type'][type]  }})</a>
-            {% endfor %}
-            <div class="item"><b>Tags</b></div>
-            {% for tag in counts['tag'] %}
+        <div id="menu" class="ui visible sidebar left vertical menu list">
             <div class="item">
-                <div class="right floated content">
-                    <div class="ui circular label">{{ counts['tag'][tag] }}</div>
+                <div class="header"><b>File types</b></div>
+                {% for type in counts['type'] %}
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['type'][type] }}</div>
+                    </div>
+                    <a class="content" href="?q=%7B+%22files%22%3A%20%7B%20%22mime_type%22%3A%20%22{{ type | urlencode }}%22%20%7D%20%7D">{{ type }}</a>
                 </div>
-                <a class="content" href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}">{{ tag | truncate(16) }}</a>
+                {% endfor %}
             </div>
-            <!--a class="item" href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}">{{ tag | truncate(16) }} ({{ counts['tag'][tag] }})</a-->
-            {% endfor %}
-            <div class="item"><b>Number of packages:</b> {{ max }}</div>
-            <div class="item"><b>Total size:</b> {{ counts['size']['value'] | filesizeformat }}</div>
+            {% if counts['tag'] %}
+            <div class="item">
+                <div class="header">Tags</div>
+                {% for tag in counts['tag'] %}
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['tag'][tag] }}</div>
+                    </div>
+                    <a class="content" href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}">{{ tag | truncate(16) }}</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="item">
+                <div class="header">Result</div>
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ max }}</div>
+                    </div>
+                    <div>Number of packages:</div>
+                </div>
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['size']['value'] | filesizeformat }}</div>
+                    </div>
+                    
+                    <div>Total size:</div>
+                </div>
+            </div>
         </div>
         <div class="pushable">
             <!--button id="sidebar_left_toggle" onclick="$('.ui.sidebar').sidebar('toggle');">show sidebar</button-->

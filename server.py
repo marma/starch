@@ -76,6 +76,9 @@ def tag(key):
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
 def package_file(key, path):
+    if key == 'reindex':
+        return reindex(path if path[-1] != '/' else path[:-1])
+
     p = archive.get(key)
 
     # must be some other way to get correct routing

@@ -39,6 +39,7 @@ def site_index():
     return render_template('index.html',
                            start=packages[0],
                            max=packages[1],
+                           n_packages=packages[2],
                            archive=archive,
                            descriptions=descriptions,
                            counts=counts)
@@ -74,19 +75,31 @@ def tag(key):
         return 'Not found', 404
 
 
+@app.route('/<key>/_view')
+def view_package(key):
+    p = (index or archive).get(key)
+
+    if p:
+        cover = next(iter([ x['path'] for x in p['files'] if x['mime_type'] in [ 'image/jpeg', 'image/gif', 'image/png' ] ]), None) 
+        p['files'] = { x['path']:x for x in p['files'] }
+        return render_template('package.html', package=p, cover=cover, mimetype='text/html')
+    else:
+        return 'Not found', 404
+
+
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
 def package_file(key, path):
+    # must be some other way to get correct routing
     if key == 'reindex':
         return reindex(path if path[-1] != '/' else path[:-1])
 
+    if path == '_view':
+        return view_package(key)
+
     p = archive.get(key)
 
-    # must be some other way to get correct routing
     if p and path == '_log':
         return Response(p.log(), mimetype='text/plain')
-
-    if p and path == '_view':
-        return render_template('package.html', package=p, mimetype='text/html')
 
     if p and path in p:
         size = int(p[path]['size'])

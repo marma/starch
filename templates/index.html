@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <link rel="stylesheet" type="text/css" href="static/Semantic-UI-CSS-Master/semantic.min.css">
+        <link rel="stylesheet" type="text/css" href="static/Semantic-UI-CSS-master/semantic.min.css">
         <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
-        <script src="static/Semantic-UI-CSS-Master/semantic.min.js"></script>
+        <script src="static/Semantic-UI-CSS-master/semantic.min.js"></script>
         <style>
             body {
                 padding: 1em;
@@ -51,7 +51,7 @@
                 <div class="header">Result</div>
                 <div class="item">
                     <div class="right floated content">
-                        <div class="ui circular label">{{ max }}</div>
+                        <div class="ui circular label">{{ n_packages }}</div>
                     </div>
                     <div>Number of packages:</div>
                 </div>
@@ -69,16 +69,30 @@
             <div id="content" class="ui article" id="content">
                 <div class="ui cards">
                     {% for key,description in descriptions %}
-                    <div class="ui link card" href="/{{ key }}/">
-                        <a class="image" href="/{{ key }}/_view">
-                            
-                            <img src="static/img/white-image.png"/>
+                    {% set cover = description['files'] | selectattr('mime_type', 'equalto', 'image/jpeg') | selectattr('size', 'lt', 512*1024*1024) | first | default(None) %}
+                    <div class="ui raised linked card" href="/{{ key }}/">
+                        <a href="/{{ key }}/_view">
+                            <img style="object-fit: cover" class="ui masked image" width="300" height="300" src="{{ key + '/' + cover['path'] if cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
-                            <span class="header">{{ description['label'] }}</span>
-                            <!--a href="/{{ key }}/_view">{{ key }}</a-->
-                            {% for tag in description['tags'] %}<a href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}" class="ui blue label">{{ tag | truncate(16) }}</a>{% endfor %}
+                            <span class="header">{{ description['label'] or '<None>' | truncate(32) }}</span>
                         </div>
+                        <!--div class="blurring dimmable image" href="/{{ key }}/_view">
+                            <div class="ui dimmer">
+                                <div class="content">
+                                    <div class="center">
+                                        <div class="ui inverted button">{{ description['label'] }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <img src="static/img/white-image.png"/>
+                        </div-->
+                        <!--div class="content">
+                            <div class="center">
+                                <span class="header">{{ description['label'] }}</span>
+                                {% for tag in description['tags'] %}<a href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}" class="ui blue label">{{ tag | truncate(16) }}</a>{% endfor %}
+                            </div>
+                        </div-->
                         <!--div class="extra content">
                         {% for tag in description['tags'] %}
                             <span class="ui label">{{ tag }}</span>
@@ -97,3 +111,4 @@
         </div>
     </body>
 <html>
+

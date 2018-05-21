@@ -13,12 +13,22 @@
                 padding-left: 19em;
                 padding-top: 0.25em;
             }
+
+            #menu {
+                background: #efeff5;
         </style>
     </head>
     
     <body class="">
-        <div class="ui visible sidebar inverted left vertical menu">
-            <div class="item"><b>Package size:</b> {{ package.description()['size'] | filesizeformat }}</div>
+        <div id="menu" class="ui visible sidebar left vertical menu">
+            <div class="item"><b>Package size:</b> {{ package['size'] | filesizeformat }}</div>
+            <div class="item"><b>Status:</b> {{ package['status'] }}</div>
+            <div class="item">
+                <div class="header"><b>Instances</b></div>
+                {% for instance in package['instances'] %}
+                <div class="item">{{ instance['urn'] }}</div>
+                {% endfor %}
+            </div>
         </div>
         <div class="pushable">
             <div id="content">
@@ -30,13 +40,13 @@
                             <th>size</th>
                     </thead>
                     <tbody>
-                    {% for path in package | sort %}
+                        {% for path in package['files'] | sort %}
                         <tr>
                             <td><a class="header" href="./{{ path | urlencode }}"><b>{{ path }}</b></a></td>
-                            <td>{{ package[path]['mime_type'] }}</td>
-                            <td><span class="ui circular label">{{ package[path]['size'] | filesizeformat}}</span</td>
+                            <td>{{ package['files'][path]['mime_type'] }}</td>
+                            <td><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span</td>
                         </tr>
-                    {% endfor %}
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>

@@ -61,7 +61,7 @@ class HttpArchive(starch.Archive):
                     base=urljoin(self.base, key + '/'),
                     auth=self.auth,
                     server_base=urljoin(self.server_base, key + '/'))
-        except HttpNotFoundException:
+        except starch.HttpNotFoundException:
             return None
         except:
             raise

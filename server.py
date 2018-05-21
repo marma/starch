@@ -280,6 +280,8 @@ def reindex(key):
             
             return 'indexed'
         else:
+            index.delete(key)
+
             return 'Not found', 404
 
     return 'no index', 500

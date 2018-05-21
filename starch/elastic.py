@@ -1,6 +1,6 @@
 import starch
 from json import dumps,loads
-from elasticsearch_dsl import Keyword, Mapping, Nested, Text
+from elasticsearch_dsl import Search, Keyword, Mapping, Nested, Text
 from elasticsearch import Elasticsearch
 from elasticsearch.client import IndicesClient
 from elasticsearch.exceptions import NotFoundError
@@ -47,7 +47,6 @@ class ElasticIndex(starch.Index):
         res = self.elastic.search(index=self.index_name, doc_type='package', from_=0, size=0, body=query)
         count = int(res['hits']['total'])
 
-        # TODO: use scan for large datasets
         return (start,
                 min(count-start, max) if max else count-start,
                 count,
@@ -63,17 +62,32 @@ class ElasticIndex(starch.Index):
     def _search_iterator(self, q, start, max, count, sort):
         max = max or count
 
-        # TODO: use scan for large datasets
-        for n in range(0, min(max-1, (count-start-1))//100 + 1):
-            res = self.elastic.search(
-                    index=self.index_name,
-                    doc_type='package',
-                    from_=start+n*100,
-                    size=min(max, min(100, count-start-100*n)),
-                    body=q)
+        s = Search(using=self.elastic, index=self.index_name)
+        s.update_from_dict(q)
+        s.source(False)
 
-            for id in [ x['_id'] for x in res['hits']['hits'] ]:
-                yield id
+        for i,hit in enumerate(s):
+            if i < max:
+                yield hit.meta.id
+            else:
+                return
+
+        # TODO: use scan for large datasets
+        #s = self.elastic.search(
+        #        index=self.index_name,
+        #        doc_type='package',
+        #        body=q)
+        #
+        #for n in range(0, min(max-1, (count-start-1))//100 + 1):
+        #    res = self.elastic.search(
+        #            index=self.index_name,
+        #            doc_type='package',
+        #            from_=start+n*100,
+        #            size=min(max, min(100, count-start-100*n)),
+        #            body=q)
+        #
+        #    for id in [ x['_id'] for x in res['hits']['hits'] ]:
+        #        yield id
 
 
     def count(self, q, cats):
@@ -116,8 +130,6 @@ class ElasticIndex(starch.Index):
         # TODO: use scan
         for i in self._search_iterator({}, start, max, c, None):
             yield i
-
-        return ret
 
 
     def destroy(self, force=False):

@@ -69,10 +69,10 @@
             <div id="content" class="ui article" id="content">
                 <div class="ui cards">
                     {% for key,description in descriptions %}
-                    {% set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ]) | selectattr('size', 'lt', 512*1024*1024) | first | default(None) %}
+                    {% set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ]) | selectattr('size', 'lt', 512*1024) | first | default(None) %}
                     <div class="ui raised linked card" href="/{{ key }}/">
                         <a href="/{{ key }}/_view">
-                            <img style="object-fit: cover" class="ui masked image" width="300" height="300" onerror="this.src='/static/img/white-image.png'" src="./{{ key + '/' + cover['path'] | urlencode if cover else '/static/img/white-image.png' }}"/>
+                            <img style="object-fit: cover" class="ui masked image" width="300" height="300" onerror="this.src='/static/img/white-image.png'" src="{{ './' + key + '/' + cover['path'] | urlencode if cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
                             <span class="header">{{ description['label'] or '<None>' | truncate(32) }}</span>

@@ -5,3 +5,4 @@ config.yml
 __pycache__
 *.pyc
 config.yml
+docker-compose.yml

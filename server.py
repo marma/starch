@@ -282,7 +282,7 @@ def reindex(key):
         else:
             index.delete(key)
 
-            return 'Not found', 404
+            return 'deleted', 404
 
     return 'no index', 500
 

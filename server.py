@@ -280,9 +280,12 @@ def reindex(key):
             
             return 'indexed'
         else:
-            index.delete(key)
+            try:
+                index.delete(key)
+            except Exception as e:
+                return str(e), 404
 
-            return 'Not found', 404
+            return 'deleted', 404
 
     return 'no index', 500
 

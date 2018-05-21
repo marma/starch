@@ -21,6 +21,9 @@ TEMP_PREFIX='/tmp/starch-temp-'
 def __init__():
     pass
 
+class HttpNotFoundException(Exception):
+    pass
+
 
 def get_temp_dirname():
     return TEMP_PREFIX + '%s/' % uuid4()

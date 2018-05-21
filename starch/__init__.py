@@ -9,4 +9,5 @@ from starch.multiarchive import MultiArchive
 from starch.multipackage import MultiPackage
 from starch.index import Index,MemoryIndex
 from starch.elastic import ElasticIndex
+from starch.utils import HttpNotFoundException
 

@@ -28,7 +28,9 @@ class HttpPackage(starch.Package):
             with closing(get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth)) as r:
                 print(self.url)
 
-                if r.status_code != 200:
+                if r.status_code == 404:
+                    raise starch.HttpNotFoundException(r.text)
+                elif r.status_code != 200:
                     raise Exception('%d %s' % (r.status_code, r.text))
 
                 self._desc = loads(r.text)

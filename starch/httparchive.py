@@ -54,12 +54,17 @@ class HttpArchive(starch.Archive):
 
 
     def get(self, key, mode='r'):
-        return starch.Package(
-                self.url + key + '/',
-                mode=mode,
-                base=urljoin(self.base, key + '/'),
-                auth=self.auth,
-                server_base=urljoin(self.server_base, key + '/'))
+        try:
+            return starch.Package(
+                    self.url + key + '/',
+                    mode=mode,
+                    base=urljoin(self.base, key + '/'),
+                    auth=self.auth,
+                    server_base=urljoin(self.server_base, key + '/'))
+        except HttpNotFoundException:
+            return None
+        except:
+            raise
 
 
     def search(self, query, start=0, max=None):

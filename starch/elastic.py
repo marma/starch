@@ -66,7 +66,9 @@ class ElasticIndex(starch.Index):
         s.update_from_dict(q)
         s.source(False)
 
-        for i,hit in enumerate(s):
+        for i,hit in enumerate(s.scan()):
+            print(max,i,hit)
+
             if i < max:
                 yield hit.meta.id
             else:

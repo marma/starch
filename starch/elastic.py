@@ -109,13 +109,32 @@ class ElasticIndex(starch.Index):
         return ret
             
 
-    def update(self, key, package):
+    def bulk_update(self, p, sync=True):
+        bulk = [ ]
+
+        for key,p in p:
+            if p:
+                bulk += [ dumps({ 'index': { '_index': self.index_name, '_type': 'package', '_id': key } }) ]
+                bulk += [ dumps(p.description()) ]
+            else:
+                bulk += [ dumps({ 'delete': { '_index': self.index_name, '_type': 'package', '_id': key } }) ]
+
+        r = self.elastic.bulk(
+                body='\n'.join(bulk),
+                refresh=sync)
+
+        r2 = [ (x[next(iter(x))]['_id'], next(iter(x)), x[next(iter(x))]['result']) for x in r['items'] ]
+
+        return [ ' '.join(x) for x in r2 ]
+
+
+    def update(self, key, p):
         self.elastic.index(
-                index=self.index_name,
-                doc_type='package',
-                id=key,
-                body=package.description(),
-                refresh=True)
+            index=self.index_name,
+            doc_type='package',
+            id=key,
+            body=package.description(),
+            refresh=sync)
 
 
     def delete(self, key):

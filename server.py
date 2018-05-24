@@ -273,19 +273,9 @@ def count():
 @app.route('/reindex/<key>')
 def reindex(key):
     if index:
-        p = archive.get(key)
+        ps = [ (k,archive.get(k)) for k in key.split(';') ]
 
-        if p:
-            index.update(key, p)
-            
-            return 'indexed'
-        else:
-            try:
-                index.delete(key)
-            except Exception as e:
-                return str(e), 404
-
-            return 'deleted', 404
+        return '\n'.join(index.bulk_update(ps)) + '\n'
 
     return 'no index', 500
 

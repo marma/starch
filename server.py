@@ -80,7 +80,7 @@ def view_package(key):
     p = (index or archive).get(key)
 
     if p:
-        cover = next(iter([ x['path'] for x in p['files'] if x['mime_type'] in [ 'image/jpeg', 'image/gif', 'image/png' ] ]), None) 
+        cover = next(iter([ x['path'] for x in p['files'] if x.get('mime_type', '') in [ 'image/jpeg', 'image/gif', 'image/png' ] ]), None) 
         p['files'] = { x['path']:x for x in p['files'] }
         return render_template('package.html', package=p, cover=cover, mimetype='text/html')
     else:
@@ -273,7 +273,7 @@ def count():
 @app.route('/reindex/<key>')
 def reindex(key):
     if index:
-        ps = [ (k,archive.get(k)) for k in key.split(';') ]
+        ps = [ (k,archive.get(k)) for k in key.split(';') if k ]
 
         return '\n'.join(index.bulk_update(ps)) + '\n'
 

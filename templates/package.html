@@ -43,7 +43,7 @@
                         {% for path in package['files'] | sort %}
                         <tr>
                             <td><a class="header" href="./{{ path | urlencode }}"><b>{{ path }}</b></a></td>
-                            <td>{{ package['files'][path]['mime_type'] }}</td>
+                            <td>{{ package['files'][path]['mime_type'] | default('unknown') }}</td>
                             <td><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span</td>
                         </tr>
                         {% endfor %}

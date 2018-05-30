@@ -173,7 +173,7 @@ def _handle_agg(name, value, prefix=None):
         value = match(r'sum\(([a-z]*)\)', value).group(1)
         return { 'sum' : { 'field' : value } }
     else:
-        return { 'terms': { 'field': prefix + '.' + value if prefix else value } }
+        return { 'terms': { 'field': prefix + '.' + value if prefix else value, 'size': 10 } }
 
 
 def _flatten_aggs(name, r):

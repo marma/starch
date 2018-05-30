@@ -22,29 +22,49 @@
     </head>
     
     <body class="">
-        <div id="menu" class="ui visible sidebar left vertical menu list">
+        <div id="menu" class="ui visible sidebar left vertical accordion menu list" style="overflow: hidden;">
             <div class="item">
-                <div class="header"><b>File types</b></div>
+               <div class="ui search">
+                   <form action="/" method="GET">
+                   <div class="ui icon input">
+                       <input name="q" class="prompt" type="text" value="{{ query or '' }}" placeholder="Search ...">
+                       <i class="search icon"></i>
+                   </div>
+                   </form>
+               </div>
+            </div>
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>File types</b>
+                </a>
+                <div class="active content">
                 {% for type in counts['type'] %}
                 <div class="item">
                     <div class="right floated content">
                         <div class="ui circular label">{{ counts['type'][type] }}</div>
                     </div>
-                    <a class="content" href="?q=%7B+%22files%22%3A%20%7B%20%22mime_type%22%3A%20%22{{ type | urlencode }}%22%20%7D%20%7D">{{ type }}</a>
+                    <a class="content" href="?q=files:{+mime_type:+%22{{ type | urlencode }}%22+}">{{ type }}</a>
                 </div>
                 {% endfor %}
+                </div>
             </div>
             {% if counts['tag'] %}
             <div class="item">
-                <div class="header">Tags</div>
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Tags</b>
+                </a>
+                <div class="active content">
                 {% for tag in counts['tag'] %}
                 <div class="item">
                     <div class="right floated content">
                         <div class="ui circular label">{{ counts['tag'][tag] }}</div>
                     </div>
-                    <a class="content" href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}">{{ tag | truncate(16) }}</a>
+                    <a class="content" href="?q=tags:+%22{{ tag | urlencode }}%22">{{ tag | truncate(16) }}</a>
                 </div>
                 {% endfor %}
+                </div>
             </div>
             {% endif %}
             <div class="item">
@@ -110,5 +130,10 @@
             </div>
         </div>
     </body>
+    <script>
+        $('.ui.accordion')
+           .accordion({ 'exclusive': false })
+        ;
+    </script>
 <html>
 

@@ -30,8 +30,8 @@ index = Index(**app.config['index']) if 'index' in app.config else None
 
 @app.route('/')
 def site_index():
-    q = loads(request.args['q']) if 'q' in request.args else {}
-    packages = (index or archive).search(q, max=20)
+    q = request.args['q'] if 'q' in request.args else {}
+    packages = (index or archive).search(q, max=50)
     descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
     counts = (index or archive).count(q, { 'type': { 'files': 'mime_type' }, 'tag': 'tags', 'size': 'sum(size)' } )
     counts['size']['value'] = int(counts['size']['value'])
@@ -42,7 +42,8 @@ def site_index():
                            n_packages=packages[2],
                            archive=archive,
                            descriptions=descriptions,
-                           counts=counts)
+                           counts=counts,
+                           query=q)
 
 
 @app.route('/<key>/')
@@ -125,7 +126,7 @@ def package_file(key, path):
         return Response(
                 i,
                 headers=headers,
-                mimetype=p[path]['mime_type'],
+                mimetype=p[path].get('mime_type', 'application/unknown'),
                 status=200 if range == (0, None) else 206)
 
     return 'Not found', 404

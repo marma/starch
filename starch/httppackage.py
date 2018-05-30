@@ -26,7 +26,7 @@ class HttpPackage(starch.Package):
 
         if mode in [ 'r', 'a' ]:
             with closing(get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth)) as r:
-                print(self.url)
+                #print(self.url)
 
                 if r.status_code == 404:
                     raise starch.HttpNotFoundException(r.text)
@@ -76,6 +76,7 @@ class HttpPackage(starch.Package):
             headers['Range'] = 'bytes=%d-%s' % (range[0], str(int(range[1])) if range[1] else '')
 
         # @TODO potential resource leak
+        print(self.url + path)
         r = get(self.url + path, stream=True, auth=self.auth, headers=headers)
         r.raw.decode_stream = True
 

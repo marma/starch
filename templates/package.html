@@ -21,6 +21,14 @@
     
     <body class="">
         <div id="menu" class="ui visible sidebar left vertical menu">
+            {% if package['tags'] %}
+            <div class="item">
+                <div class="header">Tags</div>
+                {% for tag in package['tags'] %}
+                <div class="item">{{ tag | truncate(16) }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
             <div class="item"><b>Package size:</b> {{ package['size'] | filesizeformat }}</div>
             <div class="item"><b>Status:</b> {{ package['status'] }}</div>
             <div class="item">
@@ -32,6 +40,7 @@
         </div>
         <div class="pushable">
             <div id="content">
+            	<h1>{{ package['label'] }}</h1>
                 <table class="ui celled padded striped selectable large table">
                     <thead>
                         <tr>
@@ -43,8 +52,8 @@
                         {% for path in package['files'] | sort %}
                         <tr>
                             <td><a class="header" href="./{{ path | urlencode }}"><b>{{ path }}</b></a></td>
-                            <td>{{ package['files'][path]['mime_type'] | default('unknown') }}</td>
-                            <td><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span</td>
+                            <td>{{ package['files'][path]['mime_type'] | default('<unknown>') }}</td>
+                            <td><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span</td>
                         </tr>
                         {% endfor %}
                     </tbody>

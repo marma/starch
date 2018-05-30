@@ -42,7 +42,10 @@ class ElasticIndex(starch.Index):
 
 
     def search(self, q, start=0, max=None, sort=None):
-        query = parse(dumps(q))
+        if isinstance(q, dict):
+            q = dumps(q)
+
+        query = parse(q)
 
         res = self.elastic.search(index=self.index_name, doc_type='package', from_=0, size=0, body=query)
         count = int(res['hits']['total'])
@@ -93,7 +96,10 @@ class ElasticIndex(starch.Index):
 
 
     def count(self, q, cats):
-        q = parse(dumps(q))
+        if isinstance(q, dict):
+            q = dumps(q)
+
+        q = parse(q)
         q.update(create_aggregations(cats))
 
         res = self.elastic.search(

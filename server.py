@@ -13,6 +13,7 @@ from starch.elastic import ElasticIndex
 from starch.utils import decode_range,valid_path
 from os.path import join
 from tempfile import NamedTemporaryFile,TemporaryDirectory
+from time import time
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -274,9 +275,15 @@ def count():
 @app.route('/reindex/<key>')
 def reindex(key):
     if index:
+        t0 = time()
         ps = [ (k,archive.get(k)) for k in key.split(';') if k ]
+        t1 = time()
+        b = index.bulk_update(ps, sync=False)
+        t2 = time()
 
-        return '\n'.join(index.bulk_update(ps)) + '\n'
+        print('getting %d packages took %f seconds, index returned after %f' % (len(ps), t1-t0, t2-t1), flush=True)
+
+        return '\n'.join(b) + '\n'
 
     return 'no index', 500
 

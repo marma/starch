@@ -70,7 +70,7 @@ class ElasticIndex(starch.Index):
         s.source(False)
 
         for i,hit in enumerate(s.scan()):
-            print(max,i,hit)
+            #print(max,i,hit)
 
             if i < max:
                 yield hit.meta.id

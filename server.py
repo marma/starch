@@ -103,6 +103,12 @@ def package_file(key, path):
     if p and path == '_log':
         return Response(p.log(), mimetype='text/plain')
 
+    # reference by urn?
+    if p and path[:4] == 'urn:':
+        for f in p:
+            if p[f]['urn'] == path:
+                path = f
+
     if p and path in p:
         size = int(p[path]['size'])
         headers = { 'ETag': p[path]['checksum'].split(':')[1],

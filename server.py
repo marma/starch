@@ -10,10 +10,11 @@ from contextlib import closing
 from json import loads,dumps
 from hashlib import md5,sha256
 from starch.elastic import ElasticIndex
-from starch.utils import decode_range,valid_path
+from starch.utils import decode_range,valid_path,max_iter
 from os.path import join
 from tempfile import NamedTemporaryFile,TemporaryDirectory
 from time import time
+from traceback import print_exc
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -124,8 +125,12 @@ def package_file(key, path):
         except:
             raise
 
+        max_bytes = request.args.get('max_bytes', None)
+        if max_bytes:
+            headers['Content-Length'] = min(int(max_bytes), int(headers['Content-Length']))
+
         return Response(
-                i,
+                i if not max_bytes else max_iter(i, int(max_bytes)),
                 headers=headers,
                 mimetype=p[path].get('mime_type', 'application/unknown'),
                 status=200 if range == (0, None) else 206)
@@ -175,6 +180,7 @@ def put_file(key, path):
         else:
             return 'package not found', 400
     except Exception as e:
+        print_exc()
         return str(e), 500
 
 

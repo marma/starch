@@ -15,6 +15,7 @@ from flask import request
 from re import match
 from copy import deepcopy
 from collections import Counter
+from sys import stderr
 
 TEMP_PREFIX='/tmp/starch-temp-'
 
@@ -121,11 +122,11 @@ def wants_json():
     best = request.accept_mimetypes.best_match(['application/json', 'text/html'])
     return best == 'application/json' and request.accept_mimetypes[best] > request.accept_mimetypes['text/html']
 
-def chunked(f, chunk_size=10*1024, max=None):
+def chunked(f, chunk_size=100*1024, max=None):
     pos,b = 0,None
     while b != b'' and b != '':
         b = f.read(chunk_size if not max else min(chunk_size, max - pos))
-        #print('chunk %d' % len(b))
+        #print('chunk %d' % len(b), file=stderr, flush=True)
         pos += len(b)
 
         if b != b'' and b != '':
@@ -165,4 +166,15 @@ def rebase(desc, base, index_base, in_place=False):
 
 def rebase_uri(u, base, index_base):
     return (base or '') + (u[len(index_base):] if index_base else u)
+
+def max_iter(i, max):
+    n=0
+    for chunk in i:
+        if len(chunk) + n < max:
+            yield chunk
+            n += len(chunk)
+        else:
+            yield chunk[:max-n]
+
+            return
 

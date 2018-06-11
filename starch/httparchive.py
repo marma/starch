@@ -2,9 +2,13 @@ from requests import get,post
 from urllib.parse import urljoin
 from contextlib import closing
 from json import dumps,loads
+from sys import stderr
+from time import sleep
 import starch
 
 MAX_ID=2**38
+MAX_RETRIES=2
+MAX_RETRY_WAIT=60
 
 class HttpArchive(starch.Archive):
     def __init__(self, root=None, base=None, auth=None):
@@ -22,7 +26,34 @@ class HttpArchive(starch.Archive):
         else:
             self.auth = None
 
-        self.server_base = get(urljoin(self.url, 'base'), auth=self.auth).text
+        n_retries=0
+        retry_wait=1
+        while True:
+            try:
+                r = get(urljoin(self.url, 'base'), auth=self.auth)
+            except Exception as e:
+                if n_retries == MAX_RETRIES:
+                    raise Exception('Max number of retries (%d) reached. %s' % (MAX_RETRIES, str(e)))
+
+                print('Exception while connecting. Retry %d of %s in %d seconds. %s' % (n_retries+1, str(MAX_RETRIES), retry_wait, str(e)), file=stderr, flush=True)
+            else:
+                if r.status_code in [ 401, 403 ]:
+                    raise Exception('Unauthorized. HTTP status = %d' % r.status_code)
+
+                if r.status_code == 200:
+                    self.server_base = r.text
+                    break;
+
+                if n_retries == MAX_RETRIES:
+                    raise Exception('Max number of retries (%d) reached.')
+                
+                print('Unexpected HTTP status code = %d Retry %d of %s in %d seconds' % (r.status_code, n_retries+1, str(MAX_RETRIES), retry_wait), file=stderr, flush=True)
+
+            n_retries += 1
+            sleep(retry_wait)
+
+            if 2*retry_wait < MAX_RETRY_WAIT:
+                retry_wait *= 2
 
 
     def new(self, **kwargs):

@@ -139,8 +139,7 @@ class ElasticIndex(starch.Index):
             index=self.index_name,
             doc_type='package',
             id=key,
-            body=package.description(),
-            refresh=sync)
+            body=p.description())
 
 
     def delete(self, key):

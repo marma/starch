@@ -4,6 +4,7 @@ from contextlib import closing
 from json import dumps,loads
 from sys import stderr
 from time import sleep
+from starch.result import create_result
 import starch
 
 MAX_ID=2**38
@@ -64,7 +65,7 @@ class HttpArchive(starch.Archive):
 
         url = r.headers['Location']
 
-        return (self.get_key(url),
+        return (self._get_key(url),
                 starch.Package(
                     url,
                     mode='a',
@@ -81,7 +82,7 @@ class HttpArchive(starch.Archive):
 
         url = r.headers['Location']
 
-        return self.get_key(url)
+        return self._get_key(url)
 
 
     def get(self, key, mode='r'):
@@ -102,7 +103,7 @@ class HttpArchive(starch.Archive):
         g = self._search_iter(query, start, max)
         i,r,c = next(g).split()
 
-        return i,r,c,g
+        return create_result(i, r, c, g, self)
 
 
     def _search_iter(self, query, start=0, max=None):
@@ -136,7 +137,7 @@ class HttpArchive(starch.Archive):
         return self.url + key + '/' + path
 
 
-    def __iter__(self):
+    def keys(self):
         with closing(get(self.url + 'packages', auth=self.auth, stream=True)) as r:
             if r.status_code == 200:
                 for key in r.raw:
@@ -145,11 +146,20 @@ class HttpArchive(starch.Archive):
                 raise Exception('server returned status %d' % r.status_code)
 
 
-    def get_key(self, url):
+    def __iter__(self):
+        yield from self.keys()
+
+
+    def items(self):
+        for key in self:
+            yield (key, self.get(key))
+
+
+    def _get_key(self, url):
         if url.startswith(self.url):
             return url[len(self.url):].split('/')[0]
 
-        raise Exception('url (%s) does start with %s' % (url, self.url))
+        raise Exception('url (%s) does not start with %s' % (url, self.url))
 
 
     def __contains__(self, key):

@@ -49,17 +49,14 @@ class ElasticIndex(starch.Index):
 
         res = self.elastic.search(index=self.index_name, doc_type='package', from_=0, size=0, body=query)
         count = int(res['hits']['total'])
+        key_iter = self._search_iterator(query, start, max, count, sort)
 
-        return (start,
-                min(count-start, max) if max else count-start,
-                count,
-                self._search_iterator(
-                    query,
+        return starch.Result(
                     start,
-                    max,
+                    min(count-start, max) if max else count-start,
                     count,
-                    sort))
-                    #[ x['_source'] for x in res['hits']['hits'] ])
+                    key_iter,
+                    iter([]))
 
 
     def _search_iterator(self, q, start, max, count, sort):
@@ -70,29 +67,12 @@ class ElasticIndex(starch.Index):
         s.source(False)
 
         for i,hit in enumerate(s.scan()):
-            #print(max,i,hit)
-
-            if i < max:
-                yield hit.meta.id
-            else:
-                return
-
-        # TODO: use scan for large datasets
-        #s = self.elastic.search(
-        #        index=self.index_name,
-        #        doc_type='package',
-        #        body=q)
-        #
-        #for n in range(0, min(max-1, (count-start-1))//100 + 1):
-        #    res = self.elastic.search(
-        #            index=self.index_name,
-        #            doc_type='package',
-        #            from_=start+n*100,
-        #            size=min(max, min(100, count-start-100*n)),
-        #            body=q)
-        #
-        #    for id in [ x['_id'] for x in res['hits']['hits'] ]:
-        #        yield id
+            # @TODO: find a way to paginate using Elastic since this is costly
+            if i >= start:
+                if i - start < max:
+                    yield hit.meta.id
+                else:
+                    return
 
 
     def count(self, q, cats):
@@ -151,11 +131,12 @@ class ElasticIndex(starch.Index):
 
 
     def iter_packages(self, start=0, max=None):
-        s,r,c,g = self.search({}, start, max)
+        for key in self.search({}, start=start, max=max).keys:
+            yield key
 
-        # TODO: use scan
-        for i in self._search_iterator({}, start, max, c, None):
-            yield i
+
+    def __iter__(self):
+        return self.iter_packages()
 
 
     def destroy(self, force=False):

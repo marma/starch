@@ -104,11 +104,10 @@ def package_file(key, path):
     if p and path == '_log':
         return Response(p.log(), mimetype='text/plain')
 
-    # reference by urn?
-    if p and path[:4] == 'urn:':
-        for f in p:
-            if p[f]['urn'] == path:
-                path = f
+    # actually an IIIF request?
+    m = match(r'^(.*)/(full|[0-9\,]+)/(full|max|[0-9\,]+)/([0-9\.]+)/default.(jpg|png)$', path)
+    if 'iiif' in app.config and m:
+        return iiif(key, *m.groups())
 
     if p and path in p:
         size = int(p[path]['size'])
@@ -233,13 +232,7 @@ def new():
 
 @app.route('/packages')
 def packages():
-    i,r,c,g = (index or archive).search(
-                {},
-                int(request.args.get('start', '0')),
-                request.args.get('max', None),
-                sort='created:asc')
-
-    return Response(newliner(g), mimetype='text/plain')
+    return Response(newliner((index or self)), mimetype='text/plain')
 
 
 @app.route('/<key>/finalize', methods=[ 'POST' ])
@@ -264,14 +257,18 @@ def base():
 
 @app.route('/search')
 def search():
-    q = loads(request.args['q'])
-    start = int(request.args.get('from', '0'))
-    max = int(request.args['max']) if 'max' in request.args else None
-    sort = request.args.get('sort', None)
+    if 'q' not in request.args:
+        return 'no q parameter', 500
 
-    s, r, c, g = (index or archive).search(q, start, max, sort)
+    r = (index or archive).search(
+            loads(request.args['q']),
+            int(request.args.get('from', '0')),
+            int(request.args['max']) if 'max' in request.args else None,
+            request.args.get('sort', None))
 
-    return Response(iter_search(s, r, c, g), mimetype='text/plain')
+    return Response(
+            iter_search(r.start, r.n, r.m, r.keys),
+            mimetype='text/plain')
 
 
 @app.route('/count')

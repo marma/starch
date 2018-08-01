@@ -8,6 +8,7 @@ from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname
 from random import random
 from collections import Counter
 from threading import RLock
+from starch.result import create_result
 import starch
 
 MAX_ID=2**38
@@ -72,7 +73,6 @@ class FileArchive(starch.Archive):
         if mode is 'w':
             raise Exception('mode \'w\' not allowed, use \'a\'')
 
-        #print('GET:', key)
         d = self._directory(key)
 
         if exists(d):
@@ -98,7 +98,6 @@ class FileArchive(starch.Archive):
         # This is deliberatly non-optimal for small
         # resultsets in large archives and/or paging.
         # Use an index and the web frontend instead
-        #print(query)
 
         if self.index:
             return self.index.search(query, start, max, sort)
@@ -109,7 +108,14 @@ class FileArchive(starch.Archive):
         if start >= len(hits):
             return (start, 0, len(hits), iter([]))
 
-        return (start, min(max, len(hits), len(hits) - start), len(hits), iter(hits[start:start + max]))
+        key_iter = iter(hits[start:start + max])
+
+        return create_result(
+                    start=start,
+                    n=min(max, len(hits), len(hits) - start),
+                    m=len(hits),
+                    key_iter=key_iter,
+                    archive=self)
 
 
     def count(self, query, cats={}):
@@ -118,12 +124,9 @@ class FileArchive(starch.Archive):
 
         ret = { k:Counter() for k in cats }
 
-        for key in self.search(query)[3]:
-            desc = self.get(key).description()
-
+        for key, package in self.search(query):
             for key in cats:
-                #print(dict_values(desc, cats[key]))
-                ret[key].update(dict_values(desc, cats[key]))
+                ret[key].update(dict_values(package.description(), cats[key]))
             
         return ret
 
@@ -133,10 +136,8 @@ class FileArchive(starch.Archive):
 
 
     def _search_iterator(self, query, start=0, max=None, sort=None):
-        for key in self:
-            p = self.get(key)
-
-            if dict_search(query, p.description()):
+        for key, package in self.items():
+            if dict_search(query, package.description()):
                 yield key
 
 
@@ -152,7 +153,7 @@ class FileArchive(starch.Archive):
 
 
     def _generate_key(self, suggest=None):
-        # TODO locking a central function and waiting for I/O, that
+        # @TODO: locking a central function and waiting for I/O, that
         # might take a long time to return, is non-optimal
         with self.lockm.get('keygen'):
             key = suggest or convert(int(MAX_ID*random()), radix=28, pad_to=8)
@@ -161,14 +162,14 @@ class FileArchive(starch.Archive):
                 if suggest:
                     raise Exception('key %s already exists')
 
-                _log('warning: collision for key %s' % key)
+                self._log('warning: collision for key %s' % key)
 
                 return self._generate_key()
 
             return key
 
 
-    def __iter__(self):
+    def keys(self):
         if exists(join(self.root_dir, 'packages')):
             with open(join(self.root_dir, 'packages')) as f:
                 for line in f:
@@ -177,6 +178,15 @@ class FileArchive(starch.Archive):
                         yield line[:-1]
         else:
             return iter([])
+
+
+    def items(self):
+        for key in self:
+            yield (key, self.get(key))
+
+
+    def __iter__(self):
+        yield from self.keys()
 
 
     def _log(self, message, t=timestamp()):
@@ -238,4 +248,6 @@ class FileArchive(starch.Archive):
 
     def __getitem__(self, key):
         return self.get(key)
+
+
 

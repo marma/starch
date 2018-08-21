@@ -15,6 +15,7 @@ from os.path import join
 from tempfile import NamedTemporaryFile,TemporaryDirectory
 from time import time
 from traceback import print_exc
+from re import match
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -290,7 +291,7 @@ def reindex(key):
         b = index.bulk_update(ps, sync=False)
         t2 = time()
 
-        print('getting %d packages took %f seconds, index returned after %f' % (len(ps), t1-t0, t2-t1), flush=True)
+        print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
 
         return '\n'.join(b) + '\n'
 

@@ -79,9 +79,11 @@ def tag(key):
 
 @app.route('/<key>/_view')
 def view_package(key):
-    p = (index or archive).get(key)
+    #p = (index or archive).get(key)
+    p = (index.get(key) if index else None) or archive.get(key)
 
     if p:
+        p = p.description() if not isinstance(p, dict) else p
         cover = next(iter([ x['path'] for x in p['files'] if x.get('mime_type', '') in [ 'image/jpeg', 'image/gif', 'image/png' ] ]), None) 
         p['files'] = { x['path']:x for x in p['files'] }
         return render_template('package.html', package=p, cover=cover, mimetype='text/html')

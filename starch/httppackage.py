@@ -57,7 +57,7 @@ class HttpPackage(starch.Package):
         if traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            self._write(fname, valid_path(path), replace=replace, **kwargs)
+            self._write(fname, valid_path(path), replace=replace)
 
         self._reload()
 

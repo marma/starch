@@ -10,10 +10,12 @@ from contextlib import closing
 from json import loads,dumps
 from hashlib import md5,sha256
 from starch.elastic import ElasticIndex
-from starch.utils import decode_range,valid_path
+from starch.utils import decode_range,valid_path,max_iter
 from os.path import join
 from tempfile import NamedTemporaryFile,TemporaryDirectory
 from time import time
+from traceback import print_exc
+from re import match
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -105,11 +107,10 @@ def package_file(key, path):
     if p and path == '_log':
         return Response(p.log(), mimetype='text/plain')
 
-    # reference by urn?
-    if p and path[:4] == 'urn:':
-        for f in p:
-            if p[f]['urn'] == path:
-                path = f
+    # actually an IIIF request?
+    m = match(r'^(.*)/(full|[0-9\,]+)/(full|max|[0-9\,]+)/([0-9\.]+)/default.(jpg|png)$', path)
+    if 'iiif' in app.config and m:
+        return iiif(key, *m.groups())
 
     if p and path in p:
         size = int(p[path]['size'])
@@ -132,8 +133,12 @@ def package_file(key, path):
         except:
             raise
 
+        max_bytes = request.args.get('max_bytes', None)
+        if max_bytes:
+            headers['Content-Length'] = min(int(max_bytes), int(headers['Content-Length']))
+
         return Response(
-                i,
+                i if not max_bytes else max_iter(i, int(max_bytes)),
                 headers=headers,
                 mimetype=p[path].get('mime_type', 'application/unknown'),
                 status=200 if range == (0, None) else 206)
@@ -183,6 +188,7 @@ def put_file(key, path):
         else:
             return 'package not found', 400
     except Exception as e:
+        print_exc()
         return str(e), 500
 
 
@@ -229,13 +235,7 @@ def new():
 
 @app.route('/packages')
 def packages():
-    i,r,c,g = (index or archive).search(
-                {},
-                int(request.args.get('start', '0')),
-                request.args.get('max', None),
-                sort='created:asc')
-
-    return Response(newliner(g), mimetype='text/plain')
+    return Response(newliner((index or self)), mimetype='text/plain')
 
 
 @app.route('/<key>/finalize', methods=[ 'POST' ])
@@ -260,14 +260,18 @@ def base():
 
 @app.route('/search')
 def search():
-    q = loads(request.args['q'])
-    start = int(request.args.get('from', '0'))
-    max = int(request.args['max']) if 'max' in request.args else None
-    sort = request.args.get('sort', None)
+    if 'q' not in request.args:
+        return 'no q parameter', 500
 
-    s, r, c, g = (index or archive).search(q, start, max, sort)
+    r = (index or archive).search(
+            loads(request.args['q']),
+            int(request.args.get('from', '0')),
+            int(request.args['max']) if 'max' in request.args else None,
+            request.args.get('sort', None))
 
-    return Response(iter_search(s, r, c, g), mimetype='text/plain')
+    return Response(
+            iter_search(r.start, r.n, r.m, r.keys),
+            mimetype='text/plain')
 
 
 @app.route('/count')
@@ -289,7 +293,7 @@ def reindex(key):
         b = index.bulk_update(ps, sync=False)
         t2 = time()
 
-        print('getting %d packages took %f seconds, index returned after %f' % (len(ps), t1-t0, t2-t1), flush=True)
+        print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
 
         return '\n'.join(b) + '\n'
 

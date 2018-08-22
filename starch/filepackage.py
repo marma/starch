@@ -243,6 +243,11 @@ class FilePackage(starch.Package):
         return ret
 
 
+    @property
+    def urn(self):
+        return self._desc['urn']
+
+
     def tag(self, tag):
         if self._mode in [ 'a', 'w' ]:
             if tag not in self._desc['tags']:
@@ -361,6 +366,9 @@ class FilePackage(starch.Package):
     def __del__(self):
         if self._temporary and exists(self.root_dir) and self.root_dir.startswith(TEMP_PREFIX):
             rmtree(self.root_dir)
+
+    def __repr__(self):
+        return 'FilePackage<%s>' % self.urn
 
 #    def __len__(self):
 #        return len(self._desc['files'])

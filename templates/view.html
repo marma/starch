@@ -1,0 +1,35 @@
+<html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.3.1/openseadragon.min.js"></script>
+        <style>
+            body {
+                margin: 0;
+                background: #00;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="openseadragon" style="width: 100%; height: 100%; background-color: black;"></div>
+        <div id="loading-popup">
+            <span id="loading-message">
+                <img src="/static/img/loading.svg" alt="loading" height="27">
+                <span>Image loading...</span>
+            </span>
+        </div>
+
+        <script type="text/javascript">
+            OpenSeadragon({
+                id:                 "openseadragon",
+                prefixUrl:          "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.3.1/images/",
+                preserveViewport:   true,
+                visibilityRatio:    1,
+                //minZoomLevel:       1,
+                //defaultZoomLevel:   1,
+                sequenceMode:       true,
+                //tileSources:        [ {{ info | safe }} ]
+                tileSources:         "{{ info['id'] | safe }}/info.json"
+            });
+        </script>
+    </body>
+</html>
+

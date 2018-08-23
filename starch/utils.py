@@ -11,7 +11,6 @@ from io import BytesIO
 from urllib.request import urlopen
 from random import random
 from datetime import datetime
-from flask import request
 from re import match
 from copy import deepcopy
 from collections import Counter
@@ -117,10 +116,6 @@ def _dict_values(d, path):
     
     return Counter()
 
-
-def wants_json():
-    best = request.accept_mimetypes.best_match(['application/json', 'text/html'])
-    return best == 'application/json' and request.accept_mimetypes[best] > request.accept_mimetypes['text/html']
 
 def chunked(f, chunk_size=100*1024, max=None):
     pos,b = 0,None

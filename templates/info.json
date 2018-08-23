@@ -1,0 +1,17 @@
+{
+    "@context": "http://iiif.io/api/image/2/context.json",
+    "@id": "{{ id | safe }}",
+    "@type": "iiif:Image",
+    "protocol": "http://iiif.io/api/image",
+    "width": {{ width }},
+    "height": {{ height }},
+    "tiles": [ { "width" : 512, "scaleFactors" : [ {{ levels | join(', ') }} ]  } ],
+    "profile" : [
+        "http://iiif.io/api/image/2/level1.json",
+        {
+            "formats" : [ "jpg" ],
+            "qualities" : [ "native","color","gray" ],
+            "supports" : ["regionByPct","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring","gray"]
+        }
+    ]
+}

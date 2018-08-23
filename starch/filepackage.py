@@ -61,8 +61,8 @@ class FilePackage(starch.Package):
                 del(self._desc['patch_type'])
 
             self._desc['created'] = datetime.utcnow().isoformat() + 'Z'
+            self._log('CREATED %s' % self._desc['urn'], t=self._desc['created'])
             self.save()
-            self._log('CREATED')
         elif mode in [ 'r', 'a' ]:
             with open(self._get_full_path('_package.json')) as r:
                 self._desc = loads(r.read())
@@ -277,13 +277,14 @@ class FilePackage(starch.Package):
             return logfile.read()
 
 
-    def _log(self, *args):
+    def _log(self, *args, t=None):
+        t = t or (datetime.utcnow().isoformat() + 'Z')
+
         message = ' '.join(args)
 
         if self._mode in [ 'a', 'w' ]:
             with open(self._get_full_path('_log'), 'a') as logfile:
-                t = datetime.utcnow()
-                logfile.write(t.isoformat() + 'Z' + ' ' + message + '\n')
+                logfile.write(t + ' ' + message + '\n')
         else:
             raise Exception('package in read-only mode')
 

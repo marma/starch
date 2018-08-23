@@ -16,6 +16,8 @@ from tempfile import NamedTemporaryFile,TemporaryDirectory
 from time import time
 from traceback import print_exc
 from re import match
+from requests import get
+from math import log2
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -81,7 +83,6 @@ def tag(key):
 
 @app.route('/<key>/_view')
 def view_package(key):
-    #p = (index or archive).get(key)
     p = (index.get(key) if index else None) or archive.get(key)
 
     if p:
@@ -93,24 +94,103 @@ def view_package(key):
         return 'Not found', 404
 
 
-@app.route('/<key>/<path:path>', methods=[ 'GET' ])
-def package_file(key, path):
-    # must be some other way to get correct routing
-    if key == 'reindex':
-        return reindex(path if path[-1] != '/' else path[:-1])
-
-    if path == '_view':
-        return view_package(key)
-
+@app.route('/<key>/_log')
+def log(key):
     p = archive.get(key)
-
-    if p and path == '_log':
+   
+    if p: 
         return Response(p.log(), mimetype='text/plain')
 
-    # actually an IIIF request?
-    m = match(r'^(.*)/(full|[0-9\,]+)/(full|max|[0-9\,]+)/([0-9\.]+)/default.(jpg|png)$', path)
-    if 'iiif' in app.config and m:
-        return iiif(key, *m.groups())
+    return 'Not found', 404
+
+
+@app.route('/<key>/<path:path>/_view')
+def view(key, path):
+    _assert_iiif()
+
+    i = _info(key, path)
+
+    if i:
+        return render_template('view.html', info=i)
+    else:
+        return 'Not found', 404
+
+
+def _info(key, path):
+    _assert_iiif()
+
+    p = archive.get(key)
+    if p and path in p:
+        callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
+        url = f'{callback}{key}/{path}'
+        uri = p.description()['@id']
+
+        if uri == '':
+            uri = f'{request.url_root}{key}/{path}'
+
+        image_url = app.config.get('image_server').get('root') + 'info'
+
+        with closing(get(image_url, params={ 'uri': uri, 'url': url })) as r:
+            i = loads(r.text)
+            i['id'] = uri
+            i['levels'] = [ 2**x for x in range(0, int(log2(min(i['width']-1, i['height']-1)) + 1 - int(log2(512)))) ]
+
+            return i
+
+    return None
+
+
+# @todo avoid clash with files actually named info.json
+@app.route('/<key>/<path:path>/info.json')
+def iiif_info(key, path):
+    _assert_iiif()
+
+    i = _info(key, path)
+    r = Response(render_template('info.json', **i), mimetype='application/json')
+    r.headers['Access-Control-Allow-Origin'] = '*'
+
+    return r
+
+
+@app.route('/<key>/<path:path>/<region>/<size>/<rot>/<quality>.<fmt>')
+def iiif(key, path, region, size, rot, quality, fmt):
+    _assert_iiif()
+
+    p = archive.get(key)
+    if p and path in p:
+        callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
+        url = f'{callback}{key}/{path}'
+        uri = p.description()['@id'] or request.url_root + key + '/' + path
+        image_url = app.config.get('image_server').get('root') + 'image'
+        params = { 'uri': uri,
+                   'url': url,
+                   'region': region,
+                   'size': size,
+                   'rotation': rot,
+                   'quality': quality,
+                   'format': fmt }
+
+        r = get(image_url, params=params, stream=True)
+
+        return Response(
+                r.iter_content(100*1024),
+                mimetype=r.headers.get('Content-Type', 'application/unknown'))
+
+    return 'Not found', 404
+
+
+@app.route('/<key>/<path:path>/_manifest')
+def iiif_manifest(key, path):
+    _assert_iiif()
+
+    return 'IIIF manifest'
+
+
+@app.route('/<key>/<path:path>', methods=[ 'GET' ])
+def package_file(key, path):
+    print('package_file')
+
+    p = archive.get(key)
 
     if p and path in p:
         size = int(p[path]['size'])
@@ -220,7 +300,7 @@ def ingest():
                     b=request.files[path].read(100*1024)
                     o.write(b)
 
-        key = archive.ingest(Package(tempdir), key=requests.args.get('key', None))
+        key = archive.ingest(Package(tempdir), key=request.args.get('key', None))
         package = archive.get(key)
 
         return redirect('/%s/' % key, code=201)
@@ -255,7 +335,7 @@ def finalize(key):
 
 @app.route('/base')
 def base():
-    return app.config['archive']['base']
+    return app.config['archive'].get('base', request.url_root)
 
 
 @app.route('/search')
@@ -299,6 +379,10 @@ def reindex(key):
 
     return 'no index', 500
 
+
+def _assert_iiif():
+    if app.config.get('image_server', {}).get('url', '') != '':
+        raise Exception('No image server')
 
 #@app.route('/static/<path:path>')
 #def static(path):

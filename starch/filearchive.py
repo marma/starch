@@ -84,6 +84,17 @@ class FileArchive(starch.Archive):
         return None
 
 
+    def delete(self, key):
+        p = self.get(key, mode='a')
+
+        if p:
+            d = self._directory(key)
+            rmtree(d)
+
+            if self.index:
+                self.index.delete(key)
+
+
     def get_location(self, key, path):
         d = self._directory(valid_key(key))
         p = join(d, valid_path(path))
@@ -236,8 +247,9 @@ class FileArchive(starch.Archive):
 
 
     def __del__(self):
-        if self.temporary and self.root_dir.startswith(TEMP_PREFIX) and exists(self.root_dir):
-            rmtree(self.root_dir)
+        if self.temporary and self.root_dir.startswith(TEMP_PREFIX):
+            if  exists(self.root_dir):
+                rmtree(self.root_dir)
 
             if self.index:
                 self.index.destroy()

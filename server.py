@@ -12,12 +12,16 @@ from hashlib import md5,sha256
 from starch.elastic import ElasticIndex
 from starch.utils import decode_range,valid_path,max_iter
 from os.path import join
-from tempfile import NamedTemporaryFile,TemporaryDirectory
+from tempfile import NamedTemporaryFile,TemporaryFile,TemporaryDirectory
 from time import time
 from traceback import print_exc
 from re import match
 from requests import get
 from math import log2
+from tarfile import TarFile,TarInfo,open as taropen
+from os import SEEK_END
+from starch.iterio import IterIO
+import datetime
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -87,9 +91,9 @@ def view_package(key):
 
     if p:
         p = p.description() if not isinstance(p, dict) else p
-        cover = next(iter([ x['path'] for x in p['files'] if x.get('mime_type', '') in [ 'image/jpeg', 'image/gif', 'image/png' ] ]), None) 
         p['files'] = { x['path']:x for x in p['files'] }
-        return render_template('package.html', package=p, cover=cover, mimetype='text/html')
+
+        return render_template('package.html', package=p, mimetype='text/html')
     else:
         return 'Not found', 404
 
@@ -184,6 +188,53 @@ def iiif_manifest(key, path):
     _assert_iiif()
 
     return 'IIIF manifest'
+
+
+@app.route('/<key>/_download')
+def download(key):
+    fmt = request.args.get('format', 'application/gzip')
+    p = archive.get(key)
+
+    if not p:
+        return 'Not found', 404
+
+    i = download_package_iterator(key, p, fmt)
+    size,filename = next(i)
+
+    return Response(i, headers={ 'Content-Disposition': f'attachment; filename={filename}' }, mimetype=fmt)
+
+
+def download_package_iterator(key, p, fmt):
+    mimes = { 
+                'application/gzip': ('tar.gz', 'w:gz'),
+                'application/tar': ('tar', 'w'),
+                'application/bzip2': ('tar.bz2', 'bz2')
+            }
+
+    if fmt not in mimes:
+        raise Exception('Unsupported format')
+
+    with TemporaryFile() as f:
+        t = taropen(fileobj=f, mode=mimes[fmt][1])
+
+
+        for path in p:
+            ti = TarInfo(f'{key}/{path}')
+            ti.size = int(p[path]['size'])
+            #ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
+            ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
+            t.addfile(ti, IterIO(p.get_iter(path)))            
+ 
+        t.close()
+        f.seek(0, SEEK_END)
+
+        yield f.tell(), f'{key}.{mimes[fmt][0]}'
+
+        f.seek(0)
+        b = f.read(1024*1024)
+        while b != b'':
+            yield b
+            b = f.read(1024*1024)
 
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])

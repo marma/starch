@@ -218,6 +218,24 @@ class FilePackage(starch.Package):
 
         return True
 
+    @property
+    def label(self):
+        return self._desc['label']
+
+    @label.setter
+    def label(self, label):
+        ltmp = self.label
+
+        try:
+            self._desc['label'] = label
+            self.save()
+            self._log('CHANGED LABEL', f'from "{ltmp}" to "{label}"')
+        except Exception as e:
+            self._desc['label'] = ltmp
+            raise e
+
+        return ltmp
+
 
     def status(self):
         return self._desc['status']

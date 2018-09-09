@@ -26,6 +26,7 @@ import datetime
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config.update(load(open(join(app.root_path, 'config.yml')).read()))
+app.jinja_env.line_statement_prefix = '#'
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
 
 if 'auth' in app.config:
@@ -92,8 +93,12 @@ def view_package(key):
     if p:
         p = p.description() if not isinstance(p, dict) else p
         p['files'] = { x['path']:x for x in p['files'] }
+        r = Response(render_template('package.html', package=p, mode=request.args.get('mode', request.cookies.get('mode', 'list'))), mimetype='text/html')
 
-        return render_template('package.html', package=p, mimetype='text/html')
+        if 'mode' in request.args:
+            r.set_cookie('mode', request.args['mode'])
+
+        return r
     else:
         return 'Not found', 404
 
@@ -161,26 +166,46 @@ def iiif(key, path, region, size, rot, quality, fmt):
     _assert_iiif()
 
     p = archive.get(key)
-    if p and path in p:
-        callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
-        url = f'{callback}{key}/{path}'
-        uri = p.description()['@id'] or request.url_root + key + '/' + path
-        image_url = app.config.get('image_server').get('root') + 'image'
-        params = { 'uri': uri,
-                   'url': url,
-                   'region': region,
-                   'size': size,
-                   'rotation': rot,
-                   'quality': quality,
-                   'format': fmt }
+    if p:
+        # pdf page selection?
+        m = match('^(.*)(?::)(\\d+)$', path)
 
-        r = get(image_url, params=params, stream=True)
+        if path in p or (m and m.group(1) in p and p[m.group(1)]['mime_type'] == 'application/pdf'):
+            callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
+            url = f'{callback}{key}/{path}'
+            uri = p.description()['@id'] or request.url_root + key + '/' + path
+            image_url = app.config.get('image_server').get('root') + 'image'
+            params = { 'uri': uri,
+                       'url': url,
+                       'region': region,
+                       'size': size,
+                       'rotation': rot,
+                       'quality': quality,
+                       'format': fmt }
 
-        return Response(
-                r.iter_content(100*1024),
-                mimetype=r.headers.get('Content-Type', 'application/unknown'))
+            r = get(image_url, params=params, stream=True)
+
+            return Response(
+                    r.iter_content(100*1024),
+                    mimetype=r.headers.get('Content-Type', 'application/unknown'))
 
     return 'Not found', 404
+
+
+@app.route('/<key>/_label', methods = [ 'POST' ])
+def set_label(key):
+    try:
+        p = archive.get(key, mode='a')
+
+        if p:
+            print(request.form.get('label'))
+            p.label = request.form.get('label')
+
+            return f'Changed label to "{p.label}"'
+
+        return 'Not found', 404
+    except Exception as e:
+        return str(e), 500
 
 
 @app.route('/<key>/<path:path>/_manifest')
@@ -207,8 +232,8 @@ def download(key):
 def download_package_iterator(key, p, fmt):
     mimes = { 
                 'application/gzip': ('tar.gz', 'w:gz'),
-                'application/tar': ('tar', 'w'),
-                'application/bzip2': ('tar.bz2', 'bz2')
+                'application/x-tar': ('tar', 'w'),
+                'application/bzip2': ('tar.bz2', 'w:bz2')
             }
 
     if fmt not in mimes:
@@ -217,13 +242,11 @@ def download_package_iterator(key, p, fmt):
     with TemporaryFile() as f:
         t = taropen(fileobj=f, mode=mimes[fmt][1])
 
-
         for path in p:
             ti = TarInfo(f'{key}/{path}')
             ti.size = int(p[path]['size'])
-            #ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
             ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
-            t.addfile(ti, IterIO(p.get_iter(path)))            
+            t.addfile(ti, IterIO(p.get_iter(path)))
  
         t.close()
         f.seek(0, SEEK_END)
@@ -333,6 +356,21 @@ def delete_file(key, path):
         return 'deleted', 204
     
     return 'Not found', 404
+
+
+@app.route('/<key>/', methods=[ 'DELETE' ])
+def delete_package(key):
+    try:
+        p = archive.get(key, mode='a')
+
+        if p:
+            archive.delete(key, force=True)        
+
+            return 'deleted', 204
+
+        return 'Not found', 404
+    except Exception as e:
+        return e.message, 500
 
 
 @app.route('/ingest', methods=[ 'POST' ])

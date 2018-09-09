@@ -84,15 +84,20 @@ class FileArchive(starch.Archive):
         return None
 
 
-    def delete(self, key):
-        p = self.get(key, mode='a')
+    def delete(self, key, force=False):
+        if force:
+            p = self.get(key, mode='a')
 
-        if p:
-            d = self._directory(key)
-            rmtree(d)
+            if p:
+                d = self._directory(key)
+                rmtree(d)
 
-            if self.index:
-                self.index.delete(key)
+                if self.index:
+                    self.index.delete(key)
+
+                return True
+        else:
+            raise Exception('Use the force (parameter)')
 
 
     def get_location(self, key, path):

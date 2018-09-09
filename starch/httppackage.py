@@ -207,6 +207,33 @@ class HttpPackage(starch.Package):
         return self._desc['status']
 
 
+    @property
+    def label(self):
+        return self._desc['label']
+
+
+    @label.setter
+    def label(self, label):
+        if self._mode != 'a':
+            raise Exception('package not writable, open in \'a\' mode')            
+
+        ltmp = self.label
+
+        try:
+            self._desc['label'] = label
+            r = post(self.url + '_label', data={ 'label': label }, auth=self.auth)
+
+            if r.status_code != 200:
+                raise Exception(f'Expected HTTP status 200, got {r.status_code}, data is "{r.text}"')
+
+            self._reload()
+        except Exception as e:
+            self._desc['label'] = ltmp
+            raise e
+
+        return ltmp
+
+
     def _add_directory(self, dir, path, exclude='^\\..*|^_.*'):
         ep = compile(exclude)
         for f in listdir(dir):

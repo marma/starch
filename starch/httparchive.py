@@ -1,4 +1,4 @@
-from requests import get,post
+from requests import get,post,delete as htdelete
 from urllib.parse import urljoin
 from contextlib import closing
 from json import dumps,loads
@@ -97,6 +97,22 @@ class HttpArchive(starch.Archive):
             return None
         except:
             raise
+
+
+    def delete(self, key, force=False):
+        if force:
+            p = self.get(key, mode='a')
+            r = htdelete(self.url + key + '/', auth=self.auth)
+
+            if r.status_code == 404:
+                return False
+
+            if r.status_code not in  [ 200, 202, 204 ]:
+                raise Exception(f'Expected status code 200, 202 or 204, got {r.status_code}')
+
+            return True
+        else:
+            raise Exception('Use the force (parameter)')
 
 
     def search(self, query, start=0, max=None):

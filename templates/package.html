@@ -16,6 +16,7 @@
 
             {{ '#' }}menu {
                 background: #efeff5;
+            }
         </style>
     </head>
     
@@ -57,21 +58,22 @@
                 <div class="ui divider"></div>
                 # if mode == 'cards':
                 <div class="ui cards">
-                    # set cover = None
-                    # for path,d in package['files'].items() if not cover:
+                    # set viewable = False
+                    # for path,d in package['files'].items():
+                    #   set cover = None
                     #   set type = d['mime_type']
-                    
-                    #   if d['mime_type'].startswith('image/')
+                    #   if d['mime_type'].startswith('image/'):
+                    #     set viewable = True
                     #     if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and lt(d['size'], 1000000)
                     #       set cover = path
                     #     else
                     #       set cover = path + '/full/1024,/0/default.jpg'
                     #     endif
-                    #    elif type == 'application/pdf'
+                    #   elif type == 'application/pdf'
                     #      set cover = path + ':1/full/1024,/0/default.jpg'
                     #   endif
                     <div class="ui raised linked card">
-                        # set url = path + '/_view' if cover else path
+                        # set url = path + '/_view' if viewable else path
                         <a href="{{ url | urlencode }}">
                             <img style="object-fit: cover" class="ui image" width="300" onerror="this.src='/static/img/white-image.png'" src="{{ cover | urlencode if cover else '/static/img/white-image.png' }}"/>
                         </a>
@@ -86,23 +88,70 @@
                     <thead>
                         <tr>
                             <th>Filename</th>
+                            # if package['status'] != 'finalized':
+                            <th width="5%">Delete</th>
+                            # endif
                             <th width="5%">Type</th>
                             <th width="10%">Checksum</th>
                             <th width="5%">size</th>
                     </thead>
                     <tbody>
                         # for path in package['files'] | sort
-                        #   set hash = package['files'][path]['checksum']
+                        #   set hash = package['files'][path]['checksum'].split(':')[1]
+                        #   set type =  package['files'][path]['mime_type']
+                        #   set viewable = type[0:6] == 'image/'
                         <tr>
-                            <td><a download href="./{{ path | urlencode }}"><i class="download icon"></i></a> <a class="header" href="./{{ path | urlencode }}/_view"><b>{{ path }}</b></a></td>
+                            <td>
+                                <a download href="./{{ path | urlencode }}"><i class="download icon"></i></a>
+                                <a class="header" href="./{{ path + '/_view' if viewable else path | urlencode }}"><b>{{ path }}</b></a>
+                            </td>
+                            # if package['status'] != 'finalized':
+                            <td>
+                                <a href="#" onclick="if (confirm('Really delete {{ path }}?')) deletePath('{{ path }}'); return false;"><i class="ui icon delete"></i></a>
+                            </td>
+                            # endif
                             <td nowrap width="5%">{{ package['files'][path]['mime_type'] | default('<unknown>') }}</td>
-                            <td nowrap width="10%"><span class="ui circular label" data-content="{{ package['files'][path]['checksum'] }}">{{ hash[:12]}}&nbsp;...&nbsp;{{ hash[-8:]}}</span></td>
+                            <td nowrap width="10%"><span class="ui circular label" data-content="{{ hash }}">{{ hash[:8]}}&nbsp;..&nbsp;{{ hash[-8:]}}</span></td>
                             <td nowrap width="5%"><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span></td>
                         </tr>
                         # endfor
                     </tbody>
                 </table>
-                {% endif %}
+                # endif
             </div>
         </div>
     </body>
+    <!--script>
+        $('.dropdown').dropdown({transition: 'drop', on: 'hover' });
+    </script-->
+    <script>
+        function deletePath(path) {
+            $.ajax({
+                type: "DELETE",
+                url: path,
+                success: function(msg){
+                    alert("DELETED: " + msg);
+                }
+            });
+
+            location.reload();
+        }
+    </script>
+    <script>
+        var dragged = false;
+
+        document.addEventListener("dragover", function( event ) {
+            if (!dragged)
+                alert('in' + event.target);
+
+            dragged = true;
+        }, false);
+
+        document.addEventListener("dragleave", function( event ) {
+            if (dragged)
+                alert('ut' + event.target);
+
+            dragged = false;
+        }, false);
+    </script>
+<html>

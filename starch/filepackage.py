@@ -106,7 +106,7 @@ class FilePackage(starch.Package):
         if self.is_finalized():
             raise Exception('package is finalized, use patches')
 
-        with _lock_ctx():
+        with self._lock_ctx():
             if path in self:
                 del self._desc['files'][path]
                 full_path = self._get_full_path(path)

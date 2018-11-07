@@ -88,6 +88,7 @@ def tag(key):
 
 @app.route('/<key>/_view')
 def view_package(key):
+    #p = (index or archive).get(key)
     p = (index.get(key) if index else None) or archive.get(key)
 
     if p:

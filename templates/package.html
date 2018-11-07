@@ -34,7 +34,7 @@
             <div class="item">
                 <div class="header"><b>Instances</b></div>
                 {% for instance in package['instances'] %}
-                <div class="item">{{ instance['urn'] }}</div>
+                <div class="content"><a href="/{{ instance['urn'] }}/_view">{{ instance['urn'] | truncate(32) }}</a></div>
                 {% endfor %}
             </div>
         </div>
@@ -46,6 +46,7 @@
                         <tr>
                             <th>Filename</th>
                             <th>Type</th>
+                            <th>Checksum</th>
                             <th>size</th>
                     </thead>
                     <tbody>
@@ -53,6 +54,7 @@
                         <tr>
                             <td><a class="header" href="./{{ path | urlencode }}"><b>{{ path }}</b></a></td>
                             <td>{{ package['files'][path]['mime_type'] | default('<unknown>') }}</td>
+                            <td>{{ package['files'][path]['checksum'] }}</td>
                             <td><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span</td>
                         </tr>
                         {% endfor %}

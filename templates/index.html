@@ -9,12 +9,12 @@
                 padding: 1em;
             }
 
-            #content {
+            {{ '#' }}content {
                 padding-left: 19em;
                 padding-top: 0.25em;
             }
 
-            #menu {
+            {{ '#' }}menu {
                 padding-top: 1em;
                 background: #efeff5;
             }
@@ -88,36 +88,24 @@
             <!--button id="sidebar_left_toggle" onclick="$('.ui.sidebar').sidebar('toggle');">show sidebar</button-->
             <div id="content" class="ui article" id="content">
                 <div class="ui cards">
-                    {% for key,description in descriptions %}
-                    {% set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ]) | selectattr('size', 'lt', 512*1024) | first | default(None) %}
+                    # for key,description in descriptions:
+                    #   set type = description.get('mime_type', '')
+                    #   if type== 'application/pdf':
+                    #   endif
+                    #   set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
+                    #   if cover:
+                    #     set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 512*1024 else cover['path'] + '/full/1024,/0/default.jpg' | default(None)
+                    #   else:
+                    #     set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
+                    #     set cover = cover['path'] + ':1/full/1024,/0/default.jpg' if cover else None
+                    #   endif
                     <div class="ui raised linked card" href="/{{ key }}/">
                         <a href="/{{ key }}/_view">
-                            <img style="object-fit: cover" class="ui masked image" width="300" height="300" onerror="this.src='/static/img/white-image.png'" src="{{ './' + key + '/' + cover['path'] | urlencode if cover else '/static/img/white-image.png' }}"/>
+                            <img style="object-fit: cover" class="ui masked image" width="300" onerror="this.src='/static/img/white-image.png'" src="{{ key + '/' + cover | urlencode if cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
                             <span class="header">{{ description['label'] or '<None>' | truncate(32) }}</span>
                         </div>
-                        <!--div class="blurring dimmable image" href="/{{ key }}/_view">
-                            <div class="ui dimmer">
-                                <div class="content">
-                                    <div class="center">
-                                        <div class="ui inverted button">{{ description['label'] }}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <img src="static/img/white-image.png"/>
-                        </div-->
-                        <!--div class="content">
-                            <div class="center">
-                                <span class="header">{{ description['label'] }}</span>
-                                {% for tag in description['tags'] %}<a href="?q={+%22tags%22:+%22{{ tag | urlencode }}%22+}" class="ui blue label">{{ tag | truncate(16) }}</a>{% endfor %}
-                            </div>
-                        </div-->
-                        <!--div class="extra content">
-                        {% for tag in description['tags'] %}
-                            <span class="ui label">{{ tag }}</span>
-                        {% endfor %}
-                        </div-->
                         <div class="extra content">
                             <span>{{ description['files'] | length }} Files</span> - <span>{{ description['size'] | filesizeformat }}</span> - <span>{{ [ description['instances'] | length, 1] | max }} instance(s)</span>
                         </div>
@@ -125,7 +113,7 @@
                             <span>{{ description['created'] }}</span>
                         </div>
                     </div>
-                    {% endfor %}
+                    # endfor
                 </div>
             </div>
         </div>

@@ -61,8 +61,8 @@ class FilePackage(starch.Package):
                 del(self._desc['patch_type'])
 
             self._desc['created'] = datetime.utcnow().isoformat() + 'Z'
+            self._log('CREATED %s' % self._desc['urn'], t=self._desc['created'])
             self.save()
-            self._log('CREATED')
         elif mode in [ 'r', 'a' ]:
             with open(self._get_full_path('_package.json')) as r:
                 self._desc = loads(r.read())
@@ -218,6 +218,24 @@ class FilePackage(starch.Package):
 
         return True
 
+    @property
+    def label(self):
+        return self._desc['label']
+
+    @label.setter
+    def label(self, label):
+        ltmp = self.label
+
+        try:
+            self._desc['label'] = label
+            self.save()
+            self._log('CHANGED LABEL', f'from "{ltmp}" to "{label}"')
+        except Exception as e:
+            self._desc['label'] = ltmp
+            raise e
+
+        return ltmp
+
 
     def status(self):
         return self._desc['status']
@@ -241,6 +259,11 @@ class FilePackage(starch.Package):
         ret['files'] = [ x for key,x in ret['files'].items() ]
 
         return ret
+
+
+    @property
+    def urn(self):
+        return self._desc['urn']
 
 
     def tag(self, tag):
@@ -272,13 +295,14 @@ class FilePackage(starch.Package):
             return logfile.read()
 
 
-    def _log(self, *args):
+    def _log(self, *args, t=None):
+        t = t or (datetime.utcnow().isoformat() + 'Z')
+
         message = ' '.join(args)
 
         if self._mode in [ 'a', 'w' ]:
             with open(self._get_full_path('_log'), 'a') as logfile:
-                t = datetime.utcnow()
-                logfile.write(t.isoformat() + 'Z' + ' ' + message + '\n')
+                logfile.write(t + ' ' + message + '\n')
         else:
             raise Exception('package in read-only mode')
 
@@ -361,6 +385,9 @@ class FilePackage(starch.Package):
     def __del__(self):
         if self._temporary and exists(self.root_dir) and self.root_dir.startswith(TEMP_PREFIX):
             rmtree(self.root_dir)
+
+    def __repr__(self):
+        return 'FilePackage<%s>' % self.urn
 
 #    def __len__(self):
 #        return len(self._desc['files'])

@@ -1,10 +1,15 @@
-from requests import get,post
+from requests import get,post,delete as htdelete
 from urllib.parse import urljoin
 from contextlib import closing
 from json import dumps,loads
+from sys import stderr
+from time import sleep
+from starch.result import create_result
 import starch
 
 MAX_ID=2**38
+MAX_RETRIES=2
+MAX_RETRY_WAIT=60
 
 class HttpArchive(starch.Archive):
     def __init__(self, root=None, base=None, auth=None):
@@ -22,7 +27,34 @@ class HttpArchive(starch.Archive):
         else:
             self.auth = None
 
-        self.server_base = get(urljoin(self.url, 'base'), auth=self.auth).text
+        n_retries=0
+        retry_wait=1
+        while True:
+            try:
+                r = get(urljoin(self.url, 'base'), auth=self.auth)
+            except Exception as e:
+                if n_retries == MAX_RETRIES:
+                    raise Exception('Max number of retries (%d) reached. %s' % (MAX_RETRIES, str(e)))
+
+                print('Exception while connecting. Retry %d of %s in %d seconds. %s' % (n_retries+1, str(MAX_RETRIES), retry_wait, str(e)), file=stderr, flush=True)
+            else:
+                if r.status_code in [ 401, 403 ]:
+                    raise Exception('Unauthorized. HTTP status = %d' % r.status_code)
+
+                if r.status_code == 200:
+                    self.server_base = r.text
+                    break;
+
+                if n_retries == MAX_RETRIES:
+                    raise Exception('Max number of retries (%d) reached.')
+                
+                print('Unexpected HTTP status code = %d Retry %d of %s in %d seconds' % (r.status_code, n_retries+1, str(MAX_RETRIES), retry_wait), file=stderr, flush=True)
+
+            n_retries += 1
+            sleep(retry_wait)
+
+            if 2*retry_wait < MAX_RETRY_WAIT:
+                retry_wait *= 2
 
 
     def new(self, **kwargs):
@@ -33,7 +65,7 @@ class HttpArchive(starch.Archive):
 
         url = r.headers['Location']
 
-        return (self.get_key(url),
+        return (self._get_key(url),
                 starch.Package(
                     url,
                     mode='a',
@@ -50,7 +82,7 @@ class HttpArchive(starch.Archive):
 
         url = r.headers['Location']
 
-        return self.get_key(url)
+        return self._get_key(url)
 
 
     def get(self, key, mode='r'):
@@ -67,11 +99,27 @@ class HttpArchive(starch.Archive):
             raise
 
 
+    def delete(self, key, force=False):
+        if force:
+            p = self.get(key, mode='a')
+            r = htdelete(self.url + key + '/', auth=self.auth)
+
+            if r.status_code == 404:
+                return False
+
+            if r.status_code not in  [ 200, 202, 204 ]:
+                raise Exception(f'Expected status code 200, 202 or 204, got {r.status_code}')
+
+            return True
+        else:
+            raise Exception('Use the force (parameter)')
+
+
     def search(self, query, start=0, max=None):
         g = self._search_iter(query, start, max)
         i,r,c = next(g).split()
 
-        return i,r,c,g
+        return create_result(i, r, c, g, self)
 
 
     def _search_iter(self, query, start=0, max=None):
@@ -105,7 +153,7 @@ class HttpArchive(starch.Archive):
         return self.url + key + '/' + path
 
 
-    def __iter__(self):
+    def keys(self):
         with closing(get(self.url + 'packages', auth=self.auth, stream=True)) as r:
             if r.status_code == 200:
                 for key in r.raw:
@@ -114,11 +162,20 @@ class HttpArchive(starch.Archive):
                 raise Exception('server returned status %d' % r.status_code)
 
 
-    def get_key(self, url):
+    def __iter__(self):
+        yield from self.keys()
+
+
+    def items(self):
+        for key in self:
+            yield (key, self.get(key))
+
+
+    def _get_key(self, url):
         if url.startswith(self.url):
             return url[len(self.url):].split('/')[0]
 
-        raise Exception('url (%s) does start with %s' % (url, self.url))
+        raise Exception('url (%s) does not start with %s' % (url, self.url))
 
 
     def __contains__(self, key):

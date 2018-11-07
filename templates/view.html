@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.3.1/openseadragon.min.js"></script>
+        <style>
+            html, body {
+                height: 100%;
+                width: 100%;
+                margin: 0;
+            }
+
+            {{'#'}}header {
+                padding: 0.5em;
+                height: 3em;
+                color: #7f7f8f;
+                font-size: 2em;
+                background-color: black;
+                font-family: Arial, sans-serif;
+                text-decoration: none;
+            }
+
+            {{'#'}}openseadragon {
+                top: 4em;
+                position: absolute;
+                bottom: 0;
+                width: 100%;
+                background-color: black;
+            }
+
+            a:link {
+                text-decoration: none;
+                color: #7f7f8f;
+            }
+
+            a:visited {
+                text-decoration: none;
+                color: #7f7f8f;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="header">&lt;&lt; <a href="../_view">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></div>
+        <div id="openseadragon"></div>
+    </body>
+    <script type="text/javascript">
+        OpenSeadragon({
+            id:                 "openseadragon",
+            prefixUrl:          "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.3.1/images/",
+            preserveViewport:   true,
+            visibilityRatio:    1,
+            //minZoomLevel:       1,
+            //defaultZoomLevel:   1,
+            sequenceMode:       false,
+            tileSources:         "{{ info['id'] | safe }}/info.json"
+        });
+        </script>
+</html>
+

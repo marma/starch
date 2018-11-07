@@ -10,14 +10,23 @@ from contextlib import closing
 from json import loads,dumps
 from hashlib import md5,sha256
 from starch.elastic import ElasticIndex
-from starch.utils import decode_range,valid_path
+from starch.utils import decode_range,valid_path,max_iter
 from os.path import join
-from tempfile import NamedTemporaryFile,TemporaryDirectory
+from tempfile import NamedTemporaryFile,TemporaryFile,TemporaryDirectory
 from time import time
+from traceback import print_exc
+from re import match
+from requests import get
+from math import log2
+from tarfile import TarFile,TarInfo,open as taropen
+from os import SEEK_END
+from starch.iterio import IterIO
+import datetime
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config.update(load(open(join(app.root_path, 'config.yml')).read()))
+app.jinja_env.line_statement_prefix = '#'
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
 
 if 'auth' in app.config:
@@ -84,32 +93,179 @@ def view_package(key):
 
     if p:
         p = p.description() if not isinstance(p, dict) else p
-        cover = next(iter([ x['path'] for x in p['files'] if x.get('mime_type', '') in [ 'image/jpeg', 'image/gif', 'image/png' ] ]), None) 
         p['files'] = { x['path']:x for x in p['files'] }
-        return render_template('package.html', package=p, cover=cover, mimetype='text/html')
+        r = Response(render_template('package.html', package=p, mode=request.args.get('mode', request.cookies.get('mode', 'list'))), mimetype='text/html')
+
+        if 'mode' in request.args:
+            r.set_cookie('mode', request.args['mode'])
+
+        return r
     else:
         return 'Not found', 404
 
 
-@app.route('/<key>/<path:path>', methods=[ 'GET' ])
-def package_file(key, path):
-    # must be some other way to get correct routing
-    if key == 'reindex':
-        return reindex(path if path[-1] != '/' else path[:-1])
-
-    if path == '_view':
-        return view_package(key)
-
+@app.route('/<key>/_log')
+def log(key):
     p = archive.get(key)
-
-    if p and path == '_log':
+   
+    if p: 
         return Response(p.log(), mimetype='text/plain')
 
-    # reference by urn?
-    if p and path[:4] == 'urn:':
-        for f in p:
-            if p[f]['urn'] == path:
-                path = f
+    return 'Not found', 404
+
+
+@app.route('/<key>/<path:path>/_view')
+def view(key, path):
+    _assert_iiif()
+
+    i = _info(key, path)
+
+    if i:
+        return render_template('view.html', info=i)
+    else:
+        return 'Not found', 404
+
+
+def _info(key, path):
+    _assert_iiif()
+
+    p = archive.get(key)
+    if p and path in p:
+        callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
+        url = f'{callback}{key}/{path}'
+        uri = p.description()['@id']
+
+        if uri == '':
+            uri = f'{request.url_root}{key}/{path}'
+
+        image_url = app.config.get('image_server').get('root') + 'info'
+
+        with closing(get(image_url, params={ 'uri': uri, 'url': url })) as r:
+            i = loads(r.text)
+            i['id'] = uri
+            i['levels'] = [ 2**x for x in range(0, int(log2(min(i['width']-1, i['height']-1)) + 1 - int(log2(512)))) ]
+
+            return i
+
+    return None
+
+
+# @todo avoid clash with files actually named info.json
+@app.route('/<key>/<path:path>/info.json')
+def iiif_info(key, path):
+    _assert_iiif()
+
+    i = _info(key, path)
+    r = Response(render_template('info.json', **i), mimetype='application/json')
+    r.headers['Access-Control-Allow-Origin'] = '*'
+
+    return r
+
+
+@app.route('/<key>/<path:path>/<region>/<size>/<rot>/<quality>.<fmt>')
+def iiif(key, path, region, size, rot, quality, fmt):
+    _assert_iiif()
+
+    p = archive.get(key)
+    if p:
+        # pdf page selection?
+        m = match('^(.*)(?::)(\\d+)$', path)
+
+        if path in p or (m and m.group(1) in p and p[m.group(1)]['mime_type'] == 'application/pdf'):
+            callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
+            url = f'{callback}{key}/{path}'
+            uri = p.description()['@id'] or request.url_root + key + '/' + path
+            image_url = app.config.get('image_server').get('root') + 'image'
+            params = { 'uri': uri,
+                       'url': url,
+                       'region': region,
+                       'size': size,
+                       'rotation': rot,
+                       'quality': quality,
+                       'format': fmt }
+
+            r = get(image_url, params=params, stream=True)
+
+            return Response(
+                    r.iter_content(100*1024),
+                    mimetype=r.headers.get('Content-Type', 'application/unknown'))
+
+    return 'Not found', 404
+
+
+@app.route('/<key>/_label', methods = [ 'POST' ])
+def set_label(key):
+    try:
+        p = archive.get(key, mode='a')
+
+        if p:
+            print(request.form.get('label'))
+            p.label = request.form.get('label')
+
+            return f'Changed label to "{p.label}"'
+
+        return 'Not found', 404
+    except Exception as e:
+        return str(e), 500
+
+
+@app.route('/<key>/<path:path>/_manifest')
+def iiif_manifest(key, path):
+    _assert_iiif()
+
+    return 'IIIF manifest'
+
+
+@app.route('/<key>/_download')
+def download(key):
+    fmt = request.args.get('format', 'application/gzip')
+    p = archive.get(key)
+
+    if not p:
+        return 'Not found', 404
+
+    i = download_package_iterator(key, p, fmt)
+    size,filename = next(i)
+
+    return Response(i, headers={ 'Content-Disposition': f'attachment; filename={filename}' }, mimetype=fmt)
+
+
+def download_package_iterator(key, p, fmt):
+    mimes = { 
+                'application/gzip': ('tar.gz', 'w:gz'),
+                'application/x-tar': ('tar', 'w'),
+                'application/bzip2': ('tar.bz2', 'w:bz2')
+            }
+
+    if fmt not in mimes:
+        raise Exception('Unsupported format')
+
+    with TemporaryFile() as f:
+        t = taropen(fileobj=f, mode=mimes[fmt][1])
+
+        for path in p:
+            ti = TarInfo(f'{key}/{path}')
+            ti.size = int(p[path]['size'])
+            ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
+            t.addfile(ti, IterIO(p.get_iter(path)))
+ 
+        t.close()
+        f.seek(0, SEEK_END)
+
+        yield f.tell(), f'{key}.{mimes[fmt][0]}'
+
+        f.seek(0)
+        b = f.read(1024*1024)
+        while b != b'':
+            yield b
+            b = f.read(1024*1024)
+
+
+@app.route('/<key>/<path:path>', methods=[ 'GET' ])
+def package_file(key, path):
+    print('package_file')
+
+    p = archive.get(key)
 
     if p and path in p:
         size = int(p[path]['size'])
@@ -132,8 +288,12 @@ def package_file(key, path):
         except:
             raise
 
+        max_bytes = request.args.get('max_bytes', None)
+        if max_bytes:
+            headers['Content-Length'] = min(int(max_bytes), int(headers['Content-Length']))
+
         return Response(
-                i,
+                i if not max_bytes else max_iter(i, int(max_bytes)),
                 headers=headers,
                 mimetype=p[path].get('mime_type', 'application/unknown'),
                 status=200 if range == (0, None) else 206)
@@ -183,6 +343,7 @@ def put_file(key, path):
         else:
             return 'package not found', 400
     except Exception as e:
+        print_exc()
         return str(e), 500
 
 
@@ -196,6 +357,21 @@ def delete_file(key, path):
         return 'deleted', 204
     
     return 'Not found', 404
+
+
+@app.route('/<key>/', methods=[ 'DELETE' ])
+def delete_package(key):
+    try:
+        p = archive.get(key, mode='a')
+
+        if p:
+            archive.delete(key, force=True)        
+
+            return 'deleted', 204
+
+        return 'Not found', 404
+    except Exception as e:
+        return e.message, 500
 
 
 @app.route('/ingest', methods=[ 'POST' ])
@@ -214,7 +390,7 @@ def ingest():
                     b=request.files[path].read(100*1024)
                     o.write(b)
 
-        key = archive.ingest(Package(tempdir), key=requests.args.get('key', None))
+        key = archive.ingest(Package(tempdir), key=request.args.get('key', None))
         package = archive.get(key)
 
         return redirect('/%s/' % key, code=201)
@@ -229,13 +405,7 @@ def new():
 
 @app.route('/packages')
 def packages():
-    i,r,c,g = (index or archive).search(
-                {},
-                int(request.args.get('start', '0')),
-                request.args.get('max', None),
-                sort='created:asc')
-
-    return Response(newliner(g), mimetype='text/plain')
+    return Response(newliner((index or self)), mimetype='text/plain')
 
 
 @app.route('/<key>/finalize', methods=[ 'POST' ])
@@ -255,19 +425,23 @@ def finalize(key):
 
 @app.route('/base')
 def base():
-    return app.config['archive']['base']
+    return app.config['archive'].get('base', request.url_root)
 
 
 @app.route('/search')
 def search():
-    q = loads(request.args['q'])
-    start = int(request.args.get('from', '0'))
-    max = int(request.args['max']) if 'max' in request.args else None
-    sort = request.args.get('sort', None)
+    if 'q' not in request.args:
+        return 'no q parameter', 500
 
-    s, r, c, g = (index or archive).search(q, start, max, sort)
+    r = (index or archive).search(
+            loads(request.args['q']),
+            int(request.args.get('from', '0')),
+            int(request.args['max']) if 'max' in request.args else None,
+            request.args.get('sort', None))
 
-    return Response(iter_search(s, r, c, g), mimetype='text/plain')
+    return Response(
+            iter_search(r.start, r.n, r.m, r.keys),
+            mimetype='text/plain')
 
 
 @app.route('/count')
@@ -289,12 +463,16 @@ def reindex(key):
         b = index.bulk_update(ps, sync=False)
         t2 = time()
 
-        print('getting %d packages took %f seconds, index returned after %f' % (len(ps), t1-t0, t2-t1), flush=True)
+        print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
 
         return '\n'.join(b) + '\n'
 
     return 'no index', 500
 
+
+def _assert_iiif():
+    if app.config.get('image_server', {}).get('url', '') != '':
+        raise Exception('No image server')
 
 #@app.route('/static/<path:path>')
 #def static(path):

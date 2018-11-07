@@ -57,7 +57,7 @@ class HttpPackage(starch.Package):
         if traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            self._write(fname, valid_path(path), replace=replace, **kwargs)
+            self._write(fname, valid_path(path), replace=replace)
 
         self._reload()
 
@@ -205,6 +205,33 @@ class HttpPackage(starch.Package):
 
     def status(self):
         return self._desc['status']
+
+
+    @property
+    def label(self):
+        return self._desc['label']
+
+
+    @label.setter
+    def label(self, label):
+        if self._mode != 'a':
+            raise Exception('package not writable, open in \'a\' mode')            
+
+        ltmp = self.label
+
+        try:
+            self._desc['label'] = label
+            r = post(self.url + '_label', data={ 'label': label }, auth=self.auth)
+
+            if r.status_code != 200:
+                raise Exception(f'Expected HTTP status 200, got {r.status_code}, data is "{r.text}"')
+
+            self._reload()
+        except Exception as e:
+            self._desc['label'] = ltmp
+            raise e
+
+        return ltmp
 
 
     def _add_directory(self, dir, path, exclude='^\\..*|^_.*'):

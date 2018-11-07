@@ -9,18 +9,25 @@
                 padding: 1em;
             }
 
-            #content {
+            {{ '#' }}content {
                 padding-left: 19em;
                 padding-top: 0.25em;
             }
 
-            #menu {
+            {{ '#' }}menu {
                 background: #efeff5;
         </style>
     </head>
     
     <body class="">
         <div id="menu" class="ui visible sidebar left vertical menu">
+            {% set cover = package['files'].values() | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | sort(attribute='path') | first | default(None) %}
+            {% if cover %}
+            {% set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 512*1024 else cover['path'] + '/full/1024,/0/default.jpg' | default(None) %}
+            {% endif %}
+
+            <img style="object-fit: cover" class="ui fluid image" onerror="this.src='/static/img/white-image.png'" src="{{ cover | urlencode if cover else '/static/img/white-image.png' }}"/>
+
             {% if package['tags'] %}
             <div class="item">
                 <div class="header">Tags</div>
@@ -29,38 +36,73 @@
                 {% endfor %}
             </div>
             {% endif %}
-            <div class="item"><b>Package size:</b> {{ package['size'] | filesizeformat }}</div>
+            <div class="item"><b>Package size:</b>{{ package['size'] | filesizeformat }}</div>
             <div class="item"><b>Status:</b> {{ package['status'] }}</div>
+            # if package['instances']
             <div class="item">
                 <div class="header"><b>Instances</b></div>
                 {% for instance in package['instances'] %}
                 <div class="content"><a href="/{{ instance['urn'] }}/_view">{{ instance['urn'] | truncate(32) }}</a></div>
                 {% endfor %}
             </div>
+            # endif
+            <div class="item"><b>Download:</b> <a href="_download?format=application/x-tar"><i class="archive icon"></i>.tar</a> <!--a href="_download?format=application/tar">BagIt</a--></div>
         </div>
         <div class="pushable">
             <div id="content">
-            	<h1>{{ package['label'] }}</h1>
+                <div>
+                    <span class="ui right floated menu"><a class="ui {{ 'active' if mode == 'list' else '' }} item" href="?mode=list">List</a><a class="ui {{ 'active' if mode == 'cards' else '' }} item" href="?mode=cards">Cards</a></span>
+            	    <div class="ui floating"><h1><a href="/">Index</a> / {{ package['label'] }}</h1></div>
+                </div>
+                <div class="ui divider"></div>
+                # if mode == 'cards':
+                <div class="ui cards">
+                    # set cover = None
+                    # for path,d in package['files'].items() if not cover:
+                    #   set type = d['mime_type']
+                    
+                    #   if d['mime_type'].startswith('image/')
+                    #     if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and lt(d['size'], 1000000)
+                    #       set cover = path
+                    #     else
+                    #       set cover = path + '/full/1024,/0/default.jpg'
+                    #     endif
+                    #    elif type == 'application/pdf'
+                    #      set cover = path + ':1/full/1024,/0/default.jpg'
+                    #   endif
+                    <div class="ui raised linked card">
+                        # set url = path + '/_view' if cover else path
+                        <a href="{{ url | urlencode }}">
+                            <img style="object-fit: cover" class="ui image" width="300" onerror="this.src='/static/img/white-image.png'" src="{{ cover | urlencode if cover else '/static/img/white-image.png' }}"/>
+                        </a>
+                        <div class="content">
+                            <span class="header"><a download href="./{{ path | urlencode }}"><i class="download icon"></i></a> {{ path | truncate(18) }}</span>
+                        </div>
+                    </div>  
+                    # endfor
+                </div>
+                # else
                 <table class="ui celled padded striped selectable large table">
                     <thead>
                         <tr>
                             <th>Filename</th>
-                            <th>Type</th>
-                            <th>Checksum</th>
-                            <th>size</th>
+                            <th width="5%">Type</th>
+                            <th width="10%">Checksum</th>
+                            <th width="5%">size</th>
                     </thead>
                     <tbody>
-                        {% for path in package['files'] | sort %}
+                        # for path in package['files'] | sort
+                        #   set hash = package['files'][path]['checksum']
                         <tr>
-                            <td><a class="header" href="./{{ path | urlencode }}"><b>{{ path }}</b></a></td>
-                            <td>{{ package['files'][path]['mime_type'] | default('<unknown>') }}</td>
-                            <td>{{ package['files'][path]['checksum'] }}</td>
-                            <td><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span</td>
+                            <td><a download href="./{{ path | urlencode }}"><i class="download icon"></i></a> <a class="header" href="./{{ path | urlencode }}/_view"><b>{{ path }}</b></a></td>
+                            <td nowrap width="5%">{{ package['files'][path]['mime_type'] | default('<unknown>') }}</td>
+                            <td nowrap width="10%"><span class="ui circular label" data-content="{{ package['files'][path]['checksum'] }}">{{ hash[:12]}}&nbsp;...&nbsp;{{ hash[-8:]}}</span></td>
+                            <td nowrap width="5%"><span class="ui circular label">{{ package['files'][path]['size'] | filesizeformat}}</span></td>
                         </tr>
-                        {% endfor %}
+                        # endfor
                     </tbody>
                 </table>
+                {% endif %}
             </div>
         </div>
     </body>
-</html>

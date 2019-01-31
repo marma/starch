@@ -1,6 +1,6 @@
 import starch
 from json import dumps,loads
-from elasticsearch_dsl import Search, Keyword, Mapping, Nested, Text
+from elasticsearch_dsl import Search, Keyword, Long, Mapping, Nested, Text
 from elasticsearch import Elasticsearch
 from elasticsearch.client import IndicesClient
 from elasticsearch.exceptions import NotFoundError
@@ -31,7 +31,7 @@ class ElasticIndex(starch.Index):
     def get(self, id):
         try:
             return rebase(
-                    self.elastic.get(self.index_name, id)['_source'],
+                    self.elastic.get(self.index_name, 'package', id)['_source'],
                     self.base,
                     self.server_base,
                     in_place=True)
@@ -164,14 +164,25 @@ class ElasticIndex(starch.Index):
         m.field('package_version', 'keyword')
         m.field('size', 'integer')
 
-        f = Nested()
-        f.field('@id', 'keyword', multi=False)
-        f.field('@type', 'keyword')
-        f.field('checksum', 'keyword')
-        f.field('path', 'keyword')
-        f.field('urn', 'keyword')
-        f.field('size', 'long')
-        f.field('mime_type', 'keyword')
+        #f = Nested()
+        #f.field('@id', 'keyword', multi=False)
+        #f.field('@type', 'keyword')
+        #f.field('checksum', 'keyword')
+        #f.field('path', 'keyword')
+        #f.field('urn', 'keyword')
+        #f.field('size', 'long')
+        #f.field('mime_type', 'keyword')
+
+        f = Nested(
+                properties={
+                    '@id': Keyword(multi=False),
+                    '@type': Keyword(),
+                    'checksum': Keyword(),
+                    'path': Keyword(),
+                    'urn': Keyword(),
+                    'size': Long(),
+                    'mime_type': Keyword()
+                })
 
         m.field('files', f)
 

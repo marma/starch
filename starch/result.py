@@ -13,7 +13,7 @@ class Result(NamedTuple):
     hits: Iterator
 
     def __iter__(self):
-        return self.packages
+        return self.keys
 
 
 def create_result(start, n, m, key_iter, archive):

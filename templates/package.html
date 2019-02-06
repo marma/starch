@@ -64,7 +64,7 @@
                     #   set type = d['mime_type']
                     #   if d['mime_type'].startswith('image/'):
                     #     set viewable = True
-                    #     if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and lt(d['size'], 1000000)
+                    #     if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and d['size'] < 1000000
                     #       set cover = path
                     #     else
                     #       set cover = path + '/full/1024,/0/default.jpg'

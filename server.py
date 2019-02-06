@@ -133,7 +133,7 @@ def _info(key, path):
     if p and path in p:
         callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
         url = f'{callback}{key}/{path}'
-        uri = p.description()['@id']
+        uri = f'{p.description()["@id"]}{path}'
 
         if uri == '':
             uri = f'{request.url_root}{key}/{path}'
@@ -142,7 +142,7 @@ def _info(key, path):
 
         with closing(get(image_url, params={ 'uri': uri, 'url': url })) as r:
             i = loads(r.text)
-            i['id'] = uri
+            i['id'] = f'/{key}/{path}'
             i['levels'] = [ 2**x for x in range(0, int(log2(min(i['width']-1, i['height']-1)) + 1 - int(log2(512)))) ]
 
             return i
@@ -174,7 +174,7 @@ def iiif(key, path, region, size, rot, quality, fmt):
         if path in p or (m and m.group(1) in p and p[m.group(1)]['mime_type'] == 'application/pdf'):
             callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
             url = f'{callback}{key}/{path}'
-            uri = p.description()['@id'] or request.url_root + key + '/' + path
+            uri = (p.description()['@id'] or request.url_root + key + '/') + path
             image_url = app.config.get('image_server').get('root') + 'image'
             params = { 'uri': uri,
                        'url': url,

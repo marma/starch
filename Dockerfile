@@ -9,5 +9,5 @@ ADD . /app
 
 VOLUME /data/archive
 
-CMD /usr/local/bin/gunicorn -k gevent --reload --workers 5 --access-logfile=- --pythonpath /app -b :5000 server:app
+CMD /usr/local/bin/gunicorn -k gevent --reload --workers 5 --worker-connections 1000 --access-logfile=- --pythonpath /app -b :5000 server:app
 

@@ -470,6 +470,17 @@ def reindex(key):
     return 'no index', 500
 
 
+
+@app.route('/deindex/<key>')
+def deindex(key):
+    if index:
+        b = index.delete(key)
+
+        return "ok"
+
+    return 'no index', 500
+
+
 def _assert_iiif():
     if app.config.get('image_server', {}).get('url', '') != '':
         raise Exception('No image server')

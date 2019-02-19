@@ -64,7 +64,7 @@
                     #   set type = d['mime_type']
                     #   if d['mime_type'].startswith('image/'):
                     #     set viewable = True
-                    #     if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and lt(d['size'], 1000000)
+                    #     if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and d['size'] < 1000000
                     #       set cover = path
                     #     else
                     #       set cover = path + '/full/1024,/0/default.jpg'
@@ -75,7 +75,7 @@
                     <div class="ui raised linked card">
                         # set url = path + '/_view' if viewable else path
                         <a href="{{ url | urlencode }}">
-                            <img style="object-fit: cover" class="ui image" width="300" onerror="this.src='/static/img/white-image.png'" src="{{ cover | urlencode if cover else '/static/img/white-image.png' }}"/>
+                            <img style="object-fit: cover" class="ui image" width="300" min-height="200" onerror="this.src='/static/img/white-image.png'" src="{{ cover | urlencode if cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
                             <span class="header"><a download href="./{{ path | urlencode }}"><i class="download icon"></i></a> {{ path | truncate(18) }}</span>

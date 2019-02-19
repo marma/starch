@@ -133,7 +133,7 @@ def _info(key, path):
     if p and path in p:
         callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
         url = f'{callback}{key}/{path}'
-        uri = p.description()['@id']
+        uri = f'{p.description()["@id"]}{path}'
 
         if uri == '':
             uri = f'{request.url_root}{key}/{path}'
@@ -142,7 +142,7 @@ def _info(key, path):
 
         with closing(get(image_url, params={ 'uri': uri, 'url': url })) as r:
             i = loads(r.text)
-            i['id'] = uri
+            i['id'] = f'/{key}/{path}'
             i['levels'] = [ 2**x for x in range(0, int(log2(min(i['width']-1, i['height']-1)) + 1 - int(log2(512)))) ]
 
             return i
@@ -166,15 +166,19 @@ def iiif_info(key, path):
 def iiif(key, path, region, size, rot, quality, fmt):
     _assert_iiif()
 
-    p = archive.get(key)
+    p = index.get(key) if index else None
+    p = archive.get(key) if not p else p
+    p = (p.description() if not isinstance(p, dict) else p) if p else None
+    p['files'] = { x['path']:x for x in p['files'] }
+
     if p:
         # pdf page selection?
         m = match('^(.*)(?::)(\\d+)$', path)
 
-        if path in p or (m and m.group(1) in p and p[m.group(1)]['mime_type'] == 'application/pdf'):
+        if path in p['files'] or (m and m.group(1) in p['files'] and p['files'][m.group(1)]['mime_type'] == 'application/pdf'):
             callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
             url = f'{callback}{key}/{path}'
-            uri = p.description()['@id'] or request.url_root + key + '/' + path
+            uri = (p['@id'] or request.url_root + key + '/') + path
             image_url = app.config.get('image_server').get('root') + 'image'
             params = { 'uri': uri,
                        'url': url,
@@ -466,6 +470,17 @@ def reindex(key):
         print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
 
         return '\n'.join(b) + '\n'
+
+    return 'no index', 500
+
+
+
+@app.route('/deindex/<key>')
+def deindex(key):
+    if index:
+        b = index.delete(key)
+
+        return "ok"
 
     return 'no index', 500
 

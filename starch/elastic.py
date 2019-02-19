@@ -3,7 +3,7 @@ from json import dumps,loads
 from elasticsearch_dsl import Search, Keyword, Long, Mapping, Nested, Text
 from elasticsearch import Elasticsearch
 from elasticsearch.client import IndicesClient
-from elasticsearch.exceptions import NotFoundError
+from elasticsearch.exceptions import NotFoundError,RequestError
 from copy import deepcopy
 from starch.enqp import parse,flatten_aggs,create_aggregations
 from starch.utils import rebase
@@ -21,9 +21,16 @@ class ElasticIndex(starch.Index):
         self.indices = IndicesClient(self.elastic)
 
         if not self.indices.exists(self.index_name):
-            self.indices.create(self.index_name)
-            self._install_mapping()
-            self.index_existed = False
+            try:
+                self.indices.create(self.index_name)
+                self._install_mapping()
+                self.index_existed = False
+            except RequestError as e:
+                if e.error == 'resource_already_exists_exception':
+                    self.indices = IndicesClient(self.elastic)
+                    self.index_existed = True
+                else:
+                    raise e
         else:
             self.index_existed = True
 
@@ -46,6 +53,8 @@ class ElasticIndex(starch.Index):
             q = dumps(q)
 
         query = parse(q)
+
+        print(query, flush=True)
 
         res = self.elastic.search(index=self.index_name, doc_type='package', from_=0, size=0, body=query)
         count = int(res['hits']['total'])

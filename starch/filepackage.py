@@ -136,6 +136,13 @@ class FilePackage(starch.Package):
         return ret
 
 
+    def get_location(self, path):
+        if path in self:
+            return 'file://' + self._get_full_path(path)
+
+        raise Exception('%s does not exist in package' % path)
+
+
     def get_raw(self, path, range=None):
         if path in self:
             f = open(self._get_full_path(path), mode='rb')

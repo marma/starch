@@ -166,15 +166,19 @@ def iiif_info(key, path):
 def iiif(key, path, region, size, rot, quality, fmt):
     _assert_iiif()
 
-    p = archive.get(key)
+    p = index.get(key) if index else None
+    p = archive.get(key) if not p else p
+    p = (p.description() if not isinstance(p, dict) else p) if p else None
+    p['files'] = { x['path']:x for x in p['files'] }
+
     if p:
         # pdf page selection?
         m = match('^(.*)(?::)(\\d+)$', path)
 
-        if path in p or (m and m.group(1) in p and p[m.group(1)]['mime_type'] == 'application/pdf'):
+        if path in p['files'] or (m and m.group(1) in p['files'] and p['files'][m.group(1)]['mime_type'] == 'application/pdf'):
             callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
             url = f'{callback}{key}/{path}'
-            uri = (p.description()['@id'] or request.url_root + key + '/') + path
+            uri = (p['@id'] or request.url_root + key + '/') + path
             image_url = app.config.get('image_server').get('root') + 'image'
             params = { 'uri': uri,
                        'url': url,

@@ -267,8 +267,6 @@ def download_package_iterator(key, p, fmt):
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
 def package_file(key, path):
-    print('package_file')
-
     p = archive.get(key)
 
     if p and path in p:

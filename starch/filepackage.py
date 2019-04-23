@@ -11,7 +11,7 @@ from random import random
 from datetime import datetime
 from io import BytesIO
 from re import compile
-from json import loads,dumps
+from json import load,loads,dumps
 from magic import Magic,MAGIC_MIME,MAGIC_RAW
 from shutil import move,rmtree
 import starch
@@ -75,9 +75,12 @@ class FilePackage(starch.Package):
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname, path=None, traverse=True, check_version=None, exclude='^\\..*|^_.*', replace=False, **kwargs):
+    def add(self, fname=None, path=None, data=None, traverse=True, check_version=None, exclude='^\\..*|^_.*', replace=False, **kwargs):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
+
+        if not (fname or (path and data)):
+            raise Exception('Specify either path to a filename or path and data)')
 
         with self._lock_ctx():
             #if check_version and check_version != self._desc['version']:
@@ -88,15 +91,16 @@ class FilePackage(starch.Package):
             if path in [ '_package.json', '_log' ]:
                 raise Exception('filename (%s) not allowed' % path)
 
-            if traverse and isdir(fname):
+            if fname and traverse and isdir(fname):
                 self._add_directory(fname, valid_path(path), exclude=exclude)
             else:
-                f = self._write(fname, valid_path(path), replace=replace)
+                f = self._write(valid_path(path), iname=fname, data=data, replace=replace)
                 f.update(kwargs)
         
                 self._desc['files'][path] = f
                 self._log('STORE "%s" size:%i %s' % (path, f['size'], f['checksum']))
                 self.save()
+                
 
 
     def remove(self, path):
@@ -151,7 +155,6 @@ class FilePackage(starch.Package):
                 f.seek(range[0])
             
             return f
-
         
         raise Exception('%s does not exist in package' % path)
 
@@ -252,7 +255,7 @@ class FilePackage(starch.Package):
         return self._desc['status'] == 'finalized'
 
 
-    def description(self):
+    def description(self, include=[]):
         ret = deepcopy(self._desc)
 
         if self.base:
@@ -264,6 +267,12 @@ class FilePackage(starch.Package):
 
         # de-dict files
         ret['files'] = [ x for key,x in ret['files'].items() ]
+
+        # include special files?
+        for fname in include:
+            if fname in self:
+                with self.get_raw(fname) as f:
+                    ret[fname[1:]] = load(f)
 
         return ret
 
@@ -325,7 +334,10 @@ class FilePackage(starch.Package):
                 self.add(sep.join([ dir, f ]), path=sep.join([ path, f ]), exclude=exclude)
 
 
-    def _write(self, iname, path, replace=False):
+    def _write(self, path, iname=None, data=None, replace=False):
+        if not (iname or data):
+            raise Exeption('Either iname or data need to be passed')
+
         oname = join(self.root_dir, path)
 
         if not replace and exists(oname):
@@ -340,15 +352,24 @@ class FilePackage(starch.Package):
         h = sha256()
 
         try:
-            with open(iname, 'rb') as stream:
-                with open(temppath, 'wb') as out:
-                    data, length = None, 0
+            if iname:
+                with open(iname, 'rb') as stream:
+                    with open(temppath, 'wb') as out:
+                        data, length = None, 0
 
-                    while data != b'':
-                        data = stream.read(100*1024)
-                        out.write(data)
-                        h.update(data)
-                        size = out.tell()
+                        while data != b'':
+                            data = stream.read(100*1024)
+                            out.write(data)
+                            h.update(data)
+                            size = out.tell()
+            else:
+                data = dumps(data) if isinstance(data, dict) or isinstance(data, list) else data
+                data = data.encode('utf-8') if isinstance(data, str) else data
+
+                with open(temppath, 'wb') as out:
+                    h.update(data)
+                    out.write(data)
+                    size = len(data)
         except:
             raise
         else:

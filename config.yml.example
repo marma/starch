@@ -5,6 +5,9 @@ archive:
     root: /data/archive
     #base: http://example.org/
 
+    #mode: read-only
+    mode: read-write
+
     index:
         #type: memory
 

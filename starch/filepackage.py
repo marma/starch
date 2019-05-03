@@ -14,12 +14,15 @@ from re import compile
 from json import load,loads,dumps
 from magic import Magic,MAGIC_MIME,MAGIC_RAW
 from shutil import move,rmtree
+from htfile import open as htopen
+from requests import get
+from sys import stderr
 import starch
 
 VERSION = 0.1
 
 class FilePackage(starch.Package):
-    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, tags=[], label=None, **kwargs):
+    def __init__(self, root_dir=None, mode='r', base=None, patches=None, patch_type='supplement', callback=nullcallback, tags=[], label=None, debug=False, **kwargs):
         if root_dir == None and mode == 'r':
             raise Exception('\'%s\' mode and empty dir not allowed' % mode)
 
@@ -33,6 +36,7 @@ class FilePackage(starch.Package):
         self.patch_type = patch_type if patches else None
         self.base = base
         self.callback = callback
+        self.debug = debug
 
         if mode == 'w':
             if exists(self.root_dir):
@@ -75,32 +79,108 @@ class FilePackage(starch.Package):
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname=None, path=None, data=None, traverse=True, check_version=None, exclude='^\\..*|^_.*', replace=False, **kwargs):
+    def add(self, fname=None, path=None, data=None, url=None, type='Resource', traverse=True, check_version=None, exclude='^\\..*|^_.*', replace=False, **kwargs):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
 
-        if not (fname or (path and data)):
-            raise Exception('Specify either path to a filename or path and data)')
+        if not (fname or (path and (data or url))):
+            raise Exception('Specify either file or path and (data or url)')
+
+        if fname and data:
+            raise Exception('Specifying both a file and data is not allowed')
+
+        if url and not url.startswith('http'):
+            raise Exception('Only HTTP URLs supported')
+
+        path = valid_path(path or basename(abspath(fname)))
+
+        if path in self and not replace:
+            raise Exception(f'file ({path}) already exists, use replace=True')
+
+        f = { '@id': quote(path), '@type': type, 'path': path }
 
         with self._lock_ctx():
-            #if check_version and check_version != self._desc['version']:
-            #    raise Exception()
-
-            path = path or basename(abspath(fname))
+            if check_version and check_version != self._desc['version']:
+                raise Exception(f'File changed, new version is {self._desc["version"]}')
 
             if path in [ '_package.json', '_log' ]:
-                raise Exception('filename (%s) not allowed' % path)
+                raise Exception(f'filename {path} not allowed')
 
-            if fname and traverse and isdir(fname):
-                self._add_directory(fname, valid_path(path), exclude=exclude)
+            if isinstance(data, dict) or isinstance(data, list):
+                data = encode(dumps(data), 'utf-8')
+
+            if fname and isdir(fname):
+                if traverse:
+                    self._add_directory(fname, valid_path(path), exclude=exclude)
+                else:
+                    raise Exception('file {fname} is a directory, set traverse=True to add directories')
+            elif fname or data or url and type is not 'Reference':
+                f['urn'] = uuid4().urn
+
+                if url:
+                    f['url'] = url
+
+                try:
+                    oname = join(self.root_dir, path)
+
+                    if not replace and exists(oname):
+                        raise Exception('file (%s) already exists, use replace=True' % path)
+
+                    if not exists(dirname(oname)):
+                        makedirs(dirname(oname))
+
+                    temppath = join(self.root_dir, f'{path}-tmp-{str(random())}')
+
+                    h = sha256()
+                    with open(fname, 'rb') if fname else BytesIO(data) if data else htopen(url, 'rb') as stream, open(temppath, 'wb') as out:
+                        data, length = None, 0
+
+                        while data != b'':
+                            data = stream.read(100*1024)
+                            out.write(data)
+                            h.update(data)
+                            size = out.tell()
+                except:
+                    raise
+                else:
+                    f['size'] = size
+                    f['checksum'] = 'SHA256:' + h.hexdigest()
+
+                    if path in self and self[path]['checksum'] == f['checksum']:
+                        f = self[path]
+                    else:
+                        with Magic(flags=MAGIC_MIME) as m:
+                            f['mime_type'] = m.id_filename(temppath).split(';')[0]
+
+                        move(temppath, oname)
+                finally:
+                    if exists(temppath):
+                        remove(temppath)
+            elif url and type is 'Reference':
+                f['url'] = url
+   
+                try: 
+                    with get(url, headers={ 'Accept-Encoding': 'identity'}) as r:
+                        if 'Content-Length' in r.headers:
+                            f['size'] = r.headers['Content-Length']
+
+                        if 'Content-Type' in r.headers:
+                            f['mime_type'] = r.headers['Content-Type'].split(';')[0]
+                except:
+                    self._log(f'WARN could not probe URL ({url}')
             else:
-                f = self._write(valid_path(path), iname=fname, data=data, replace=replace)
-                f.update(kwargs)
-        
-                self._desc['files'][path] = f
-                self._log('STORE "%s" size:%i %s' % (path, f['size'], f['checksum']))
-                self.save()
-                
+                raise Exception('Incompatible parameters')
+
+        f.update(kwargs)
+
+        self._desc['files'][path] = f
+
+        if type is not 'Reference':
+            self._log(f'STORE "{f["urn"]} {path} size:{f["size"]}{(" " + f["mime_type"]) if "mime_type" in f else ""} {f["checksum"]}')
+        else:
+            self._log(f'REF {url} {path}{(" size:" + f["size"]) if "size" in f else ""}{(" " + f["mime_type"]) if "mime_type" in f else ""}')
+
+        self.save()
 
 
     def remove(self, path):
@@ -149,7 +229,12 @@ class FilePackage(starch.Package):
 
     def get_raw(self, path, range=None):
         if path in self:
-            f = open(self._get_full_path(path), mode='rb')
+            f = self[path]
+
+            if f['@type'] == 'Resource':
+                f = open(self._get_full_path(path), mode='rb')
+            elif f['@type'] == 'Reference':
+                f = htopen(f['url'], mode='rb')
 
             if range:
                 f.seek(range[0])
@@ -186,7 +271,7 @@ class FilePackage(starch.Package):
         if self._mode in [ 'w', 'a' ]:
             desc = copy(self._desc)
             desc['version'] =  uuid4().urn
-            desc['size'] = sum([ v['size'] for k,v in self._desc['files'].items() ])
+            desc['size'] = sum([ v['size'] for k,v in self._desc['files'].items() if v['@type'] == 'Resource' ])
 
             # de-dict files
             desc['files'] = [ x for x in desc['files'].values() ]
@@ -319,6 +404,9 @@ class FilePackage(starch.Package):
         if self._mode in [ 'a', 'w' ]:
             with open(self._get_full_path('_log'), 'a') as logfile:
                 logfile.write(t + ' ' + message + '\n')
+
+                if self.debug == True:
+                    print(t + ' ' + message, file=stderr, flush=True)
         else:
             raise Exception('package in read-only mode')
 

@@ -9,3 +9,4 @@ elasticsearch>=6.0.0,<7.0.0
 elasticsearch-dsl>=6.0.0,<7.0.0
 lark-parser>=0.4.1
 gevent>=1.3a2
+htfile>=0.0.1a0

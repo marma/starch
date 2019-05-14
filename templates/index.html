@@ -94,7 +94,7 @@
                     #   endif
                     #   set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
                     #   if cover:
-                    #     set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 512*1024 else cover['path'] + '/full/1024,/0/default.jpg' | default(None)
+                    #     set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/1024,/0/default.jpg' | default(None)
                     #   else:
                     #     set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
                     #     set cover = cover['path'] + ':1/full/1024,/0/default.jpg' if cover else None

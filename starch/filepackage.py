@@ -83,7 +83,7 @@ class FilePackage(starch.Package):
         if self._mode not in [ 'w', 'a' ]:
             raise Exception('package not writable, open in \'a\' mode')
 
-        if not (fname or (path and (data or url))):
+        if not (fname or (path and (data is not None or url))):
             raise Exception('Specify either file or path and (data or url)')
 
         if fname and data:
@@ -107,7 +107,7 @@ class FilePackage(starch.Package):
                 raise Exception(f'filename {path} not allowed')
 
             if isinstance(data, dict) or isinstance(data, list):
-                data = encode(dumps(data), 'utf-8')
+                data = dumps(data).encode('utf-8')
 
             if fname and isdir(fname):
                 if traverse:
@@ -171,6 +171,13 @@ class FilePackage(starch.Package):
             else:
                 raise Exception('Incompatible parameters')
 
+        if type in [ 'Meta', 'Structure', 'Content' ]:
+            if 'see_also' not in self._desc:
+                self._desc['see_also'] = [ ]
+            
+            if path not in self._desc['see_also']:
+                self._desc['see_also'] += [ path ]
+
         f.update(kwargs)
 
         self._desc['files'][path] = f
@@ -231,10 +238,10 @@ class FilePackage(starch.Package):
         if path in self:
             f = self[path]
 
-            if f['@type'] == 'Resource':
-                f = open(self._get_full_path(path), mode='rb')
-            elif f['@type'] == 'Reference':
+            if f['@type'] == 'Reference':
                 f = htopen(f['url'], mode='rb')
+            else:
+                f = open(self._get_full_path(path), mode='rb')
 
             if range:
                 f.seek(range[0])
@@ -271,7 +278,7 @@ class FilePackage(starch.Package):
         if self._mode in [ 'w', 'a' ]:
             desc = copy(self._desc)
             desc['version'] =  uuid4().urn
-            desc['size'] = sum([ v['size'] for k,v in self._desc['files'].items() if v['@type'] == 'Resource' ])
+            desc['size'] = sum([ v['size'] for k,v in self._desc['files'].items() if v['@type'] is not 'Reference' ])
 
             # de-dict files
             desc['files'] = [ x for x in desc['files'].values() ]

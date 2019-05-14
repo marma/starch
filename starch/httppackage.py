@@ -13,6 +13,7 @@ import starch.package
 from urllib.parse import urljoin
 from werkzeug.urls import url_fix
 from tempfile import TemporaryFile
+from io import BytesIO
 
 VERSION = 0.1
 
@@ -45,7 +46,7 @@ class HttpPackage(starch.Package):
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname=None, path=None, data=None, traverse=True, exclude='^\\..*|^_.*', replace=False, **kwargs):
+    def add(self, fname=None, path=None, data=None, traverse=True, exclude='^\\..*|^_.*', replace=False, type='Resource', **kwargs):
         if self._mode != 'a':
             raise Exception('package not writable, open in \'a\' mode')
 
@@ -57,10 +58,10 @@ class HttpPackage(starch.Package):
         if path == '_package.json' or path == '_log':
             raise Exception(f'path ({path}) not allowed')
 
-        if traverse and isdir(fname):
+        if fname and traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            self._write(valid_path(path), iname=fname, data=data, replace=replace)
+            self._write(valid_path(path), iname=fname, data=data, replace=replace, type=type)
 
         self._reload()
 
@@ -178,38 +179,33 @@ class HttpPackage(starch.Package):
         self._mode = 'r'
 
 
-    def _write(self, path, iname=None, data=None, replace=False):
+    def _write(self, path, iname=None, data=None, replace=False, type=type):
         if not (iname or data):
             raise Exeption('Either iname or data need to be passed')
 
+        data = dumps(data) if isinstance(data, dict) or isinstance(data, list) else data
+        data = data.encode('utf-8') if isinstance(data, str) else data
 
-        with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') as i:
+        with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') if iname else BytesIO(data) as i:
             hasher = sha256()
 
-            if fname:
-                b = None
-                while b == None or b != b'':
-                    b = i.read(100*1024)
-                    f.write(b)
-                    hasher.update(b)
-            else:
-                data = dumps(data) if isinstance(data, dict) or isinstance(data, list) else data
-                data = data.encode('utf-8') if isinstance(data, str) else data
-                f.write(data)
-                hasher.update(data)
+            b = None
+            while b == None or b != b'':
+                b = i.read(100*1024)
+                f.write(b)
+                hasher.update(b)
 
             f.seek(0)
 
             r = put(url_fix(urljoin(self.url, path)),
                     params={ 'replace': replace,
-                             'expected_hash': 'SHA256:' + hasher.digest().hex() },
+                             'expected_hash': 'SHA256:' + hasher.digest().hex(),
+                             'type': type },
                     files={ path: f },
                     auth=self.auth)
 
             if r.status_code not in[ 200, 204 ]:
                 raise Exception('%d %s' % (r.status_code, r.text))
-            
-                                       
 
 
     def remove(self, path):
@@ -262,6 +258,7 @@ class HttpPackage(starch.Package):
 
     def _reload(self):
         self._desc = loads(get(self.url, auth=self.auth).text)
+        self._desc['files'] = { x['path']:x for x in self._desc['files'] }
 
 
     def __iter__(self):

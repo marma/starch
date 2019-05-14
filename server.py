@@ -3,7 +3,7 @@
 from flask import Flask,request,render_template,Response,redirect,send_from_directory
 from flask_caching import Cache
 from flask_basicauth import BasicAuth
-from yaml import load
+from yaml import load,FullLoader
 from starch import Archive,Package,Index
 from starch.exceptions import RangeNotSupported
 from contextlib import closing
@@ -22,10 +22,11 @@ from tarfile import TarFile,TarInfo,open as taropen
 from os import SEEK_END
 from starch.iterio import IterIO
 import datetime
+from sys import stdout
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
-app.config.update(load(open(join(app.root_path, 'config.yml')).read()))
+app.config.update(load(open(join(app.root_path, 'config.yml')).read(), Loader=FullLoader))
 app.jinja_env.line_statement_prefix = '#'
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
 
@@ -36,7 +37,7 @@ if 'auth' in app.config:
     app.config['BASIC_AUTH_FORCE'] = True
 
 archive = Archive(**app.config['archive'])
-index = Index(**app.config['index']) if 'index' in app.config else None
+index = Index(**app.config['archive']['index']) if 'index' in app.config['archive'] else None
 
 @app.route('/')
 def site_index():
@@ -308,6 +309,8 @@ def put_file(key, path):
     if 'expected_hash' not in request.args:
         return 'parameter expected_hash missing', 400
 
+    type = request.args.get('type', 'Resource')
+
     try:
         p = archive.get(key, mode='a')
 
@@ -337,7 +340,7 @@ def put_file(key, path):
                         return 'expected hash %s, got %s' % (expected_hash, h2), 400
 
                     p = archive.get(key, mode='a')
-                    p.add(tempfile.name, path, replace=replace)
+                    p.add(tempfile.name, path=path, replace=replace, type=type)
 
                 return 'done', 204
             else:
@@ -346,6 +349,7 @@ def put_file(key, path):
             return 'package not found', 400
     except Exception as e:
         print_exc()
+
         return str(e), 500
 
 

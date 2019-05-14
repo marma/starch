@@ -4,8 +4,7 @@
     "@type": "Package",
     "label": "Some example package",
     "tags": [
-        "ebook",
-        "epub"
+        "ebook"
     ],
     "urn": "urn:nbn:9cf369be-5e99-4b50-82cf-729ad26ffb08",
     "instances": [
@@ -83,12 +82,12 @@
     ],
     "content": [
         {
-            "@id": "https://archive.example.org/vfj58bjs/book.pdf#1-1-1",
+            "@id": "https://archive.example.org/vfj58bjs#1-1-1",
             "@type": "Text",
             "text": "A book about something"
         },
         {
-            "@id": "https://archive.example.org/vfj58bjs/book.pdf#1-1-2",
+            "@id": "https://archive.example.org/vfj58bjs#1-1-2",
             "@type": "Text",
             "text": "With some text"
         },

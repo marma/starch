@@ -107,8 +107,8 @@
                     </thead>
                     <tbody>
                         # for path in package['files'] | sort
-                        #   set hash = package['files'][path]['checksum'].split(':')[1]
-                        #   set type =  package['files'][path]['mime_type']
+                        #   set hash = package['files'][path]['checksum'].split(':')[1] if 'checksum' in package['files'][path] else 'N/A'
+                        #   set type =  package['files'][path]['mime_type'] if 'mime_type' in package['files'][path] else 'unknown'
                         #   set viewable = type[0:6] == 'image/'
                         <tr>
                             <td>

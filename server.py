@@ -278,8 +278,12 @@ def package_file(key, path):
 
     if p and path in p:
         size = int(p[path]['size'])
-        headers = { 'ETag': p[path]['checksum'].split(':')[1],
-                    'Content-Length': p[path]['size'] }
+        headers = {}
+        if 'checksum' in p[path]:
+            headers.update({ 'ETag': p[path]['checksum'].split(':')[1] })
+
+        if 'size' in p[path]:
+            headers.update({ 'Content-Length': p[path]['size'] })
 
         range = decode_range(request.headers.get('Range', default='bytes=0-'))
 
@@ -313,45 +317,55 @@ def package_file(key, path):
 @app.route('/<key>/<path:path>', methods=[ 'PUT' ])
 def put_file(key, path):
     _check_base(request)
-    if 'expected_hash' not in request.args:
-        return 'parameter expected_hash missing', 400
 
-    type = request.args.get('type', 'Resource')
+    print(request.args)
+
+    type = str(request.args.get('type', 'Resource'))
+
+    if type != 'Reference' and 'expected_hash' not in request.args:
+        print(type, type == 'Reference', flush=True)
+        return 'parameter expected_hash missing', 400
 
     try:
         p = archive.get(key, mode='a')
 
         if p:
             path = valid_path(path)
-            expected_hash = request.args['expected_hash']
+            url = request.args.get('url', None)
+            expected_hash = request.args.get('expected_hash', None)
             replace = request.args.get('replace', 'False') == 'True'
 
-            if path in request.files:
-                if expected_hash.startswith('MD5:'):
-                    h = md5()
-                elif expected_hash.startswith('SHA256:'):
-                    h = sha256()
-                else:
-                    return 'unsupported hash function \'%s\'' % expected_hash.split(':')[0], 400
-
-                with NamedTemporaryFile() as tempfile:
-                    with open(tempfile.name, 'wb') as o:
-                        b = None
-                        while b != b'':
-                            b = request.files[path].read(100*1024)
-                            o.write(b)
-                            h.update(b)
-
-                    h2 = expected_hash.split(':')[0] + ':' + h.digest().hex()
-                    if h2 != expected_hash:
-                        return 'expected hash %s, got %s' % (expected_hash, h2), 400
-
-                    p = archive.get(key, mode='a')
-                    p.add(tempfile.name, path=path, replace=replace, type=type)
+            if url and type == 'Reference':
+                p.add(path=path, url=url, replace=replace, type=type)
 
                 return 'done', 204
             else:
-                return 'path (%s) not found in request' % path, 400
+                if path in request.files:
+                    if expected_hash.startswith('MD5:'):
+                        h = md5()
+                    elif expected_hash.startswith('SHA256:'):
+                        h = sha256()
+                    else:
+                        return 'unsupported hash function \'%s\'' % expected_hash.split(':')[0], 400
+
+                    with NamedTemporaryFile() as tempfile:
+                        with open(tempfile.name, 'wb') as o:
+                            b = None
+                            while b != b'':
+                                b = request.files[path].read(100*1024)
+                                o.write(b)
+                                h.update(b)
+
+                        h2 = expected_hash.split(':')[0] + ':' + h.digest().hex()
+                        if h2 != expected_hash:
+                            return 'expected hash %s, got %s' % (expected_hash, h2), 400
+
+                        p = archive.get(key, mode='a')
+                        p.add(tempfile.name, path=path, replace=replace, type=type)
+
+                    return 'done', 204
+                else:
+                    return 'path (%s) not found in request' % path, 400
         else:
             return 'package not found', 400
     except Exception as e:

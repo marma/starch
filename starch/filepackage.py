@@ -114,7 +114,7 @@ class FilePackage(starch.Package):
                     self._add_directory(fname, valid_path(path), exclude=exclude)
                 else:
                     raise Exception('file {fname} is a directory, set traverse=True to add directories')
-            elif fname or data or url and type is not 'Reference':
+            elif fname or data or url and type != 'Reference':
                 f['urn'] = uuid4().urn
 
                 if url:
@@ -156,11 +156,11 @@ class FilePackage(starch.Package):
                 finally:
                     if exists(temppath):
                         remove(temppath)
-            elif url and type is 'Reference':
+            elif url and type == 'Reference':
                 f['url'] = url
    
                 try: 
-                    with get(url, headers={ 'Accept-Encoding': 'identity'}) as r:
+                    with get(url, headers={ 'Accept-Encoding': 'identity'}, stream=True) as r:
                         if 'Content-Length' in r.headers:
                             f['size'] = r.headers['Content-Length']
 
@@ -182,7 +182,7 @@ class FilePackage(starch.Package):
 
         self._desc['files'][path] = f
 
-        if type is not 'Reference':
+        if type != 'Reference':
             self._log(f'STORE "{f["urn"]} {path} size:{f["size"]}{(" " + f["mime_type"]) if "mime_type" in f else ""} {f["checksum"]}')
         else:
             self._log(f'REF {url} {path}{(" size:" + f["size"]) if "size" in f else ""}{(" " + f["mime_type"]) if "mime_type" in f else ""}')
@@ -278,7 +278,7 @@ class FilePackage(starch.Package):
         if self._mode in [ 'w', 'a' ]:
             desc = copy(self._desc)
             desc['version'] =  uuid4().urn
-            desc['size'] = sum([ v['size'] for k,v in self._desc['files'].items() if v['@type'] is not 'Reference' ])
+            desc['size'] = sum([ v['size'] for k,v in self._desc['files'].items() if v['@type'] != 'Reference' ])
 
             # de-dict files
             desc['files'] = [ x for x in desc['files'].values() ]

@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 from werkzeug.urls import url_fix
 from tempfile import TemporaryFile
 from io import BytesIO
+from htfile import open as htopen
 
 VERSION = 0.1
 
@@ -46,11 +47,11 @@ class HttpPackage(starch.Package):
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname=None, path=None, data=None, traverse=True, exclude='^\\..*|^_.*', replace=False, type='Resource', **kwargs):
+    def add(self, fname=None, path=None, data=None, url=None, traverse=True, exclude='^\\..*|^_.*', replace=False, type='Resource', **kwargs):
         if self._mode != 'a':
             raise Exception('package not writable, open in \'a\' mode')
 
-        if not (fname or (path and data)):
+        if not (fname or (path and data) or (path and url and type == 'Reference')):
             raise Exception('Specify either path to a filename or path and data)')
 
         path = path or basename(abspath(fname))
@@ -61,7 +62,7 @@ class HttpPackage(starch.Package):
         if fname and traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            self._write(valid_path(path), iname=fname, data=data, replace=replace, type=type)
+            self._write(valid_path(path), iname=fname, data=data, url=url, replace=replace, type=type)
 
         self._reload()
 
@@ -179,33 +180,42 @@ class HttpPackage(starch.Package):
         self._mode = 'r'
 
 
-    def _write(self, path, iname=None, data=None, replace=False, type=type):
-        if not (iname or data):
-            raise Exeption('Either iname or data need to be passed')
+    def _write(self, path, iname=None, data=None, replace=False, url=None, type=type):
+        if not (iname or data or url):
+            raise Exeption('Either iname, data or url need to be passed')
 
         data = dumps(data) if isinstance(data, dict) or isinstance(data, list) else data
         data = data.encode('utf-8') if isinstance(data, str) else data
 
-        with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') if iname else BytesIO(data) as i:
-            hasher = sha256()
+        if url and type == 'Reference':
+                r = put(url_fix(urljoin(self.url, path)),
+                        params={ 'replace': replace,
+                                 'url': url,
+                                 'type': type },
+                        data='',
+                        auth=self.auth)
+        else:
+            with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') if iname else BytesIO(data) if data else htopen(url, mode='rb') as i:
+                hasher = sha256()
 
-            b = None
-            while b == None or b != b'':
-                b = i.read(100*1024)
-                f.write(b)
-                hasher.update(b)
+                b = None
+                while b == None or b != b'':
+                    b = i.read(100*1024)
+                    f.write(b)
+                    hasher.update(b)
 
-            f.seek(0)
+                f.seek(0)
 
-            r = put(url_fix(urljoin(self.url, path)),
-                    params={ 'replace': replace,
-                             'expected_hash': 'SHA256:' + hasher.digest().hex(),
-                             'type': type },
-                    files={ path: f },
-                    auth=self.auth)
+                r = put(url_fix(urljoin(self.url, path)),
+                        params={ 'replace': replace,
+                                 'expected_hash': 'SHA256:' + hasher.digest().hex(),
+                                 'url': url,
+                                 'type': type },
+                        files={ path: f },
+                        auth=self.auth)
 
-            if r.status_code not in[ 200, 204 ]:
-                raise Exception('%d %s' % (r.status_code, r.text))
+        if r.status_code not in [ 200, 204 ]:
+            raise Exception('%d %s' % (r.status_code, r.text))
 
 
     def remove(self, path):

@@ -268,7 +268,9 @@ class FileArchive(starch.Archive):
             return self.lock(key)
         elif msg in [ 'new', 'save', 'ingest' ]:
             if self.index:
-                #print('index %s' % key, file=stderr)
+                print(self.get(key))
+                print(self.base)
+                #print('index %s' % key, flush=True)
                 self.index.update(key, package or self.get(key))
 
 

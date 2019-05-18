@@ -60,6 +60,7 @@ def site_index():
 @app.route('/<key>/')
 @app.route('/<key>/_package.json')
 def package(key):
+    _check_base(request)
     ret = (index or archive).get(key)
 
     if ret:
@@ -89,6 +90,7 @@ def tag(key):
 
 @app.route('/<key>/_view')
 def view_package(key):
+    _check_base(request)
     #p = (index or archive).get(key)
     p = (index.get(key) if index else None) or archive.get(key)
 
@@ -165,6 +167,7 @@ def iiif_info(key, path):
 
 @app.route('/<key>/<path:path>/<region>/<size>/<rot>/<quality>.<fmt>')
 def iiif(key, path, region, size, rot, quality, fmt):
+    _check_base(request)
     _assert_iiif()
 
     p = index.get(key) if index else None
@@ -200,6 +203,7 @@ def iiif(key, path, region, size, rot, quality, fmt):
 
 @app.route('/<key>/_label', methods = [ 'POST' ])
 def set_label(key):
+    _check_base(request)
     try:
         p = archive.get(key, mode='a')
 
@@ -223,6 +227,7 @@ def iiif_manifest(key, path):
 
 @app.route('/<key>/_download')
 def download(key):
+    _check_base(request)
     fmt = request.args.get('format', 'application/gzip')
     p = archive.get(key)
 
@@ -268,6 +273,7 @@ def download_package_iterator(key, p, fmt):
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
 def package_file(key, path):
+    _check_base(request)
     p = archive.get(key)
 
     if p and path in p:
@@ -306,6 +312,7 @@ def package_file(key, path):
 
 @app.route('/<key>/<path:path>', methods=[ 'PUT' ])
 def put_file(key, path):
+    _check_base(request)
     if 'expected_hash' not in request.args:
         return 'parameter expected_hash missing', 400
 
@@ -355,6 +362,7 @@ def put_file(key, path):
 
 @app.route('/<key>/<path:path>', methods=[ 'DELETE' ])
 def delete_file(key, path):
+    _check_base(request)
     package = archive.get(key, mode='a')
 
     if package and path in package:
@@ -382,6 +390,7 @@ def delete_package(key):
 
 @app.route('/ingest', methods=[ 'POST' ])
 def ingest():
+    _check_base(request)
     with TemporaryDirectory() as tempdir:
         # TODO: this probably breaks with very large packages
         for path in request.files:
@@ -404,6 +413,7 @@ def ingest():
 
 @app.route('/new', methods=[ 'POST' ])
 def new():
+    _check_base(request)
     key, package = archive.new(**{k:v for k,v in request.args.items() })
 
     return redirect('/%s/' % key, code=201)
@@ -416,6 +426,8 @@ def packages():
 
 @app.route('/<key>/finalize', methods=[ 'POST' ])
 def finalize(key):
+    _check_base(request)
+
     p = archive.get(key, mode='a')
 
     if p:
@@ -431,7 +443,7 @@ def finalize(key):
 
 @app.route('/base')
 def base():
-    return app.config['archive'].get('base', request.url_root)
+    return app.config['archive']['base'] if 'base' in app.config['archive'] else request.url_root
 
 
 @app.route('/search')
@@ -462,6 +474,8 @@ def count():
 
 @app.route('/reindex/<key>')
 def reindex(key):
+    print([ x for x in archive ])
+
     if index:
         t0 = time()
         ps = [ (k,archive.get(k)) for k in key.split(';') if k ]
@@ -469,9 +483,9 @@ def reindex(key):
         b = index.bulk_update(ps, sync=False)
         t2 = time()
 
-        print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
+        #print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
 
-        return '\n'.join(b) + '\n'
+        return dumps(b)
 
     return 'no index', 500
 
@@ -485,6 +499,12 @@ def deindex(key):
         return "ok"
 
     return 'no index', 500
+
+
+def _check_base(request):
+    if 'base' not in app.config['archive']:
+        app.config['archive']['base'] = request.url_root
+        archive.base = request.url_root
 
 
 def _assert_iiif():

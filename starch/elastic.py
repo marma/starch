@@ -103,7 +103,6 @@ class ElasticIndex(starch.Index):
 
         print(query, flush=True)
 
-        #res = self.elastic.search(index=self.index_name, doc_type='package', from_=0, size=0, body=query)
         res = self.elastic.search(index=self.index_name, from_=0, size=0, body=query)
         print(res)
         count = int(res['hits']['total']['value'])
@@ -156,20 +155,29 @@ class ElasticIndex(starch.Index):
     def bulk_update(self, p, sync=True):
         bulk = [ ]
 
-        for key,p in p:
-            if p:
-                bulk += [ dumps({ 'index': { '_index': self.index_name, '_type': 'package', '_id': key } }) ]
-                bulk += [ dumps(self._format_package(p)) ]
+        print(p)
+
+        for key,package in p:
+            if package:
+                #bulk += [ dumps({ 'index': { '_index': self.index_name, '_type': 'package', '_id': key } }) ]
+                bulk += [ dumps({ 'index': { '_index': self.index_name, '_id': key } }) ]
+                bulk += [ dumps(self._format_package(package)) ]
             else:
-                bulk += [ dumps({ 'delete': { '_index': self.index_name, '_type': 'package', '_id': key } }) ]
+                #bulk += [ dumps({ 'delete': { '_index': self.index_name, '_type': 'package', '_id': key } }) ]
+                bulk += [ dumps({ 'delete': { '_index': self.index_name, '_id': key } }) ]
+
+        print(p)
+        print('\n'.join(bulk), flush=True)
 
         r = self.elastic.bulk(
                 body='\n'.join(bulk),
                 refresh=sync)
 
-        r2 = [ (x[next(iter(x))]['_id'], next(iter(x)), x[next(iter(x))]['result']) for x in r['items'] ]
+        #r2 = [ (x[next(iter(x))]['_id'], next(iter(x)), x[next(iter(x))]['result']) for x in r['items'] ]
 
-        return [ ' '.join(x) for x in r2 ]
+        #return [ ' '.join(x) for x in r2 ]
+
+        return r
 
 
     def update(self, key, p):

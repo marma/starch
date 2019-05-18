@@ -356,6 +356,7 @@ def put_file(key, path):
             return 'package not found', 400
     except Exception as e:
         print_exc()
+        print(flush=True)
 
         return str(e), 500
 

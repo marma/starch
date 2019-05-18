@@ -10,21 +10,15 @@ archive:
 
     index:
         #type: memory
-
         type:       elastic
         url:        http://elastic:9200/
         index_name: demo
 
-    triple_store:
-        #type: memory
-
-        type: sparql
-        endpoint: http://fuseki:3030/sparql
-
-# Index can also go here which will bypass archive on certain requests
-index:
-    url:        http://localhost:9200/
-    index_name: demo
+    content_extraction:
+        pdf:
+            status: on
+            structure: true
+            index: true
 
 auth:
     type: simple

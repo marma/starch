@@ -6,10 +6,16 @@ from sys import stderr
 from time import sleep
 from starch.result import create_result
 import starch
+import logging
 
 MAX_ID=2**38
 MAX_RETRIES=2
 MAX_RETRY_WAIT=60
+VERIFY_CA=False
+
+logging.getLogger('requests').setLevel(logging.CRITICAL)
+import requests.packages.urllib3
+requests.packages.urllib3.disable_warnings()
 
 class HttpArchive(starch.Archive):
     def __init__(self, root=None, base=None, auth=None):
@@ -31,7 +37,7 @@ class HttpArchive(starch.Archive):
         retry_wait=1
         while True:
             try:
-                r = get(urljoin(self.url, 'base'), auth=self.auth)
+                r = get(urljoin(self.url, 'base'), auth=self.auth, verify=VERIFY_CA)
             except Exception as e:
                 if n_retries == MAX_RETRIES:
                     raise Exception('Max number of retries (%d) reached. %s' % (MAX_RETRIES, str(e)))
@@ -58,12 +64,12 @@ class HttpArchive(starch.Archive):
 
 
     def new(self, **kwargs):
-        r = post(urljoin(self.url,'new'), params=kwargs, auth=self.auth, allow_redirects=False)
+        r = post(urljoin(self.url,'new'), params=kwargs, auth=self.auth, verify=VERIFY_CA, allow_redirects=False)
         
         if r.status_code != 201:
             raise Exception('expected HTTP status 201, but got %d' % r.status_code)
 
-        url = r.headers['Location']
+        url = self.url + r.headers['Location'].split('/')[-2] + '/'
 
         return (self._get_key(url),
                 starch.Package(
@@ -75,7 +81,7 @@ class HttpArchive(starch.Archive):
 
     def ingest(self, package, key=None):
         files = { path:package.get_raw(path) for path in package }
-        r = post(self.url + 'ingest', files=files, auth=self.auth)
+        r = post(self.url + 'ingest', files=files, auth=self.auth, verify=VERIFY_CA)
 
         if r.status_code != 201:
             raise Exception('expected HTTP status 201, but got %d with content %s' % (r.status_code, r.text))
@@ -102,7 +108,7 @@ class HttpArchive(starch.Archive):
     def delete(self, key, force=False):
         if force:
             p = self.get(key, mode='a')
-            r = htdelete(self.url + key + '/', auth=self.auth)
+            r = htdelete(self.url + key + '/', auth=self.auth, verify=VERIFY_CA)
 
             if r.status_code == 404:
                 return False
@@ -128,6 +134,7 @@ class HttpArchive(starch.Archive):
 
         with closing(get(urljoin(self.url, 'search'),
             params=params,
+            verify=VERIFY_CA,
             auth=self.auth,
             stream=True)) as r:
 
@@ -140,6 +147,7 @@ class HttpArchive(starch.Archive):
 
     def count(self, query, cats={}):
         with closing(get(urljoin(self.url, 'count'),
+                         verify=VERIFY_CA,
                          params={ 'q': dumps(query), 'c': dumps(cats) },
                          auth=self.auth)) as r:
                 
@@ -154,7 +162,7 @@ class HttpArchive(starch.Archive):
 
 
     def keys(self):
-        with closing(get(self.url + 'packages', auth=self.auth, stream=True)) as r:
+        with closing(get(self.url + 'packages', auth=self.auth, stream=True, verify=VERIFY_CA)) as r:
             if r.status_code == 200:
                 for key in r.raw:
                     yield key[:-1].decode('utf-8')
@@ -179,7 +187,7 @@ class HttpArchive(starch.Archive):
 
 
     def __contains__(self, key):
-        with closing(get(self.url + key + '/')) as r:
+        with closing(get(self.url + key + '/', auth=self.auth, verify=VERIFY_CA)) as r:
             return r.status_code == 200
 
 

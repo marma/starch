@@ -27,7 +27,7 @@ class HttpPackage(starch.Package):
         self.server_base = server_base or url
 
         if mode in [ 'r', 'a' ]:
-            with closing(get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth)) as r:
+            with closing(get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth, verify=starch.VERIFY_CA)) as r:
                 #print(self.url)
 
                 if r.status_code == 404:
@@ -71,7 +71,7 @@ class HttpPackage(starch.Package):
         self.add(fname, path, replace=True, **kwargs)        
 
 
-    def get_location(path):
+    def get_location(self, path):
         return self.url + path
 
 
@@ -85,7 +85,7 @@ class HttpPackage(starch.Package):
             headers['Range'] = 'bytes=%d-%s' % (range[0], str(int(range[1])) if range[1] else '')
 
         # @TODO potential resource leak
-        r = get(get_location(path), stream=True, auth=self.auth, headers=headers)
+        r = get(self.get_location(path), stream=True, auth=self.auth, headers=headers, verify=starch.VERIFY_CA)
         r.raw.decode_stream = True
 
         if range and 'bytes' not in r.headers.get('Accept-Ranges', ''):
@@ -113,7 +113,7 @@ class HttpPackage(starch.Package):
 
 
     def read(self, path):
-        return get(self.url + path, auth=self.auth).text
+        return get(self.url + path, auth=self.auth, verify=starch.VERIFY_CA).text
 
 
     def list(self):
@@ -122,7 +122,7 @@ class HttpPackage(starch.Package):
 
     def tag(self, tag):
         if self._mode in [ 'a', 'w' ]:
-            r = post(self.url + '_tag', data={ 'tag': tag }, auth=self.auth)
+            r = post(self.url + '_tag', data={ 'tag': tag }, auth=self.auth, verify=starch.VERIFY_CA)
 
             if r.status_code != 200:
                 raise Exception('expected 200, got %d with message "%s"' % (r.status_code, r.text))
@@ -135,7 +135,7 @@ class HttpPackage(starch.Package):
 
     def untag(self, tag):
         if self._mode in [ 'a', 'w' ]:
-            r = post(self.url + '_tag', data={ 'untag': tag }, auth=self.auth)
+            r = post(self.url + '_tag', data={ 'untag': tag }, auth=self.auth, verify=starch.VERIFY_CA)
 
             if r.status_code != 200:
                 raise Exception('expected 200, got %d with message "%s"' % (r.status_code, r.text))
@@ -150,7 +150,7 @@ class HttpPackage(starch.Package):
         if self._mode == 'r':
             raise Exception('package is in read-only mode')
 
-        r = post(self.url + 'finalize', auth=self.auth)
+        r = post(self.url + 'finalize', auth=self.auth, verify=starch.VERIFY_CA)
 
         if r.status_code not in [ 200, 204 ]:
             raise Exception('%d %s' % (r.status_code, r.text))
@@ -193,7 +193,8 @@ class HttpPackage(starch.Package):
                                  'url': url,
                                  'type': type },
                         data='',
-                        auth=self.auth)
+                        auth=self.auth,
+                        verify=starch.VERIFY_CA)
         else:
             with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') if iname else BytesIO(data) if data else htopen(url, mode='rb') as i:
                 hasher = sha256()
@@ -212,14 +213,15 @@ class HttpPackage(starch.Package):
                                  'url': url,
                                  'type': type },
                         files={ path: f },
-                        auth=self.auth)
+                        auth=self.auth,
+                        verify=starch.VERIFY_CA)
 
         if r.status_code not in [ 200, 204 ]:
             raise Exception('%d %s' % (r.status_code, r.text))
 
 
     def remove(self, path):
-        r = delete(self.url + path, auth=self.auth)
+        r = delete(self.url + path, auth=self.auth, verify=starch.VERIFY_CA)
 
         if r.status_code not in [ 200, 204 ]:
             raise Exception('%d %s' % (r.status_code, r.text))
@@ -246,7 +248,7 @@ class HttpPackage(starch.Package):
 
         try:
             self._desc['label'] = label
-            r = post(self.url + '_label', data={ 'label': label }, auth=self.auth)
+            r = post(self.url + '_label', data={ 'label': label }, auth=self.auth, verify=starch.VERIFY_CA)
 
             if r.status_code != 200:
                 raise Exception(f'Expected HTTP status 200, got {r.status_code}, data is "{r.text}"')
@@ -267,7 +269,7 @@ class HttpPackage(starch.Package):
 
 
     def _reload(self):
-        self._desc = loads(get(self.url, auth=self.auth).text)
+        self._desc = loads(get(self.url, auth=self.auth, verify=starch.VERIFY_CA).text)
         self._desc['files'] = { x['path']:x for x in self._desc['files'] }
 
 

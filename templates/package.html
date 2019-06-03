@@ -48,8 +48,10 @@
             </div>
             {% endif %}
             <div class="item"><b>Package size:</b>{{ package['size'] | filesizeformat }}</div>
+	    <div class="item"><b>Created:</b>{{ package['created'] | truncate(22) }}</div>
             <div class="item"><b>Status:</b> {{ package['status'] }}</div>
-            # if package['instances']
+
+	    # if package['instances']
             <div class="item">
                 <div class="header"><b>Instances</b></div>
                 {% for instance in package['instances'] %}
@@ -57,6 +59,7 @@
                 {% endfor %}
             </div>
             # endif
+
             <div class="item"><b>Download:</b> <a href="_download?format=application/x-tar"><i class="archive icon"></i>.tar</a> <!--a href="_download?format=application/tar">BagIt</a--></div>
         </div>
         <div class="pushable">

@@ -11,6 +11,11 @@ import logging
 MAX_ID=2**38
 MAX_RETRIES=2
 MAX_RETRY_WAIT=60
+VERIFY_CA=False
+
+logging.getLogger('requests').setLevel(logging.CRITICAL)
+import requests.packages.urllib3
+requests.packages.urllib3.disable_warnings()
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 import requests.packages.urllib3

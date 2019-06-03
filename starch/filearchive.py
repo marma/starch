@@ -14,19 +14,25 @@ import starch
 MAX_ID=2**38
 
 class FileArchive(starch.Archive):
-    def __init__(self, root=None, base=None, index=None, lockm=starch.LockManager(type='null')):
+    def __init__(self, root=None, base=None, index=None, mode='read-write', lockm=starch.LockManager(type='null')):
         self.temporary = root == None
         self.root_dir = root or get_temp_dirname()
         self.base = base
+        self.mode = mode
         self.index = starch.Index(**index) if isinstance(index, dict) else index
         self.lockm = starch.LockManager(**lockm) if isinstance(lockm, dict) else lockm
 
 
-    def new(self, **kwargs):
-        key = self._generate_key()
+    def new(self, key=None, **kwargs):
+        self._check_mode()
+        key = self._generate_key(suggest=valid_key(key) if key else None)
 
         with self.lock(key):
             dir = self._directory(key)
+
+            if exists(dir):
+                raise Exception(f'key ({key}) already exists in archive')
+
             p = starch.Package(dir, mode='w', base=self.base + key + '/' if self.base else None, get_lock=self.lockm, **kwargs)
             p.callback = lambda msg, key=key, package=p, archive=self, **kwargs: archive._callback(msg, key=key, package=package)
             p.callback('new')
@@ -37,6 +43,7 @@ class FileArchive(starch.Archive):
 
 
     def ingest(self, package, key=None):
+        self._check_mode()
         key = self._generate_key(suggest=valid_key(key) if key else None)
 
         with self.lockm.get(key):
@@ -65,6 +72,8 @@ class FileArchive(starch.Archive):
 
 
     def patch(self, key, package):
+        self._check_mode()
+
         with self.lockm.get(key):
             raise Exception('Not implemented')
 
@@ -72,6 +81,9 @@ class FileArchive(starch.Archive):
     def get(self, key, mode='r'):
         if mode is 'w':
             raise Exception('mode \'w\' not allowed, use \'a\'')
+
+        if mode is 'a' and self.mode == 'read-only':
+            raise Exception('archive is read-only mode')
 
         d = self._directory(key)
 
@@ -85,6 +97,8 @@ class FileArchive(starch.Archive):
 
 
     def delete(self, key, force=False):
+        self._check_mode()
+
         if force:
             p = self.get(key, mode='a')
 
@@ -162,6 +176,7 @@ class FileArchive(starch.Archive):
 
 
     def _create_directory(self, key):
+        self._check_mode()
         dir = self._directory(key)
         makedirs(dir)
 
@@ -169,6 +184,7 @@ class FileArchive(starch.Archive):
 
 
     def _generate_key(self, suggest=None):
+        self._check_mode()
         # @TODO: locking a central function and waiting for I/O, that
         # might take a long time to return, is non-optimal
         with self.lockm.get('keygen'):
@@ -203,6 +219,11 @@ class FileArchive(starch.Archive):
 
     def __iter__(self):
         yield from self.keys()
+
+
+    def _check_mode(self):
+        if self.mode == 'read-only':
+            raise Exception('archive in read-only mode')
 
 
     def _log(self, message, t=timestamp()):
@@ -247,7 +268,9 @@ class FileArchive(starch.Archive):
             return self.lock(key)
         elif msg in [ 'new', 'save', 'ingest' ]:
             if self.index:
-                #print('index %s' % key, file=stderr)
+                print(self.get(key))
+                print(self.base)
+                #print('index %s' % key, flush=True)
                 self.index.update(key, package or self.get(key))
 
 

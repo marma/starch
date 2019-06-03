@@ -13,6 +13,8 @@ import starch.package
 from urllib.parse import urljoin
 from werkzeug.urls import url_fix
 from tempfile import TemporaryFile
+from io import BytesIO
+from htfile import open as htopen
 
 VERSION = 0.1
 
@@ -45,25 +47,32 @@ class HttpPackage(starch.Package):
             raise Exception('unsupported mode (\'%s\')' % mode)
 
 
-    def add(self, fname, path=None, traverse=True, exclude='^\\..*|^_.*', replace=False, **kwargs):
+    def add(self, fname=None, path=None, data=None, url=None, traverse=True, exclude='^\\..*|^_.*', replace=False, type='Resource', **kwargs):
         if self._mode != 'a':
             raise Exception('package not writable, open in \'a\' mode')
+
+        if not (fname or (path and data) or (path and url and type == 'Reference')):
+            raise Exception('Specify either path to a filename or path and data)')
 
         path = path or basename(abspath(fname))
 
         if path == '_package.json' or path == '_log':
-            raise Exception('path (%s) not allowed' % path)
+            raise Exception(f'path ({path}) not allowed')
 
-        if traverse and isdir(fname):
+        if fname and traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            self._write(fname, valid_path(path), replace=replace)
+            self._write(valid_path(path), iname=fname, data=data, url=url, replace=replace, type=type)
 
         self._reload()
 
 
     def replace(self, fname, path=None, **kwargs):
         self.add(fname, path, replace=True, **kwargs)        
+
+
+    def get_location(path):
+        return self.url + path
 
 
     def get_raw(self, path, range=None):
@@ -76,11 +85,10 @@ class HttpPackage(starch.Package):
             headers['Range'] = 'bytes=%d-%s' % (range[0], str(int(range[1])) if range[1] else '')
 
         # @TODO potential resource leak
-        print(self.url + path)
-        r = get(self.url + path, stream=True, auth=self.auth, headers=headers)
+        r = get(get_location(path), stream=True, auth=self.auth, headers=headers)
         r.raw.decode_stream = True
 
-        if range and 'Accept-Ranges' not in r.headers or ('Accept-Ranges' in r.headers and r.headers['Accept-Ranges'] != 'bytes'):
+        if range and 'bytes' not in r.headers.get('Accept-Ranges', ''):
             raise RangeNotSupported()
 
         if r.status_code not in [ 200, 206 ]:
@@ -172,26 +180,43 @@ class HttpPackage(starch.Package):
         self._mode = 'r'
 
 
-    def _write(self, iname, path, replace=False):
-        with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') as i:
-            hasher = sha256()
-            b = None
-            while b == None or b != b'':
-                b = i.read(100*1024)
-                f.write(b)
-                hasher.update(b)
+    def _write(self, path, iname=None, data=None, replace=False, url=None, type=type):
+        if not (iname or data or url):
+            raise Exeption('Either iname, data or url need to be passed')
 
-            f.seek(0)
+        data = dumps(data) if isinstance(data, dict) or isinstance(data, list) else data
+        data = data.encode('utf-8') if isinstance(data, str) else data
 
-            r = put(url_fix(urljoin(self.url, path)),
-                    params={ 'replace': replace,
-                             'expected_hash': 'SHA256:' + hasher.digest().hex() },
-                    files={ path: f },
-                    auth=self.auth)
+        if url and type == 'Reference':
+                r = put(url_fix(urljoin(self.url, path)),
+                        params={ 'replace': replace,
+                                 'url': url,
+                                 'type': type },
+                        data='',
+                        auth=self.auth)
+        else:
+            with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') if iname else BytesIO(data) if data else htopen(url, mode='rb') as i:
+                hasher = sha256()
 
-            if r.status_code not in[ 200, 204 ]:
-                raise Exception('%d %s' % (r.status_code, r.text))
-    
+                b = None
+                while b == None or b != b'':
+                    b = i.read(100*1024)
+                    f.write(b)
+                    hasher.update(b)
+
+                f.seek(0)
+
+                r = put(url_fix(urljoin(self.url, path)),
+                        params={ 'replace': replace,
+                                 'expected_hash': 'SHA256:' + hasher.digest().hex(),
+                                 'url': url,
+                                 'type': type },
+                        files={ path: f },
+                        auth=self.auth)
+
+        if r.status_code not in [ 200, 204 ]:
+            raise Exception('%d %s' % (r.status_code, r.text))
+
 
     def remove(self, path):
         r = delete(self.url + path, auth=self.auth)
@@ -243,6 +268,7 @@ class HttpPackage(starch.Package):
 
     def _reload(self):
         self._desc = loads(get(self.url, auth=self.auth).text)
+        self._desc['files'] = { x['path']:x for x in self._desc['files'] }
 
 
     def __iter__(self):

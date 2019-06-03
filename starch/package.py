@@ -31,8 +31,8 @@ class Package:
     def get_iter(self, path, range=None):
         raise Exception('Not implemented')
 
-    #def get_location(self, path):
-    #    raise Exception('Not implemented')
+    def get_location(self, path):
+        raise Exception('Not implemented')
     
     def log(self):
         raise Exception('Not implemented')

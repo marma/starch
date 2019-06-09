@@ -68,7 +68,8 @@ class HttpArchive(starch.Archive):
 
 
     def new(self, **kwargs):
-        r = post(urljoin(self.url,'new'), params=kwargs, auth=self.auth, verify=starch.VERIFY_CA, allow_redirects=False)
+        params = { k:dumps(v) if isinstance(v, dict) or isinstance(v, list)  else v for k,v in kwargs.items() }
+        r = post(urljoin(self.url,'new'), params=params, auth=self.auth, verify=starch.VERIFY_CA, allow_redirects=False)
         
         if r.status_code != 201:
             raise Exception('expected HTTP status 201, but got %d' % r.status_code)

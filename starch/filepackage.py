@@ -251,12 +251,24 @@ class FilePackage(starch.Package):
         raise Exception('%s does not exist in package' % path)
 
 
+    def _combine(self, first, it):
+        yield first
+
+        for i in it:
+            yield i
+
+
     def get_iter(self, path, chunk_size=10*1024, range=None):
         if path in self:
-            return self._get_iter(
-                        self.get_raw(path, range=range),
-                        chunk_size=chunk_size,
-                        max=range[1]-range[0] if range and range[1] else None)
+            i = self._get_iter(
+                    self.get_raw(path, range=range),
+                    chunk_size=chunk_size,
+                    max=range[1]-range[0] if range and range[1] else None)
+
+            # get the first chunk to fail early
+            first = next(i)
+            
+            return self._combine(first, i)
         else:
             raise Exception('%s does not exist in package' % path)
 

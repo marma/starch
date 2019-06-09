@@ -23,6 +23,7 @@ from os import SEEK_END
 from starch.iterio import IterIO
 import datetime
 from sys import stdout
+from io import UnsupportedOperation
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -278,7 +279,9 @@ def package_file(key, path):
 
     if p and path in p:
         size = int(p[path]['size'])
+        #headers = { 'Content-Disposition': f'inline; filename={basename(path)}' }
         headers = {}
+
         if 'checksum' in p[path]:
             headers.update({ 'ETag': p[path]['checksum'].split(':')[1] })
 
@@ -296,8 +299,9 @@ def package_file(key, path):
             if range != ( 0, None ):
                 headers.update({ 'Content-Range': 'bytes %d-%s/%d' % (range[0], str(range[1]) if range[1] != None else size-1, size) })
                 headers.update({ 'Content-Length': range[1]-range[0] + 1 if range[1] != None else size-range[0] })
-        except RangeNotSupported:
+        except UnsupportedOperation:
             i = p.get_iter(path)
+            range = (0, None)
         except:
             raise
 

@@ -433,7 +433,8 @@ def ingest():
 @app.route('/new', methods=[ 'POST' ])
 def new():
     _check_base(request)
-    key, package = archive.new(**{k:v for k,v in request.args.items() })
+    print(request.args)
+    key, package = archive.new(**{k:loads(v) if v[0] in [ '{', '[' ] else v for k,v in request.args.items() })
 
     return redirect('/%s/' % key, code=201)
 

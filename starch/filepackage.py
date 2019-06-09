@@ -56,6 +56,7 @@ class FilePackage(starch.Package):
                             'package_version': VERSION,
                             'created': None,
                             'version': uuid4().urn,
+                            'meta': kwargs.get('meta', {})
                             'size': 0,
                             'files': { }
                          }

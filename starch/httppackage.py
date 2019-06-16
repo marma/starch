@@ -1,6 +1,6 @@
 from contextlib import closing
 from json import loads,dumps
-from requests import head,get,post,delete,put
+from requests import head,get,post,delete,put,Session
 from os.path import join,basename,abspath,isdir
 from starch.utils import valid_path,valid_key,chunked
 from starch.exceptions import RangeNotSupported
@@ -15,6 +15,7 @@ from werkzeug.urls import url_fix
 from tempfile import TemporaryFile
 from io import BytesIO
 from htfile import open as htopen
+import starch
 
 VERSION = 0.1
 
@@ -25,11 +26,10 @@ class HttpPackage(starch.Package):
         self.auth = auth
         self.base = base or url
         self.server_base = server_base or url
+        self.session = Session()
 
         if mode in [ 'r', 'a' ]:
-            with closing(get(self.url, headers={ 'Accept': 'application/json' }, auth=self.auth, verify=starch.VERIFY_CA)) as r:
-                #print(self.url)
-
+            with closing(self._get(self.url, headers={ 'Accept': 'application/json' })) as r:
                 if r.status_code == 404:
                     raise starch.HttpNotFoundException(r.text)
                 elif r.status_code != 200:
@@ -85,7 +85,7 @@ class HttpPackage(starch.Package):
             headers['Range'] = 'bytes=%d-%s' % (range[0], str(int(range[1])) if range[1] else '')
 
         # @TODO potential resource leak
-        r = get(self.get_location(path), stream=True, auth=self.auth, headers=headers, verify=starch.VERIFY_CA)
+        r = self._get(self.get_location(path), stream=True, headers=headers)
         r.raw.decode_stream = True
 
         if range and 'bytes' not in r.headers.get('Accept-Ranges', ''):
@@ -113,7 +113,7 @@ class HttpPackage(starch.Package):
 
 
     def read(self, path):
-        return get(self.url + path, auth=self.auth, verify=starch.VERIFY_CA).text
+        return self._get(self.url + path).text
 
 
     def list(self):
@@ -188,13 +188,12 @@ class HttpPackage(starch.Package):
         data = data.encode('utf-8') if isinstance(data, str) else data
 
         if url and type == 'Reference':
-                r = put(url_fix(urljoin(self.url, path)),
+                r = self._put(
+                        url_fix(urljoin(self.url, path)),
                         params={ 'replace': replace,
                                  'url': url,
                                  'type': type },
-                        data='',
-                        auth=self.auth,
-                        verify=starch.VERIFY_CA)
+                        data='')
         else:
             with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') if iname else BytesIO(data) if data else htopen(url, mode='rb') as i:
                 hasher = sha256()
@@ -207,14 +206,13 @@ class HttpPackage(starch.Package):
 
                 f.seek(0)
 
-                r = put(url_fix(urljoin(self.url, path)),
+                r = self._put(
+                        url_fix(urljoin(self.url, path)),
                         params={ 'replace': replace,
                                  'expected_hash': 'SHA256:' + hasher.digest().hex(),
                                  'url': url,
                                  'type': type },
-                        files={ path: f },
-                        auth=self.auth,
-                        verify=starch.VERIFY_CA)
+                        files={ path: f })
 
         if r.status_code not in [ 200, 204 ]:
             raise Exception('%d %s' % (r.status_code, r.text))
@@ -269,8 +267,9 @@ class HttpPackage(starch.Package):
 
 
     def _reload(self):
-        self._desc = loads(get(self.url, auth=self.auth, verify=starch.VERIFY_CA).text)
-        self._desc['files'] = { x['path']:x for x in self._desc['files'] }
+        with closing(self._get(self.url)) as r:
+            self._desc = loads(r.text)
+            self._desc['files'] = { x['path']:x for x in self._desc['files'] }
 
 
     def __iter__(self):
@@ -295,6 +294,25 @@ class HttpPackage(starch.Package):
 
 #    def __len__(self):
 #        return len(self._desc['files'])
+
+
+    def _get(self, url, params={}, headers={}, stream=False):
+        return self.session.get(url,
+                           auth=self.auth,
+                           params=params,
+                           headers=headers,
+                           stream=stream,
+                           verify=starch.VERIFY_CA)
+
+
+    def _put(self, url, data=None, files=None, params={}, headers={}, stream=False):
+        return self.session.put(url,
+                           auth=self.auth,
+                           params=params,
+                           headers=headers,
+                           data=data,
+                           files=files,
+                           verify=starch.VERIFY_CA)
 
 
 def do_hash(fname):

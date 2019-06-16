@@ -10,4 +10,5 @@ elasticsearch-dsl>=7.0.0,<8.0.0
 lark-parser>=0.4.1
 gevent>=1.3a2
 htfile>=0.0.1a0
-pypdf2>=1.26
+pdfminer.six>=20181108
+

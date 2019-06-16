@@ -16,6 +16,12 @@ from copy import deepcopy
 from collections import Counter
 from sys import stderr
 
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter#process_pdf
+from pdfminer.pdfpage import PDFPage
+from pdfminer.converter import TextConverter
+from pdfminer.layout import LAParams
+from io import StringIO
+
 TEMP_PREFIX='/tmp/starch-temp-'
 
 def __init__():
@@ -172,4 +178,19 @@ def max_iter(i, max):
             yield chunk[:max-n]
 
             return
+
+
+def pdf_to_textarray(stream):
+    rsrcmgr = PDFResourceManager()
+    laparams = LAParams()
+    codec = 'utf-8'
+
+    ret = []
+    for page in PDFPage.get_pages(stream):
+        with StringIO() as sio, TextConverter(rsrcmgr, sio, codec=codec, laparams=laparams) as device:
+            interpreter = PDFPageInterpreter(rsrcmgr, device)
+            interpreter.process_page(page)
+            ret += [ sio.getvalue() ]
+
+    return ret
 

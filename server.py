@@ -277,6 +277,8 @@ def package_file(key, path):
     _check_base(request)
     p = archive.get(key)
 
+    print(request.headers, flush=True)
+
     if p and path in p:
         size = int(p[path]['size'])
         #headers = { 'Content-Disposition': f'inline; filename={basename(path)}' }

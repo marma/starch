@@ -236,6 +236,8 @@ class FilePackage(starch.Package):
 
 
     def get_raw(self, path, range=None):
+        #print(range, flush=True)
+
         if path in self:
             f = self[path]
 
@@ -253,9 +255,15 @@ class FilePackage(starch.Package):
 
 
     def _combine(self, first, it):
+        s = 0
+        #print(len(first), s, flush=True)
+        s += len(first)
         yield first
 
         for i in it:
+            #print(len(i), s, flush=True)
+            s += len(i)
+
             yield i
 
 
@@ -264,7 +272,7 @@ class FilePackage(starch.Package):
             i = self._get_iter(
                     self.get_raw(path, range=range),
                     chunk_size=chunk_size,
-                    max=range[1]-range[0] if range and range[1] else None)
+                    max=range[1]-range[0] + 1 if range and range[1] else None)
 
             # get the first chunk to fail early
             first = next(i)

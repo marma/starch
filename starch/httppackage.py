@@ -62,7 +62,7 @@ class HttpPackage(starch.Package):
         if fname and traverse and isdir(fname):
             self._add_directory(fname, path, exclude=exclude)
         else:
-            self._write(valid_path(path), iname=fname, data=data, url=url, replace=replace, type=type)
+            self._write(valid_path(path), iname=fname, data=data, url=url, replace=replace, type=type, **kwargs)
 
         self._reload()
 
@@ -180,7 +180,7 @@ class HttpPackage(starch.Package):
         self._mode = 'r'
 
 
-    def _write(self, path, iname=None, data=None, replace=False, url=None, type=type):
+    def _write(self, path, iname=None, data=None, replace=False, url=None, type=type, **kwargs):
         if not (iname or data or url):
             raise Exeption('Either iname, data or url need to be passed')
 
@@ -188,11 +188,12 @@ class HttpPackage(starch.Package):
         data = data.encode('utf-8') if isinstance(data, str) else data
 
         if url and type == 'Reference':
+                kwargs.update({ 'replace': replace,
+                                'url': url,
+                                'type': type })
                 r = self._put(
                         url_fix(urljoin(self.url, path)),
-                        params={ 'replace': replace,
-                                 'url': url,
-                                 'type': type },
+                        params=kwargs,
                         data='')
         else:
             with TemporaryFile(mode='wb+') as f, open(iname, mode='rb') if iname else BytesIO(data) if data else htopen(url, mode='rb') as i:

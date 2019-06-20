@@ -345,8 +345,10 @@ def put_file(key, path):
             expected_hash = request.args.get('expected_hash', None)
             replace = request.args.get('replace', 'False') == 'True'
 
+            args = { k:v for k,v in request.args.items() if k not in [ 'type', 'path', 'replace', 'url', 'expected_hash' ] }
+
             if url and type == 'Reference':
-                p.add(path=path, url=url, replace=replace, type=type)
+                p.add(path=path, url=url, replace=replace, type=type, **args)
 
                 return 'done', 204
             else:
@@ -371,7 +373,7 @@ def put_file(key, path):
                             return 'expected hash %s, got %s' % (expected_hash, h2), 400
 
                         p = archive.get(key, mode='a')
-                        p.add(tempfile.name, path=path, replace=replace, type=type)
+                        p.add(tempfile.name, path=path, replace=replace, type=type, **args)
 
                     return 'done', 204
                 else:

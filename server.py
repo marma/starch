@@ -42,10 +42,14 @@ index = Index(**app.config['archive']['index']) if 'index' in app.config['archiv
 
 @app.route('/')
 def site_index():
-    q = request.args['q'] if 'q' in request.args else {}
+    q = request.args.get('q', None) or {}
     packages = (index or archive).search(q, max=50)
     descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
-    counts = (index or archive).count(q, { 'type': { 'files': 'mime_type' }, 'tag': 'tags', 'size': 'sum(size)' } )
+    counts = (index or archive).count(q, { 
+						'type': { 'files': 'mime_type' },
+						'tag': 'tags',
+						'created': 'meta.created.keyword',
+						'size': 'sum(size)' } )
     counts['size']['value'] = int(counts['size']['value'])
 
     return render_template('index.html',
@@ -209,7 +213,7 @@ def set_label(key):
         p = archive.get(key, mode='a')
 
         if p:
-            print(request.form.get('label'))
+            #print(request.form.get('label'))
             p.label = request.form.get('label')
 
             return f'Changed label to "{p.label}"'
@@ -277,7 +281,7 @@ def package_file(key, path):
     _check_base(request)
     p = archive.get(key)
 
-    print(request.headers, flush=True)
+    #print(request.headers, flush=True)
 
     if p and path in p:
         size = int(p[path]['size'])
@@ -324,12 +328,12 @@ def package_file(key, path):
 def put_file(key, path):
     _check_base(request)
 
-    print(request.args)
+    #print(request.args)
 
     type = str(request.args.get('type', 'Resource'))
 
     if type != 'Reference' and 'expected_hash' not in request.args:
-        print(type, type == 'Reference', flush=True)
+        #print(type, type == 'Reference', flush=True)
         return 'parameter expected_hash missing', 400
 
     try:
@@ -435,7 +439,7 @@ def ingest():
 @app.route('/new', methods=[ 'POST' ])
 def new():
     _check_base(request)
-    print(request.args)
+    #print(request.args)
     key, package = archive.new(**{k:loads(v) if v[0] in [ '{', '[' ] else v for k,v in request.args.items() })
 
     return redirect('/%s/' % key, code=201)
@@ -496,7 +500,7 @@ def count():
 
 @app.route('/reindex/<key>')
 def reindex(key):
-    print([ x for x in archive ])
+    #print([ x for x in archive ])
 
     if index:
         t0 = time()

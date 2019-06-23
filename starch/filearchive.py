@@ -27,6 +27,9 @@ class FileArchive(starch.Archive):
         self._check_mode()
         key = self._generate_key(suggest=valid_key(key) if key else None)
 
+        print(self.base)
+        print(key, flush=True)
+
         with self.lock(key):
             dir = self._directory(key)
 

@@ -345,7 +345,7 @@ def put_file(key, path):
             expected_hash = request.args.get('expected_hash', None)
             replace = request.args.get('replace', 'False') == 'True'
 
-            args = { k:v for k,v in request.args.items() if k not in [ 'type', 'path', 'replace', 'url', 'expected_hash' ] }
+            args = { k:v for k,v in request.args.items() if k not in [ 'type', 'path', 'replace', 'url', 'expected_hash' ] }
 
             if url and type == 'Reference':
                 p.add(path=path, url=url, replace=replace, type=type, **args)

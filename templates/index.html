@@ -47,7 +47,6 @@
                     <a class="content" href="?q=files:{+mime_type:+%22{{ type | urlencode }}%22+}">{{ type }}</a>
                 </div>
                 {% endfor %}
-                 
                 </div>
             </div>
             {% if counts['tag'] %}
@@ -63,6 +62,24 @@
                         <div class="ui circular label">{{ counts['tag'][tag] }}</div>
                     </div>
                     <a class="content" href="?q=tags:+%22{{ tag | urlencode }}%22">{{ tag | truncate(16) }}</a>
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if counts['created'] %}
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Year</b>
+                </a>
+                <div class="active content">
+                {% for year in counts['created'] %}
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['created'][year] }}</div>
+                    </div>
+                    <a class="content" href="?q=meta.created:{{ year | urlencode }}">{{ year }}</a>
                 </div>
                 {% endfor %}
                 </div>
@@ -98,7 +115,7 @@
                     #     set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/1024,/0/default.jpg' | default(None)
                     #   else:
                     #     set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
-                    #     set cover = cover['path'] + ':0/full/1024,/0/default.jpg' if cover else None
+                    #     set cover = cover['path'] + ':1/full/1024,/0/default.jpg' if cover else None
                     #   endif
                     <div class="ui raised linked card" href="/{{ key }}/">
                         <a href="/{{ key }}/_view">

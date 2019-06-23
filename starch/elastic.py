@@ -101,10 +101,10 @@ class ElasticIndex(starch.Index):
 
         query = parse(q)
 
-        print(query, flush=True)
+        #print(query, flush=True)
 
         res = self.elastic.search(index=self.index_name, from_=0, size=0, body=query)
-        print(res)
+        #print(res)
         count = int(res['hits']['total']['value'])
         key_iter = self._search_iterator(query, start, max, count, sort)
 
@@ -155,7 +155,7 @@ class ElasticIndex(starch.Index):
     def bulk_update(self, p, sync=True):
         bulk = [ ]
 
-        print(p)
+        #print(p)
 
         for key,package in p:
             if package:
@@ -166,8 +166,8 @@ class ElasticIndex(starch.Index):
                 #bulk += [ dumps({ 'delete': { '_index': self.index_name, '_type': 'package', '_id': key } }) ]
                 bulk += [ dumps({ 'delete': { '_index': self.index_name, '_id': key } }) ]
 
-        print(p)
-        print('\n'.join(bulk), flush=True)
+        #print(p)
+        #print('\n'.join(bulk), flush=True)
 
         r = self.elastic.bulk(
                 body='\n'.join(bulk),

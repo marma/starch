@@ -288,6 +288,10 @@ def package_file(key, path):
         #headers = { 'Content-Disposition': f'inline; filename={basename(path)}' }
         headers = {}
 
+        # fast hack for pretty JSON
+        if (p[path].get('mime_type', 'unknown') == 'application/json' or path.endswith('.json')) and 'pretty' in request.args:
+            return Response(dumps(loads(p.get_raw(path).read().decode('utf-8')), indent=2), mimetype='application/json'), 200
+
         if 'checksum' in p[path]:
             headers.update({ 'ETag': p[path]['checksum'].split(':')[1] })
 
@@ -474,10 +478,13 @@ def base():
     return app.config['archive']['base'] if 'base' in app.config['archive'] else request.url_root
 
 
+@app.route('/_search')
 @app.route('/search')
 def search():
-    if 'q' not in request.args:
-        return 'no q parameter', 500
+    if request.args.get('q', '') == '':
+        return 'non-existant or empty q parameter', 500
+
+    print(request.args['q'], flush=True)
 
     r = (index or archive).search(
             loads(request.args['q']),

@@ -39,7 +39,7 @@ class Package(Document):
 
 
 class ElasticIndex(starch.Index):
-    def __init__(self, type='elastic', url=None, base=None, index_name=None, server_base=None, index_content=False):
+    def __init__(self, type='elastic', url=None, base=None, index_name=None, server_base=None, index_content=False, default=None):
         if not (url and index_name):
             raise Exception('both url and index_name-parameters required')
 
@@ -50,6 +50,7 @@ class ElasticIndex(starch.Index):
         self.elastic = Elasticsearch(url)
         self.indices = IndicesClient(self.elastic)
         self.index_content = index_content
+        self.default = default or ''
 
         if not self.indices.exists(self.index_name):
             try:
@@ -99,7 +100,7 @@ class ElasticIndex(starch.Index):
         if isinstance(q, dict):
             q = dumps(q)
 
-        query = parse(q)
+        query = parse(q, default=self.default)
 
         #print(query, flush=True)
 
@@ -136,7 +137,7 @@ class ElasticIndex(starch.Index):
         if isinstance(q, dict):
             q = dumps(q)
 
-        q = parse(q)
+        q = parse(q, default=self.default)
         q.update(create_aggregations(cats))
 
         res = self.elastic.search(

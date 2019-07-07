@@ -26,7 +26,7 @@ from re import match
 
 debug = False
 
-def parse(query):
+def parse(query, default='_all'):
     parser = Lark('query:          query_part | boolean_query\n' +
             'query_part:     asterisk | expr | dictionary | "(" query ")" | nested_query\n' +
             'boolean_query:  query_part operator query_part (operator query_part)*\n' +
@@ -53,19 +53,19 @@ def parse(query):
     if debug:
         print(x.pretty(), file=stderr)
 
-    return { 'query': _handle(x) }
+    return { 'query': _handle(x, default=default) }
 
 
-def _handle(node, field=''):
+def _handle(node, field='', default='_all'):
     if node.data in [ 'query', 'query_part']:
-        return _handle(node.children[0], field)
+        return _handle(node.children[0], field, default=default)
     elif node.data == 'nested_query':
         return {
                 'nested': {
                     'path': field,
-                    'query': _handle(node.children[0], field)
+                    'query': _handle(node.children[0], field, default=default)
                     }
-                } if field != '' else _handle(node.children[0])
+                } if field != '' else _handle(node.children[0], default=default)
     elif node.data == 'dictionary':
         if len(node.children) == 0:
             if field != '':
@@ -86,17 +86,17 @@ def _handle(node, field=''):
                                 'bool': {
                                     'must': [ _handle(kv, field) for kv in node.children ]
                                     }
-                                } if len(node.children) > 1 else _handle(node.children[0], field)
+                                } if len(node.children) > 1 else _handle(node.children[0], field, default=default)
                             }
                         }
             else:
                 return  {
                         'bool': {
-                            'must': [ _handle(kv, field) for kv in node.children ]
+                            'must': [ _handle(kv, field, default=default) for kv in node.children ]
                             }
-                        } if len(node.children) > 1 else _handle(node.children[0], field)
+                        } if len(node.children) > 1 else _handle(node.children[0], field, default=default)
     elif node.data == 'key_val':
-        return _handle(node.children[1], '.'.join([field, node.children[0].children[0].value]) if field != '' else node.children[0].children[0].value)
+        return _handle(node.children[1], '.'.join([field, node.children[0].children[0].value]) if field != '' else node.children[0].children[0].value, default=default)
     elif node.data == 'boolean_query':
         # 1. split on "or" operator
         should,c = [], []
@@ -114,7 +114,7 @@ def _handle(node, field=''):
             return  {
                     'bool': {
                         'must': [
-                            _handle(x, field) for x in should[0] if x.data != 'operator'
+                            _handle(x, field, default=default) for x in should[0] if x.data != 'operator'
                             ]
                         }
                     }
@@ -123,11 +123,11 @@ def _handle(node, field=''):
                     'bool': {
                         'min_should_match': 1,
                         'should': [
-                            _handle(l[0], field) if len(l) == 1 else
+                            _handle(l[0], field, default=default) if len(l) == 1 else
                             {
                                 'bool': {
                                     'must': [
-                                        _handle(x, field) for x in l if x.data != 'operator'
+                                        _handle(x, field, default=default) for x in l if x.data != 'operator'
                                         ]
                                     }
                                 } for l in should 
@@ -137,18 +137,18 @@ def _handle(node, field=''):
     elif node.data == 'asterisk':
         return { 'match_all': {} }
     elif node.data == 'expr':
-        return _handle(node.children[0], field)
+        return _handle(node.children[0], field, default=default)
     elif node.data == 'fielded_expr':
         f = node.children[0].children[0].value
 
-        return _handle(node.children[1], field + '.' + f if field != '' else f)
+        return _handle(node.children[1], field + '.' + f if field != '' else f, default=default)
     elif node.data == 'string':
         s = node.children[0].value
 
         if s[0] == '"':
             s = s[1:-1]
 
-        return { 'match': { field if field != '' else '_all': s } }
+        return { 'match': { field if field != '' else default: { 'query': s, 'operator': 'and' } } }
 
 
 def create_aggregations(q):

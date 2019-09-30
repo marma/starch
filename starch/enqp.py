@@ -42,7 +42,7 @@ def parse(query, default='_all'):
             'field:          CNAME | "\\"" CNAME "\\""\n' +
             'string:         CNAME | ESCAPED_STRING\n' +
             'asterisk:       "*"\n' +
-            'CNAME:          /[a-zA-Z0-9_\\.-]+/\n' +
+            'CNAME:          /[a-z\u00e5\u00e4\u00f6A-Z\u00c5\u00c4\u00d60-9_\\.-]+/\n' +
             '%import common.ESCAPED_STRING\n' +
             '%import common.WS\n' +
             '%ignore WS',

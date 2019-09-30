@@ -17,6 +17,7 @@ from shutil import move,rmtree
 from htfile import open as htopen
 from requests import get
 from sys import stderr
+import logging
 import starch
 
 VERSION = 0.1
@@ -69,10 +70,13 @@ class FilePackage(starch.Package):
             self._log('CREATED %s' % self._desc['urn'], t=self._desc['created'])
             self.save()
         elif mode in [ 'r', 'a' ]:
-            with open(self._get_full_path('_package.json')) as r:
-                self._desc = loads(r.read())
-                #print(self._desc)
-                self._desc['files'] = { v['path']:v for v in self._desc['files'] }
+            try:
+                with open(self._get_full_path('_package.json')) as r:
+                    self._desc = loads(r.read())
+                    self._desc['files'] = { v['path']:v for v in self._desc['files'] }
+            except Exception as e:
+                logging.exception(f'Exception while loading {self._get_full_path("_package.json")}', e)
+                raise(e)
 
             if mode is 'a' and self.is_finalized():
                 raise Exception('package is finalized, use patch(...)')
@@ -90,8 +94,8 @@ class FilePackage(starch.Package):
         if fname and data:
             raise Exception('Specifying both a file and data is not allowed')
 
-        if url and not url.startswith('http'):
-            raise Exception('Only HTTP URLs supported')
+        if url and url.startswith('file:'):
+            raise Exception('file-URLs not allowed')
 
         path = valid_path(path or basename(abspath(fname)))
 
@@ -159,16 +163,17 @@ class FilePackage(starch.Package):
                         remove(temppath)
             elif url and type == 'Reference':
                 f['url'] = url
-   
-                try: 
-                    with get(url, headers={ 'Accept-Encoding': 'identity'}, stream=True) as r:
-                        if 'Content-Length' in r.headers:
-                            f['size'] = r.headers['Content-Length']
+  
+                if url.startswith('http'): 
+                    try: 
+                        with get(url, headers={ 'Accept-Encoding': 'identity'}, stream=True) as r:
+                            if 'Content-Length' in r.headers:
+                                f['size'] = r.headers['Content-Length']
 
-                        if 'Content-Type' in r.headers:
-                            f['mime_type'] = r.headers['Content-Type'].split(';')[0]
-                except:
-                    self._log(f'WARN could not probe URL ({url}')
+                            if 'Content-Type' in r.headers:
+                                f['mime_type'] = r.headers['Content-Type'].split(';')[0]
+                    except:
+                        self._log(f'WARN could not probe URL ({url}')
             else:
                 raise Exception('Incompatible parameters')
 
@@ -241,7 +246,7 @@ class FilePackage(starch.Package):
         if path in self:
             f = self[path]
 
-            if f['@type'] == 'Reference':
+            if f['@type'] == 'Reference' and f['url'].startswith('http'):
                 f = htopen(f['url'], mode='rb')
             else:
                 f = open(self._get_full_path(path), mode='rb')
@@ -440,6 +445,12 @@ class FilePackage(starch.Package):
 
 
     def _get_full_path(self, path):
+        # @TODO remove this!
+        if not path[0] == '_':
+            f = self[path]
+            if  f['@type'] == 'Reference' and f['url'].startswith('mimer:'):
+                return join('/data/ess/package_instance', f['url'][6:])
+
         return join(self.root_dir, path)
 
 

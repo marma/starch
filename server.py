@@ -48,7 +48,7 @@ def site_index():
     counts = (index or archive).count(q, { 
 						'type': { 'files': 'mime_type' },
 						'tag': 'tags',
-						'created': 'meta.created.keyword',
+						'created': 'meta.year.keyword',
 						'size': 'sum(size)' } )
     counts['size']['value'] = int(counts['size']['value'])
 

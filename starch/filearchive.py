@@ -10,6 +10,7 @@ from collections import Counter
 from threading import RLock
 from starch.result import create_result
 import starch
+from hashlib import md5
 
 MAX_ID=2**38
 
@@ -27,8 +28,8 @@ class FileArchive(starch.Archive):
         self._check_mode()
         key = self._generate_key(suggest=valid_key(key) if key else None)
 
-        print(self.base)
-        print(key, flush=True)
+        #print(self.base)
+        #print(key, flush=True)
 
         with self.lock(key):
             dir = self._directory(key)
@@ -175,7 +176,11 @@ class FileArchive(starch.Archive):
 
 
     def _directory(self, key):
-        return join(self.root_dir, *[ key[2*i:2*i+2] for i in range(0,3) ], key)
+        h = md5()
+        h.update(key.encode('utf-8'))     
+
+        return join(self.root_dir, *[ h.hexdigest()[2*i:2*i+2] for i in range(0,3) ], key)
+        #return join(self.root_dir, *[ key[2*i:2*i+2] for i in range(0,3) ], key)
 
 
     def _create_directory(self, key):
@@ -271,8 +276,8 @@ class FileArchive(starch.Archive):
             return self.lock(key)
         elif msg in [ 'new', 'save', 'ingest' ]:
             if self.index:
-                print(self.get(key))
-                print(self.base)
+                #print(self.get(key))
+                #print(self.base)
                 #print('index %s' % key, flush=True)
                 self.index.update(key, package or self.get(key))
 
@@ -291,6 +296,10 @@ class FileArchive(starch.Archive):
 
     def __getitem__(self, key):
         return self.get(key)
+
+    
+    def __contains__(self, key):
+        return exists(self._directory(key))
 
 
 

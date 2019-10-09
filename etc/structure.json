@@ -1,0 +1,117 @@
+[
+    {
+        "@id": "https://example.org/123/test.pdf#1",
+        "@type": "Part",
+        "extracted_from": "test.pdf",
+        "has_part": [
+            {
+                "@id": "https://example.org/123/test.pdf#1-1",
+                "@type": "Page",
+                "has_part": [
+                    {
+                        "@id": "https://example.org/123/test.pdf#1-1-1",
+                        "@type": "Area",
+                        "box": [ 0,0,300,100 ],
+                        "has_part": [
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-1-1-1",
+                                "@type": "Text",
+                                "box": [ 0,0,300,50 ]
+                            },
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-1-1-2",
+                                "@type": "Text",
+                                "box": [ 0,50,300,50 ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "@id": "https://example.org/123/test.pdf#1-2",
+                "@type": "Page",
+                "has_part": [
+                    {
+                        "@id": "https://example.org/123/test.pdf#1-2-1",
+                        "@type": "Area",
+                        "box": [ 0,0,300,100 ],
+                        "has_part": [
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-2-1-1",
+                                "@type": "Text",
+                                "box": [ 0,0,300,50 ]
+                            },
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-2-1-2",
+                                "@type": "Text",
+                                "box": [ 0,50,300,50 ]
+                            }
+                        ]
+            },
+            {
+                "@id": "https://example.org/123/test.pdf#1-3",
+                "@type": "Page",
+                "has_part": [
+                    {
+                        "@id": "https://example.org/123/test.pdf#1-3-1",
+                        "@type": "Area",
+                        "box": [ 0,0,300,100 ],
+                        "has_part": [
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-3-1-1",
+                                "@type": "Text",
+                                "box": [ 0,0,300,50 ]
+                            },
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-3-1-2",
+                                "@type": "Text",
+                                "box": [ 0,50,300,50 ]
+                            }
+                        ]
+            },
+            {
+                "@id": "https://example.org/123/test.pdf#1-4",
+                "@type": "Page",
+                "has_part": [
+                    {
+                        "@id": "https://example.org/123/test.pdf#1-4-1",
+                        "@type": "Area",
+                        "box": [ 0,0,300,100 ],
+                        "has_part": [
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-4-1-1",
+                                "@type": "Text",
+                                "box": [ 0,0,300,50 ]
+                            },
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-4-1-2",
+                                "@type": "Text",
+                                "box": [ 0,50,300,50 ]
+                            }
+                        ]
+            },
+            {
+                "@id": "https://example.org/123/test.pdf#1-5",
+                "@type": "Page",
+                "has_part": [
+                    {
+                        "@id": "https://example.org/123/test.pdf#1-5-1",
+                        "@type": "Area",
+                        "box": [ 0,0,300,100 ],
+                        "has_part": [
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-5-1-1",
+                                "@type": "Text",
+                                "box": [ 0,0,300,50 ]
+                            },
+                            {
+                                "@id": "https://example.org/123/test.pdf#1-5-1-2",
+                                "@type": "Text",
+                                "box": [ 0,50,300,50 ]
+                            }
+                        ]
+            }
+        ]
+    }
+}
+

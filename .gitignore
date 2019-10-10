@@ -6,3 +6,4 @@ __pycache__
 *.pyc
 config.yml
 docker-compose.yml
+docker-compose.network.yml

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask,request,render_template,Response,redirect,send_from_directory
+from flask import Flask,request,render_template,Response,redirect,send_from_directory,make_response
 from flask_caching import Cache
 from flask_basicauth import BasicAuth
 from yaml import load,FullLoader
@@ -20,13 +20,17 @@ from requests import get
 from math import log2
 from tarfile import TarFile,TarInfo,open as taropen
 from os import SEEK_END
+from os.path import basename,dirname
 from starch.iterio import IterIO
 import datetime
 from sys import stdout
 from io import UnsupportedOperation
 
+USE_NGINX_X_ACCEL = True
+
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.use_x_sendfile = True
 app.config.update(load(open(join(app.root_path, 'config.yml')).read(), Loader=FullLoader))
 app.jinja_env.line_statement_prefix = '#'
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
@@ -61,15 +65,32 @@ def site_index():
                            counts=counts,
                            query=q)
 
+@app.route('/<key>')
+def view_thing(key):
+    _check_base(request)
+    
+    return render_template('thing.html')
+
+    ret = (index or archive).get(key)
+
+    if ret:
+        return Response(dumps(ret, indent=4), mimetype='application/json')
+    else:
+        return 'Not found', 404
+
 
 @app.route('/<key>/')
 @app.route('/<key>/_package.json')
 def package(key):
     _check_base(request)
-    ret = (index or archive).get(key)
+
+    #return package_file(key, '_package.json')
+
+    #ret = (index or archive).get(key)
+    ret = archive.get(key)
 
     if ret:
-        return Response(dumps(ret, indent=4), mimetype='application/json')
+        return Response(dumps(ret.description(), indent=4), mimetype='application/json')
     else:
         return 'Not found', 404
 
@@ -97,7 +118,8 @@ def tag(key):
 def view_package(key):
     _check_base(request)
     #p = (index or archive).get(key)
-    p = (index.get(key) if index else None) or archive.get(key)
+    #p = (index.get(key) if index else None) or archive.get(key)
+    p = archive.get(key)
 
     if p:
         p = p.description() if not isinstance(p, dict) else p
@@ -279,9 +301,22 @@ def download_package_iterator(key, p, fmt):
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
 def package_file(key, path):
     _check_base(request)
-    p = archive.get(key)
 
-    #print(request.headers, flush=True)
+    # Fast x-send-file if possible
+    loc = archive.location(key, path)
+
+    if loc and loc.startswith('file://'):
+        if USE_NGINX_X_ACCEL:
+            r = make_response()
+            r.headers['X-Accel-Redirect'] = loc[7:]
+            r.headers['filename'] = path
+            return r
+        else:
+            return send_from_directory(dirname(loc[7:]), basename(loc[7:]))
+
+    # Do things manually
+
+    p = archive.get(key)
 
     if p and path in p:
         size = int(p[path]['size'])
@@ -299,8 +334,6 @@ def package_file(key, path):
             headers.update({ 'Content-Length': p[path]['size'] })
 
         range = decode_range(request.headers.get('Range', default='bytes=0-'))
-
-        # TODO optimization using get_location and send_from_directory
 
         try:
             i = p.get_iter(path, range=range)

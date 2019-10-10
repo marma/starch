@@ -9,19 +9,22 @@ from random import random
 from collections import Counter
 from threading import RLock
 from starch.result import create_result
+from requests import get
 import starch
 from hashlib import md5
 
 MAX_ID=2**38
 
 class FileArchive(starch.Archive):
-    def __init__(self, root=None, base=None, index=None, mode='read-write', lockm=starch.LockManager(type='null')):
+    def __init__(self, root=None, base=None, index=None, mode='read-write', lockm=starch.LockManager(type='null'), **kwargs):
         self.temporary = root == None
         self.root_dir = root or get_temp_dirname()
         self.base = base
         self.mode = mode
         self.index = starch.Index(**index) if isinstance(index, dict) else index
         self.lockm = starch.LockManager(**lockm) if isinstance(lockm, dict) else lockm
+        self.dir_split_strategy = kwargs.get('dir_split_strategy', 'hash')
+        self.prefix = kwargs.get('prefix', {})
 
 
     def new(self, key=None, **kwargs):
@@ -118,15 +121,55 @@ class FileArchive(starch.Archive):
             raise Exception('Use the force (parameter)')
 
 
-    def get_location(self, key, path):
+    def location(self, key, path=None):
         d = self._directory(valid_key(key))
-        p = join(d, valid_path(path))
+        p = join(d, valid_path(path)) if path else d
 
         if exists(p):
             return 'file://' + p
         else:
+            package = self.get(key)
+            
+            if package and path in package:
+                f = package.get(path)
+
+                if f['@type'] == 'Reference' and 'url' in f:
+                    u = f['url']
+                    scheme = u[:u.index(':')]
+
+                    if scheme in self.prefix:
+                        u = self.prefix[scheme]['prefix'] + u[u.index(':')+1:]
+
+                    return u
+
             return None
 
+
+    def open(self, key, path, mode=''):
+        loc = self.location(key, path)
+
+        if loc[:7] == 'file://':
+            return open(loc[7:], mode='r'+mode)
+        elif loc[:4] == 'http':
+            # @TODO Check credentials
+            r = get(loc, stream=True)
+
+            # maybe wrap this to avoid credentials leak?
+            return r.raw
+
+        return None
+
+
+    def read(self, key, path, mode=''):
+        with self.open(key, path, mode=mode) as f:
+            return f.read()
+
+
+    def description(selff, key):
+        ...
+
+    #def iter(self, path, chunk_size=10*1024, range=None):
+    #    ...
 
     def search(self, query, start=0, max=None, sort=None):
         # This is deliberatly non-optimal for small
@@ -179,8 +222,12 @@ class FileArchive(starch.Archive):
         h = md5()
         h.update(key.encode('utf-8'))     
 
-        return join(self.root_dir, *[ h.hexdigest()[2*i:2*i+2] for i in range(0,3) ], key)
-        #return join(self.root_dir, *[ key[2*i:2*i+2] for i in range(0,3) ], key)
+        if self.dir_split_strategy == 'hash':
+            return join(self.root_dir, *[ h.hexdigest()[2*i:2*i+2] for i in range(0,3) ], key)
+        elif self.dir_split_strategy == 'split':
+            return join(self.root_dir, *[ key[2*i:2*i+2] for i in range(0,3) ], key)
+        else:
+            raise Exception(f'No such split strategy ("{self.dir_split_strategy}")')
 
 
     def _create_directory(self, key):

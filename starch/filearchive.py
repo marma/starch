@@ -47,9 +47,21 @@ class FileArchive(starch.Archive):
             self._log_add_package(key)
 
             return (key, p)
+    
 
+    def ingest(self, package, key=None, copy=True):
+        def scrub_ids(x):
+            x = deepcopy(x)
+            x['@id'] = x['path']
 
-    def ingest(self, package, key=None):
+            if copy and x['@type'] == 'Reference':
+                x['@type'] = 'Resource'
+
+                if 'url' in x:
+                    del x['url']
+
+            return x
+
         self._check_mode()
         key = self._generate_key(suggest=valid_key(key) if key else None)
 
@@ -58,13 +70,16 @@ class FileArchive(starch.Archive):
             
             try:
                 for path in package:
-                    self._copy(package.get_raw(path), join(dir, valid_path(path)))
+                    if package.get(path)['@type'] != 'Reference' or copy:
+                        self._copy(self.open(key, path), join(dir, valid_path(path)))
 
                 with open(join(dir, '_package.json'), mode='w') as o:
-                    o.write(dumps(package.description(), indent=2))
+                    d = deepcopy(package.description())
+                    d['@id'] = ''
+                    d['files'] = [ scrub_ids(xi, copy=copy) for x in d['files'] ]
+                    o.write(dumps(d, indent=2))
 
-                # TODO make @ids relative in _package.json?
-                # TODO make sure all meta-files get copied too
+                # TODO copy meta-files too
 
                 p = starch.Package(dir)
                 p.validate()

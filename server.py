@@ -10,7 +10,7 @@ from contextlib import closing
 from json import loads,dumps
 from hashlib import md5,sha256
 from starch.elastic import ElasticIndex
-from starch.utils import decode_range,valid_path,max_iter
+from starch.utils import decode_range,valid_path,max_iter,guess_content
 from os.path import join
 from tempfile import NamedTemporaryFile,TemporaryFile,TemporaryDirectory
 from time import time
@@ -309,6 +309,7 @@ def package_file(key, path):
         if USE_NGINX_X_ACCEL:
             r = make_response()
             r.headers['X-Accel-Redirect'] = loc[7:]
+            r.headers['Content-Type'] = guess_content(path)
             r.headers['filename'] = path
             return r
         else:

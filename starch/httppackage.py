@@ -71,6 +71,14 @@ class HttpPackage(starch.Package):
         self.add(fname, path, replace=True, **kwargs)        
 
 
+    def get(self, path, base=None):
+        ret = deepcopy(self._desc['files'][path])
+
+        if base or self.base:
+            ret['@id'] = (base or self.base) + ret['@id']
+
+        return ret
+
     def get_location(self, path):
         return self.url + path
 

@@ -3,6 +3,7 @@ from sys import stdin, stderr
 from os.path import exists,join,basename,dirname
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
+from os.path import sep
 from shutil import rmtree
 from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname,dict_search,dict_values,TEMP_PREFIX
 from random import random
@@ -12,6 +13,7 @@ from starch.result import create_result
 from requests import get
 import starch
 from hashlib import md5
+from copy import deepcopy
 
 MAX_ID=2**38
 
@@ -66,17 +68,20 @@ class FileArchive(starch.Archive):
         key = self._generate_key(suggest=valid_key(key) if key else None)
 
         with self.lockm.get(key):
-            dir = self._create_directory(key)
-            
+            dir = self._directory(key)
+            makedirs(dir + sep)
+    
+            print(dir)
+        
             try:
                 for path in package:
                     if package.get(path)['@type'] != 'Reference' or copy:
-                        self._copy(self.open(key, path), join(dir, valid_path(path)))
+                        self._copy(package.get_raw(path), join(dir, valid_path(path)))
 
                 with open(join(dir, '_package.json'), mode='w') as o:
                     d = deepcopy(package.description())
                     d['@id'] = ''
-                    d['files'] = [ scrub_ids(xi, copy=copy) for x in d['files'] ]
+                    d['files'] = [ scrub_ids(x) for x in d['files'] ]
                     o.write(dumps(d, indent=2))
 
                 # TODO copy meta-files too
@@ -248,7 +253,7 @@ class FileArchive(starch.Archive):
     def _create_directory(self, key):
         self._check_mode()
         dir = self._directory(key)
-        makedirs(dir)
+        makedirs(dir + '/')
 
         return dir
 

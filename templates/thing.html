@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>OpenSeadragon SVG Overlay Demo</title>
+        <script src="https://cdn.jsdelivr.net/npm/openseadragon@2.4.1/build/openseadragon/openseadragon.min.js"></script>
+        <script src="static/js/openseadragon-svg-overlay.js"></script>
+        <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+        <script src="https://d3js.org/d3.v5.min.js"></script>
+        <style type="text/css">
+            html,
+            body,
+            .openseadragon1 {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+            }
+        </style>
+        <script>
+            App = {
+                init: function() {
+                    var self = this;
+
+                    this.url = window.location.href.substring(0, window.location.href.indexOf("#"))
+                    this.anchor = window.location.hash
+                    this.structure = {{ structure | safe }}
+                    this.page = find_page(this.structure, this.anchor)
+                    this.image = this.page[1]
+                    this.page = this.page[0]
+                    this.region = find_region([ this.page ], this.anchor)
+                    //this.image = find_image(this.structure, this.anchor)
+                    
+                    this.width = this.page["width"]
+                    this.height = this.page["height"]
+                    this.box = ("box" in this.region)? this.region["box"] : [0,0,this.width, this.height]; 
+    
+                    this.viewer = OpenSeadragon({
+                        id:                 "openseadragon",
+                        prefixUrl:          "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.4.1/images/",
+                        preserveViewport:   true,
+                        visibilityRatio:    1,
+                        //minZoomLevel:       1,
+                        //defaultZoomLevel:   1,
+                        sequenceMode:       false,
+                        tileSources:        this.url + "/" + this.image + "/info.json"
+                    });
+
+                    this.viewer.gestureSettingsMouse.clickToZoom = false
+
+                    var overlay = this.viewer.svgOverlay();
+
+                    var level = 'Text'
+                     
+                    var d3Rect = d3.select(overlay.node()).append("rect")
+                        .style('fill', '#ff00')
+                        .attr('stroke', 'rgba(0,0,0,0.5)')
+                        .attr('stroke-width', 0.0025)
+                        .attr('stroke-dasharray', '0.01,0.005')
+                        //.attr('shape-rendering', 'crispEdges')
+                        .attr("x", this.box[0]/this.width)
+                        .attr("width", this.box[2]/this.width)
+                        .attr("y", this.box[1]/this.width)
+                        .attr("height", this.box[3]/this.width)
+                        .attr("rx", 0.002)
+                        .attr("ry", 0.002)
+                    
+                   
+                    /*
+                    overlay.onClick(d3Rect.node(), function() {
+                        if (d3Rect.node().style['fill'] == "rgb(255, 255, 0)") {
+                            console.log(window.location.hash, arguments);
+                            d3Rect.style('fill', '#33f')
+                        } else {
+                            d3Rect.style('fill', '#ff0')
+                        }
+                    });
+                    */
+                    
+                    this.rects = create_rects(d3.select(overlay.node()), this.width, this.height, level, this.page, this.anchor)
+
+                    $(window).resize(function() {
+                        overlay.resize();
+                    });
+                }
+            };
+
+            $(document).ready(function() {
+                App.init();
+            });
+
+            function create_rects(overlay, width, height, level, page, selected) {
+                /*
+                var ret = overlay.append("rect")
+                    .style('fill', '#ff0')
+                    .attr("x", 0)
+                    .attr("width", 1)
+                    .attr("y", 0)
+                    .attr("height", height/width)
+                    .attr("opacity", 0.15);
+                */
+
+                if ('has_part' in page) {
+                    for (i=0;i<page['has_part'].length;i++) {
+                        var area = page['has_part'][i]
+                        var box = area['box']
+                        
+                        /*
+                        var y = overlay.append("rect")
+                            .style('fill', 'rgba(0,0,0,0)')
+                            .attr('stroke', 'rgba(0,0,0,1)')
+                            .attr('stroke-width', 0.0025)
+                            .attr('stroke-dasharray', '0.01,0.005')
+                            .attr("x", box[0]/width)
+                            .attr("width", box[2]/width)
+                            .attr("y", box[1]/width)
+                            .attr("height", box[3]/width)
+                            .attr("rx", 0.002)
+                            .attr("ry", 0.002)
+
+                            // events
+                            .on('mouseenter', function (d,i) {
+                                d3.select(this)
+                                    .transition()
+                                        .duration('150')
+                                        .attr('opacity', 0.75)
+                            })
+                        
+                            .on('mouseout', function (d,i) {
+                                d3.select(this).transition()
+                                    .duration('250')
+                                    .attr('opacity', 0)
+                            })
+                        */
+                        
+                        if ('has_part' in area) {
+                            for (j=0;j<area['has_part'].length;j++) {
+                                var text = area['has_part'][j]
+                                var box = text['box']
+
+                                var x = overlay.append("rect")
+                                    .style('fill', (text['@type'] == 'Image')? '#00f7':'#ff07')
+                                    .attr("x", box[0]/width)
+                                    .attr("width", box[2]/width)
+                                    .attr("y", box[1]/width)
+                                    .attr("height", box[3]/width)
+                                    .attr("rx", 0.001)
+                                    .attr("ry", 0.001)
+                                    .attr("opacity", 0.0)
+                                    .attr('stroke', 'rgba(0,0,0,1)')
+                                    .attr('stroke-width', 0.005)
+                                    .attr('xlink:href', text['@id'])
+
+                                    // events
+                                    .on('mouseenter', function (d,i) {
+                                        if (d3.select(this).attr('selected') != 'true') {
+                                            d3.select(this)
+                                                .transition()
+                                                    .duration('100')
+                                                    .attr('opacity', 0.5)
+                                        }
+                                    })
+                                
+                                    .on('mouseout', function (d,i) {
+                                        if (d3.select(this).attr('selected') != 'true') {
+                                            d3.select(this).transition()
+                                                .duration('250')
+                                                .attr('opacity', 0.0)
+                                        }
+                                    })
+
+                                    .on('click', function (d,i) {
+                                        window.location.hash = d3.select(this).attr('xlink:href').split('#')[1]
+
+                                        var selected = d3.select(this).attr('selected') == 'true'
+
+                                        d3.select(this).transition()
+                                            .duration('250')
+                                            .attr('opacity', (selected)? 0:1)
+                                            .attr('selected', !selected)
+                                    })
+                            }
+                        }
+                        
+                    }
+                }
+
+                return overlay
+            }
+
+            function find_page(structure, anchor) {
+                for (i=0; i<structure.length;i++) {
+                    var elem = structure[i];
+                    var elem_anchor = '#' + elem['@id'].split('#')[1]
+                    var nelems = elem_anchor.split('-').length
+
+                    if (anchor.split('-').slice(0, nelems).join('-') == elem_anchor.split('-').slice(0, nelems).join('-')) {
+                        if ("has_representation" in elem) {
+                            var representation = elem["has_representation"];
+
+                            for (j=0; j<representation.length;j++) {
+                                if (representation[j].endsWith(".jp2")) {
+                                    var im = representation[j];
+
+                                    return [ elem, im.substring(im.lastIndexOf("/")+1) ];
+                                }
+                            }
+                        }
+
+                        if ("has_part" in elem) {
+                            var ret = find_page(elem["has_part"], anchor)
+                
+                            if (ret != null) {
+                                return ret
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            function find_region(structure, anchor) {
+                for (i=0; i<structure.length;i++) {
+                    var elem = structure[i];
+
+                    if (anchor == ("#" + elem['@id'].split("#")[1])) {
+                        return elem
+                    } else if (anchor.startsWith("#" + elem['@id'].split("#")[1])) {
+                        if ("has_part" in elem) {
+                            var ret = find_region(elem["has_part"], anchor)
+                
+                            if (ret != null) {
+                                return ret
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }
+        </script>
+    </head>
+    <body>
+        <div id="openseadragon" class="openseadragon1"></div>
+    </body>
+</html>
+

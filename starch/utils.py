@@ -204,9 +204,12 @@ def guess_content(path):
         return 'application/json'
     elif path.endswith('.pdf'):
         return 'application/pdf'
+    elif path.endswith('.xml'):
+        return 'text/xml'
+    elif path.endswith('.metadata'):
+        return 'text/xml'
     
     return 'application/octet-stream'
-
 
 
 

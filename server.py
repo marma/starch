@@ -68,8 +68,12 @@ def site_index():
 @app.route('/<key>')
 def view_thing(key):
     _check_base(request)
-    
-    return render_template('thing.html')
+ 
+    p = archive.get(key)
+
+    print(p)
+
+    return render_template('thing.html', structure=loads(archive.read(key, 'structure.json')))
 
     ret = (index or archive).get(key)
 
@@ -569,6 +573,10 @@ def deindex(key):
 
     return 'no index', 500
 
+
+@app.route('/favicon.ico')
+def favicon():
+    return 'Not found', 404
 
 def _check_base(request):
     if 'base' not in app.config['archive']:

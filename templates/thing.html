@@ -87,6 +87,10 @@
                 App.init();
             });
 
+            $(document).on("keydown", function (e) {
+                console.log(e)
+            });
+
             function create_rects(overlay, width, height, level, page, selected) {
                 /*
                 var ret = overlay.append("rect")

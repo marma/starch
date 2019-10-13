@@ -165,6 +165,15 @@ class FileArchive(starch.Archive):
             return None
 
 
+    def exists(self, key, path=None):
+        d = self._directory(valid_key(key))
+
+        if path:
+            return exists(join(d, valid_path(path)))
+        else:
+            return exists(d)           
+
+
     def open(self, key, path, mode=''):
         loc = self.location(key, path)
 

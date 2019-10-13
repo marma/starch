@@ -121,8 +121,7 @@ def tag(key):
 @app.route('/<key>/_view')
 def view_package(key):
     _check_base(request)
-    #p = (index or archive).get(key)
-    #p = (index.get(key) if index else None) or archive.get(key)
+
     p = archive.get(key)
 
     if p:
@@ -161,7 +160,7 @@ def view(key, path):
 
 
 def _info(key, path):
-    _assert_iiif()
+    _check_base(request)
 
     p = archive.get(key)
     if p and path in p:
@@ -187,7 +186,7 @@ def _info(key, path):
 # @todo avoid clash with files actually named info.json
 @app.route('/<key>/<path:path>/info.json')
 def iiif_info(key, path):
-    _assert_iiif()
+    _check_base(request)
 
     i = _info(key, path)
     r = Response(render_template('info.json', **i), mimetype='application/json')
@@ -198,12 +197,42 @@ def iiif_info(key, path):
 
 @app.route('/<key>/<path:path>/<region>/<size>/<rot>/<quality>.<fmt>')
 def iiif(key, path, region, size, rot, quality, fmt):
+    t0=time()
     _check_base(request)
     _assert_iiif()
 
+    # fail fast or page number
+    if not archive.exists(key, path):
+        m = match('^(.*)(?::)(\\d+)$', path)
+
+        # @TODO two lookups is unecessary
+        if not (m and archive.exists(key, m.group(1))):
+            return 'Not found', 404
+
+    callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
+    url = f'{callback}{key}/{path}'
+    uri = f'{archive.base}{key}/{path}'
+    image_url = app.config.get('image_server').get('root') + 'image'
+    
+    params = { 'uri': uri,
+               'url': url,
+               'region': region,
+               'size': size,
+               'rotation': rot,
+               'quality': quality,
+               'format': fmt }
+
+    t1=time()
+    r = get(image_url, params=params, stream=True)
+    b = r.raw.read()
+    print(t1-t0, time() - t1)
+
+    return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
+
     p = index.get(key) if index else None
-    p = archive.get(key) if not p else p
-    p = (p.description() if not isinstance(p, dict) else p) if p else None
+    p = p or archive.get(key)
+    p = p.description() if not isinstance(p, dict) else p if p else None
+    #p = p.description()
     p['files'] = { x['path']:x for x in p['files'] }
 
     if p:
@@ -223,7 +252,13 @@ def iiif(key, path, region, size, rot, quality, fmt):
                        'quality': quality,
                        'format': fmt }
 
+            t0=time()
             r = get(image_url, params=params, stream=True)
+            b = r.raw.read()
+            print(time() - t0)
+
+            return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
+            #r = get(image_url, params=params, stream=True)
 
             return Response(
                     r.iter_content(100*1024),

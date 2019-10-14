@@ -1,4 +1,5 @@
 {
+    "@context": "../context.json",
     "title": "A book",
     "creator": "John Snow",
     "date": 2007

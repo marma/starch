@@ -48,10 +48,10 @@
             </div>
             {% endif %}
             <div class="item"><b>Package size:</b>{{ package['size'] | filesizeformat }}</div>
-	    <div class="item"><b>Created:</b>{{ package['created'] | truncate(22) }}</div>
+            <div class="item"><b>Created:</b>{{ package['created'] | truncate(22) }}</div>
             <div class="item"><b>Status:</b> {{ package['status'] }}</div>
 
-	    # if package['instances']
+            # if package['instances']
             <div class="item">
                 <div class="header"><b>Instances</b></div>
                 {% for instance in package['instances'] %}
@@ -65,11 +65,11 @@
         <div class="pushable">
             <div id="content">
                 <div>
-                    <span class="ui right floated menu"><a class="ui {{ 'active' if mode == 'list' else '' }} item" href="?mode=list">List</a><a class="ui {{ 'active' if mode == 'cards' else '' }} item" href="?mode=cards">Cards</a></span>
+                    <span class="ui right floated menu"><a class="ui {{ 'active' if mode == 'list' else '' }} item" href="?mode=list">List</a><a class="ui {{ 'active' if mode == 'structure' else '' }} item" href="?mode=structure">Structure</a></span>
             	    <div class="ui floating"><h1><a href="/">Index</a> / {{ package['label'] }}</h1></div>
                 </div>
                 <div class="ui divider"></div>
-                # if mode == 'cards':
+                # if mode == 'structure':
                 <div class="ui cards">
                     # set viewable = False
                     # for path,d in package['files'].items():

@@ -194,3 +194,25 @@ def pdf_to_textarray(stream):
 
     return ret
 
+
+def guess_content(path):
+    if path.endswith('.jpg'):
+        return 'image/jpeg'
+    elif path.endswith('.jp2'):
+        return 'image/jp2'
+    elif path.endswith('.json'):
+        return 'application/json'
+    elif path.endswith('.pdf'):
+        return 'application/pdf'
+    elif path.endswith('.xml'):
+        return 'text/xml'
+    elif path.endswith('.metadata'):
+        return 'text/xml'
+    
+    return 'application/octet-stream'
+
+
+
+
+
+

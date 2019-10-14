@@ -168,7 +168,7 @@ class FilePackage(starch.Package):
                     try: 
                         with get(url, headers={ 'Accept-Encoding': 'identity'}, stream=True) as r:
                             if 'Content-Length' in r.headers:
-                                f['size'] = r.headers['Content-Length']
+                                f['size'] = int(r.headers['Content-Length'])
 
                             if 'Content-Type' in r.headers:
                                 f['mime_type'] = r.headers['Content-Type'].split(';')[0]
@@ -191,7 +191,7 @@ class FilePackage(starch.Package):
         if type != 'Reference':
             self._log(f'STORE "{f["urn"]} {path} size:{f["size"]}{(" " + f["mime_type"]) if "mime_type" in f else ""} {f["checksum"]}')
         else:
-            self._log(f'REF {url} {path}{(" size:" + f["size"]) if "size" in f else ""}{(" " + f["mime_type"]) if "mime_type" in f else ""}')
+            self._log(f'REF {url} {path}{(" size:" + str(f["size"])) if "size" in f else ""}{(" " + f["mime_type"]) if "mime_type" in f else ""}')
 
         self.save()
 
@@ -205,12 +205,15 @@ class FilePackage(starch.Package):
 
         with self._lock_ctx():
             if path in self:
-                del self._desc['files'][path]
-                full_path = self._get_full_path(path)
+                f = self[path]
 
-                if exists(full_path):
-                    remove(full_path)
+                if f.get('@type', 'Resource') == 'Resource':
+                    full_path = self._get_full_path(path)
+
+                    if exists(full_path):
+                        remove(full_path)
             
+                del self._desc['files'][path]
             elif self.patches:
                 self[path] = { '@id': path, 'operation': 'delete', 'path': path }
             else:

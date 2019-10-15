@@ -10,7 +10,7 @@ from contextlib import closing
 from json import loads,dumps
 from hashlib import md5,sha256
 from starch.elastic import ElasticIndex
-from starch.utils import decode_range,valid_path,max_iter,guess_content
+from starch.utils import decode_range,valid_path,max_iter,guess_content,flatten_structure
 from os.path import join
 from tempfile import NamedTemporaryFile,TemporaryFile,TemporaryDirectory
 from time import time
@@ -122,12 +122,27 @@ def tag(key):
 def view_package(key):
     _check_base(request)
 
+    t0=time()
     p = archive.get(key)
+    t1=time()
 
     if p:
-        p = p.description() if not isinstance(p, dict) else p
-        p['files'] = { x['path']:x for x in p['files'] }
-        r = Response(render_template('package.html', package=p, mode=request.args.get('mode', request.cookies.get('mode', 'list'))), mimetype='text/html')
+        desc = p.description() if not isinstance(p, dict) else p
+        desc['files'] = { x['path']:x for x in desc['files'] }
+        mode = request.args.get('mode', request.cookies.get('mode', 'list'))
+        t2=time()
+        structure = loads(p.read('structure.json')) if 'structure.json' in p and mode == 'structure' else None
+        t3=time()
+
+        r = Response(
+                render_template(
+                    'package.html',
+                    package=desc,
+                    mode=mode,
+                    structure=flatten_structure(structure)),
+                mimetype='text/html')
+        t4=time()
+        print('time: ', t1-t0, t2-t1, t3-t2, t4-t3, t4-t0)
 
         if 'mode' in request.args:
             r.set_cookie('mode', request.args['mode'])

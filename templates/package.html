@@ -69,32 +69,36 @@
             	    <div class="ui floating"><h1><a href="/">Index</a> / {{ package['label'] }}</h1></div>
                 </div>
                 <div class="ui divider"></div>
-                # if mode == 'structure':
+                # if mode == 'structure'
                 <div class="ui cards">
-                    # for path,d in package['files'].items():
+                    # set partn = namespace(n=0)
+                    # for elem in structure
                     #   set viewable = False
-                    #   set cover = None
-                    #   set type = d['mime_type']
-                    #   if d['mime_type'].startswith('image/'):
-                    #     set viewable = True
-                    #     if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and d['size'] < 2*1024*1024
-                    #       set cover = path
-                    #     else
-                    #       set cover = path + '/full/1024,/0/default.jpg'
-                    #     endif
-                    #   elif type == 'application/pdf'
-                    #      set viewable = True
-                    #      set cover = path + ':0/full/1024,/0/default.jpg'
-                    #   endif
+                    #   if elem['@type'] == 'Part'
+                    #     set partn.n = partn.n + 1
+                </div>
+                <h2>{{ elem['title'] | default('Part ' + partn.n|string) }}</h2>
+                <div class="ui divider"></div>
+                <div class="ui cards">
+                    #   elif elem['@type'] == 'Page'
+                    #     set ns = namespace(path='', cover=None, viewable=False)
+                    #     for repr in elem['has_representation']
+                    #       if repr.endswith('.jp2')
+                    #         set ns.path = repr[repr.rindex('/')+1:]
+                    #         set ns.cover = './' + ns.path + '/full/1024,/0/default.jpg'
+                    #         set ns.viewable = True
+                    #       endif
+                    #     endfor
+                    #     set url = '../' + elem['@id'][elem['@id'].rindex('/'):] if ns.viewable else ns.path
                     <div class="ui raised linked card">
-                        # set url = path + '/_view' if viewable else path
-                        <a href="{{ url | urlencode }}">
-                            <img style="object-fit: cover" class="ui image" width="300" min-height="200" onerror="this.src='/static/img/white-image.png'" src="{{ cover | urlencode if cover else '/static/img/white-image.png' }}"/>
+                        <a href="{{ url | safe }}">
+                            <img style="object-fit: cover" class="ui image" width="300" min-height="200" onerror="this.src='/static/img/white-image.png'" src="{{ ns.cover | urlencode if ns.cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
-                            <span class="header"><a download href="./{{ path | urlencode }}"><i class="download icon"></i></a> {{ path | truncate(18) }}</span>
+                            <span class="header"><a download href="./{{ ns.path | urlencode }}"><i class="download icon"></i></a> {{ ns.path | truncate(18) }}</span>
                         </div>
                     </div>  
+                    #   endif
                     # endfor
                 </div>
                 # else

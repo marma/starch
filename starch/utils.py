@@ -212,7 +212,13 @@ def guess_content(path):
     return 'application/octet-stream'
 
 
+def flatten_structure(structure, levels=[ 'Part', 'Page' ]):
+    for s in structure:
+        if s['@type'] in levels:
+            yield s
 
+        if 'has_part' in s:
+            yield from flatten_structure(s['has_part'])
 
 
 

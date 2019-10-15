@@ -1,18 +1,45 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>OpenSeadragon SVG Overlay Demo</title>
+        <link rel="stylesheet" type="text/css" href="/static/Semantic-UI-CSS-master/semantic.min.css">
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+        <script src="/static/Semantic-UI-CSS-master/semantic.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/openseadragon@2.4.1/build/openseadragon/openseadragon.min.js"></script>
         <script src="static/js/openseadragon-svg-overlay.js"></script>
-        <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
         <script src="https://d3js.org/d3.v5.min.js"></script>
-        <style type="text/css">
-            html,
-            body,
-            .openseadragon1 {
-                width: 100%;
+        <style>
+            html, body {
                 height: 100%;
+                width: 100%;
                 margin: 0;
+            }
+
+            {{'#'}}header {
+                padding: 0.5em;
+                height: 3em;
+                color: #7f7f8f;
+                font-size: 2em;
+                background-color: black;
+                font-family: Arial, sans-serif;
+                text-decoration: none;
+            }
+
+            {{'#'}}openseadragon {
+                top: 4em;
+                position: absolute;
+                bottom: 0;
+                width: 100%;
+                background-color: black;
+            }
+
+            a:link {
+                text-decoration: none;
+                color: #7f7f8f;
+            }
+
+            a:visited {
+                text-decoration: none;
+                color: #7f7f8f;
             }
         </style>
         <script>
@@ -85,6 +112,7 @@
 
             $(document).ready(function() {
                 App.init();
+                document.getElementById('back').setAttribute('href', window.location.href.split("#")[0] + '/_view')
             });
 
             $(document).on("keydown", function (e) {
@@ -243,8 +271,10 @@
             }
         </script>
     </head>
+
     <body>
-        <div id="openseadragon" class="openseadragon1"></div>
+        <div id="header">&lt;&lt; <a id="back">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></div>
+        <div id="openseadragon"></div>
     </body>
 </html>
 

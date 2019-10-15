@@ -243,16 +243,30 @@ class FilePackage(starch.Package):
         raise Exception('%s does not exist in package' % path)
 
 
-    def get_raw(self, path, range=None):
-        #print(range, flush=True)
+    def location(self, path):
+        if path in self:
+            return 'file://' + join(self.root_dir, path)
 
+        return None
+        
+
+    def read(self, path, mode='rb'):
+        with open(self.location(path), mode=mode) as f:
+            return f.read()
+
+
+    def open(self, path, mode='rb'):
+        return self.get_raw(path, mode=mode)
+
+
+    def get_raw(self, path, range=None, mode='rb'):
         if path in self:
             f = self[path]
 
             if f['@type'] == 'Reference' and f['url'].startswith('http'):
                 f = htopen(f['url'], mode='rb')
             else:
-                f = open(self._get_full_path(path), mode='rb')
+                f = open(self._get_full_path(path), mode=mode)
 
             if range:
                 f.seek(range[0])

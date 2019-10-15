@@ -106,7 +106,9 @@
                     for (i=0;i<page['has_part'].length;i++) {
                         var area = page['has_part'][i]
                         var box = area['box']
-                        
+
+                        if (box == [ null, null, null, null ]) continue;
+
                         /*
                         var y = overlay.append("rect")
                             .style('fill', 'rgba(0,0,0,0)')

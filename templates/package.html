@@ -89,7 +89,7 @@
                     #         set ns.viewable = True
                     #       endif
                     #     endfor
-                    #     set url = '../' + elem['@id'][elem['@id'].rindex('/'):] if ns.viewable else ns.path
+                    #     set url = '../' + elem['@id'][elem['@id'].rindex('/')+1:] if ns.viewable else ns.path
                     <div class="ui raised linked card">
                         <a href="{{ url | safe }}">
                             <img style="object-fit: cover" class="ui image" width="300" min-height="200" onerror="this.src='/static/img/white-image.png'" src="{{ ns.cover | urlencode if ns.cover else '/static/img/white-image.png' }}"/>

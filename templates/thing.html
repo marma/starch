@@ -8,7 +8,7 @@
         <script src="static/js/openseadragon-svg-overlay.js"></script>
         <script src="https://d3js.org/d3.v5.min.js"></script>
         <style>
-            html, body {
+            html, body, {{'#'}}main {
                 height: 100%;
                 width: 100%;
                 margin: 0;
@@ -41,6 +41,16 @@
                 text-decoration: none;
                 color: #7f7f8f;
             }
+
+            {{ '#' }}content {
+                padding-left: 19em;
+                padding-top: 0.25em;
+            }
+
+            {{ '#' }}menu {
+                background: #efeff5;
+            }
+        </style>
         </style>
         <script>
             App = {
@@ -77,12 +87,7 @@
 
                     var level = 'Text'
                      
-                    var d3Rect = d3.select(overlay.node()).append("rect")
-                        .style('fill', '#ff00')
-                        .attr('stroke', 'rgba(0,0,0,0.5)')
-                        .attr('stroke-width', 0.0025)
-                        .attr('stroke-dasharray', '0.01,0.005')
-                        //.attr('shape-rendering', 'crispEdges')
+                    var h = d3.select(overlay.node()).append("rect")
                         .attr("x", this.box[0]/this.width)
                         .attr("width", this.box[2]/this.width)
                         .attr("y", this.box[1]/this.width)
@@ -90,17 +95,7 @@
                         .attr("rx", 0.002)
                         .attr("ry", 0.002)
                     
-                   
-                    /*
-                    overlay.onClick(d3Rect.node(), function() {
-                        if (d3Rect.node().style['fill'] == "rgb(255, 255, 0)") {
-                            console.log(window.location.hash, arguments);
-                            d3Rect.style('fill', '#33f')
-                        } else {
-                            d3Rect.style('fill', '#ff0')
-                        }
-                    });
-                    */
+                    highlight(h)
                     
                     this.rects = create_rects(d3.select(overlay.node()), this.width, this.height, level, this.page, this.anchor)
 
@@ -113,11 +108,55 @@
             $(document).ready(function() {
                 App.init();
                 document.getElementById('back').setAttribute('href', window.location.href.split("#")[0] + '/_view')
+                $('.ui.sidebar')
+                    .sidebar('setting', 'dimPage', false)
+                    .sidebar('setting', 'closable', false)
+                    .sidebar('setting', 'transition', 'push')
             });
 
+            var shifted = false
+
             $(document).on("keydown", function (e) {
-                console.log(e)
+                // activate menu?
+                if (e.key == 't') {
+                    $('.ui.sidebar')
+                        .sidebar('toggle');
+                }
+
+                shifted = e.key == "Shift"
+                console.log(shifted)
             });
+
+            $(document).on("keyup", function (e) {
+                console.log(e)
+                if (e.key == "Shift") {
+                    shifted = false
+                }
+                console.log(shifted)
+            });
+
+            function highlight(node) {
+                node.transition()
+                    .duration('250')
+                    .style('fill', 'rgba(255, 255, 255, 0)')
+                    .attr('stroke', 'rgba(255, 255, 255, 1)')
+                    .attr('stroke-width', 0.0025)
+                    .attr('stroke-dasharray', '0.01,0.005')
+            }
+
+            function select(node) {
+                node.transition()
+                    .duration('25')
+                    .attr('opacity', 1)
+                    .attr('selected', true)
+            }
+
+            function deselect(node) {
+                node.transition()
+                    .duration('150')
+                    .attr('opacity', 0)
+                    .attr('selected', false)
+            }
 
             function create_rects(overlay, width, height, level, page, selected) {
                 /*
@@ -137,34 +176,6 @@
 
                         if (box == [ null, null, null, null ]) continue;
 
-                        /*
-                        var y = overlay.append("rect")
-                            .style('fill', 'rgba(0,0,0,0)')
-                            .attr('stroke', 'rgba(0,0,0,1)')
-                            .attr('stroke-width', 0.0025)
-                            .attr('stroke-dasharray', '0.01,0.005')
-                            .attr("x", box[0]/width)
-                            .attr("width", box[2]/width)
-                            .attr("y", box[1]/width)
-                            .attr("height", box[3]/width)
-                            .attr("rx", 0.002)
-                            .attr("ry", 0.002)
-
-                            // events
-                            .on('mouseenter', function (d,i) {
-                                d3.select(this)
-                                    .transition()
-                                        .duration('150')
-                                        .attr('opacity', 0.75)
-                            })
-                        
-                            .on('mouseout', function (d,i) {
-                                d3.select(this).transition()
-                                    .duration('250')
-                                    .attr('opacity', 0)
-                            })
-                        */
-                        
                         if ('has_part' in area) {
                             for (j=0;j<area['has_part'].length;j++) {
                                 var text = area['has_part'][j]
@@ -182,6 +193,7 @@
                                     .attr('stroke', 'rgba(0,0,0,1)')
                                     .attr('stroke-width', 0.005)
                                     .attr('xlink:href', text['@id'])
+                                    .attr('id', 'id' + text['@id'].split('#')[1])
 
                                     // events
                                     .on('mouseenter', function (d,i) {
@@ -202,7 +214,29 @@
                                     })
 
                                     .on('click', function (d,i) {
-                                        window.location.hash = d3.select(this).attr('xlink:href').split('#')[1]
+                                        var selected = d3.select(this).attr('selected') == 'true'
+
+                                        // deselect everything
+                                        if (!shifted) {
+                                            d3.selectAll('rect')
+                                                .each(function(d) {
+                                                    deselect(d3.select(this))
+                                                })
+                                        }
+
+                                        if (!selected) {
+                                            select(d3.select(this))
+                                        }
+                                            
+                                        window.history.replaceState(window.location.protocol + '//' + window.location.host + location.path, "View", window.location.pathname + '#' + d3.select(this).attr('xlink:href').split('#')[1]);
+
+
+                                        return
+
+                                        select(d3.select(this).attr('id'), d3.select(this))
+
+                                        return
+                                        //window.location.hash = d3.select(this).attr('xlink:href').split('#')[1]
 
                                         var selected = d3.select(this).attr('selected') == 'true'
 
@@ -213,7 +247,6 @@
                                     })
                             }
                         }
-                        
                     }
                 }
 
@@ -275,8 +308,24 @@
     </head>
 
     <body>
-        <div id="header">&lt;&lt; <a id="back">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></div>
-        <div id="openseadragon"></div>
+        <div id="menu" class="ui sidebar left vertical menu">
+            <div class="item">
+                <div class="header">Tags</div>
+                <div class="item">Test test test</div>
+            </div>
+            <div class="item"><b>Package size:</b></div>
+            <div class="item"><b>Created:</b></div>
+            <div class="item"><b>Status:</b></div>
+
+            <div class="item">
+                <div class="header"><b>Instances</b></div>
+                <div class="content"><a href="#">Bla bla bla</a></div>
+            </div>
+        </div>
+        <div id="main" class="pusher">
+            <div id="header">&lt;&lt; <a id="back">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></div>
+            <div id="openseadragon"></div>
+        </div>
     </body>
 </html>
 

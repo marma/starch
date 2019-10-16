@@ -77,6 +77,7 @@
                         visibilityRatio:    1,
                         //minZoomLevel:       1,
                         //defaultZoomLevel:   1,
+                        showNavigator:  true,
                         sequenceMode:       false,
                         tileSources:        this.url + "/" + this.image + "/info.json"
                     });
@@ -111,7 +112,8 @@
                 $('.ui.sidebar')
                     .sidebar('setting', 'dimPage', false)
                     .sidebar('setting', 'closable', false)
-                    .sidebar('setting', 'transition', 'push')
+                    .sidebar('setting', 'transition', 'overlay')
+
             });
 
             var shifted = false

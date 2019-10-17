@@ -26,11 +26,11 @@ import datetime
 from sys import stdout
 from io import UnsupportedOperation
 
-USE_NGINX_X_ACCEL = True
+USE_NGINX_X_ACCEL = False
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
-app.use_x_sendfile = True
+#app.use_x_sendfile = True
 app.config.update(load(open(join(app.root_path, 'config.yml')).read(), Loader=FullLoader))
 app.jinja_env.line_statement_prefix = '#'
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
@@ -73,7 +73,7 @@ def view_thing(key):
 
     print(p)
 
-    return render_template('thing.html', structure=loads(archive.read(key, 'structure.json')))
+    return render_template('thing.html', structure=archive.read(key, 'structure.json'))
 
     ret = (index or archive).get(key)
 
@@ -217,32 +217,33 @@ def iiif(key, path, region, size, rot, quality, fmt):
     _assert_iiif()
 
     # fail fast or page number
-    if not archive.exists(key, path):
-        m = match('^(.*)(?::)(\\d+)$', path)
-
-        # @TODO two lookups is unecessary
-        if not (m and archive.exists(key, m.group(1))):
-            return 'Not found', 404
-
-    callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
-    url = f'{callback}{key}/{path}'
-    uri = f'{archive.base}{key}/{path}'
-    image_url = app.config.get('image_server').get('root') + 'image'
-    
-    params = { 'uri': uri,
-               'url': url,
-               'region': region,
-               'size': size,
-               'rotation': rot,
-               'quality': quality,
-               'format': fmt }
-
-    t1=time()
-    r = get(image_url, params=params, stream=True)
-    b = r.raw.read()
-    print(t1-t0, time() - t1)
-
-    return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
+    #if not archive.exists(key, path):
+    #    return 'Not found', 404
+    #    #m = match('^(.*)(?::)(\\d+)$', path)
+#
+#        # @TODO two lookups is unecessary
+#        #if not (m and archive.exists(key, m.group(1))):
+#        #    return 'Not found', 404
+#
+#    callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
+#    url = f'{callback}{key}/{path}'
+#    uri = f'{archive.base}{key}/{path}'
+#    image_url = app.config.get('image_server').get('root') + 'image'
+#    
+#    params = { 'uri': uri,
+#               'url': url,
+#               'region': region,
+#               'size': size,
+#               'rotation': rot,
+#               'quality': quality,
+#               'format': fmt }
+#
+#    t1=time()
+#    r = get(image_url, params=params, stream=True)
+#    b = r.raw.read()
+#    print(t1-t0, time() - t1)
+#
+#    return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
 
     p = index.get(key) if index else None
     p = p or archive.get(key)
@@ -359,6 +360,8 @@ def package_file(key, path):
     # Fast x-send-file if possible
     loc = archive.location(key, path)
 
+    print(dirname(loc[7:]), basename(loc[7:]))
+
     if loc and loc.startswith('file://'):
         if USE_NGINX_X_ACCEL:
             r = make_response()
@@ -368,6 +371,7 @@ def package_file(key, path):
             return r
         else:
             return send_from_directory(dirname(loc[7:]), basename(loc[7:]))
+
 
     # Do things manually
 

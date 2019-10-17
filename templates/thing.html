@@ -158,14 +158,14 @@
 
             function select(node) {
                 node.transition()
-                    .duration('50')
+                    .duration('25')
                     .attr('opacity', 1)
                     .attr('selected', true)
             }
 
             function deselect(node) {
                 node.transition()
-                    .duration('250')
+                    .duration('150')
                     .attr('opacity', 0)
                     .attr('selected', false)
             }
@@ -175,7 +175,9 @@
                     for (i=0;i<page['has_part'].length;i++) {
                         var area = page['has_part'][i]
                         var box = area['box']
-                        
+
+                        if (box == [ null, null, null, null ]) continue;
+
                         if ('has_part' in area) {
                             for (j=0;j<area['has_part'].length;j++) {
                                 var text = area['has_part'][j]

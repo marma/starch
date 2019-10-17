@@ -48,9 +48,14 @@
             }
 
             {{ '#' }}menu {
-                background: #efeff5;
+                padding-top: 1em;
             }
-        </style>
+
+            .key {
+                border: 1px solid black;
+                border-radius: 0.2em;
+                padding: 0.25em;
+            }
         </style>
         <script>
             App = {
@@ -114,27 +119,32 @@
                     .sidebar('setting', 'closable', false)
                     .sidebar('setting', 'transition', 'overlay')
 
+                $('.ui.accordion')
+                    .accordion({ 'exclusive': false });
+
             });
 
             var shifted = false
+            var mode = 'view'
 
             $(document).on("keydown", function (e) {
+                console.log(e)
+
                 // activate menu?
-                if (e.key == 't') {
+                if (e.key == 'T') {
+                    mode = (mode == 'view')? 'tag':'view'
+
                     $('.ui.sidebar')
                         .sidebar('toggle');
                 }
 
                 shifted = e.key == "Shift"
-                console.log(shifted)
             });
 
             $(document).on("keyup", function (e) {
-                console.log(e)
                 if (e.key == "Shift") {
                     shifted = false
                 }
-                console.log(shifted)
             });
 
             function highlight(node) {
@@ -161,16 +171,6 @@
             }
 
             function create_rects(overlay, width, height, level, page, selected) {
-                /*
-                var ret = overlay.append("rect")
-                    .style('fill', '#ff0')
-                    .attr("x", 0)
-                    .attr("width", 1)
-                    .attr("y", 0)
-                    .attr("height", height/width)
-                    .attr("opacity", 0.15);
-                */
-
                 if ('has_part' in page) {
                     for (i=0;i<page['has_part'].length;i++) {
                         var area = page['has_part'][i]
@@ -199,7 +199,7 @@
 
                                     // events
                                     .on('mouseenter', function (d,i) {
-                                        if (d3.select(this).attr('selected') != 'true') {
+                                        if (mode == 'tag' && d3.select(this).attr('selected') != 'true') {
                                             d3.select(this)
                                                 .transition()
                                                     .duration('100')
@@ -216,38 +216,43 @@
                                     })
 
                                     .on('click', function (d,i) {
-                                        var selected = d3.select(this).attr('selected') == 'true'
+                                        if (mode == 'tag') {
+                                            var selected = d3.select(this).attr('selected') == 'true'
 
-                                        // deselect everything
-                                        if (!shifted) {
-                                            d3.selectAll('rect')
-                                                .each(function(d) {
-                                                    deselect(d3.select(this))
-                                                })
+                                            // deselect everything
+                                            if (!shifted) {
+                                                d3.selectAll('rect')
+                                                    .each(function(d) {
+                                                        deselect(d3.select(this))
+                                                    })
+                                            }
+
+                                            if (!selected) {
+                                                select(d3.select(this))
+                                            }
+                                                
+                                            window.history.replaceState(
+                                                window.location.protocol +
+                                                '//' + window.location.host +
+                                                location.path,
+                                                "View", window.location.pathname + '#' + d3.select(this).attr('xlink:href').split('#')[1]);
+
+                                            return
+
+                                            select(d3.select(this).attr('id'), d3.select(this))
+
+                                            return
+                                            //window.location.hash = d3.select(this).attr('xlink:href').split('#')[1]
+
+                                            var selected = d3.select(this).attr('selected') == 'true'
+
+                                            d3.select(this).transition()
+                                                .duration('250')
+                                                .attr('opacity', (selected)? 0:1)
+                                                .attr('selected', !selected)
                                         }
-
-                                        if (!selected) {
-                                            select(d3.select(this))
-                                        }
-                                            
-                                        window.history.replaceState(window.location.protocol + '//' + window.location.host + location.path, "View", window.location.pathname + '#' + d3.select(this).attr('xlink:href').split('#')[1]);
-
-
-                                        return
-
-                                        select(d3.select(this).attr('id'), d3.select(this))
-
-                                        return
-                                        //window.location.hash = d3.select(this).attr('xlink:href').split('#')[1]
-
-                                        var selected = d3.select(this).attr('selected') == 'true'
-
-                                        d3.select(this).transition()
-                                            .duration('250')
-                                            .attr('opacity', (selected)? 0:1)
-                                            .attr('selected', !selected)
                                     })
-                            }
+                                }
                         }
                     }
                 }
@@ -310,18 +315,78 @@
     </head>
 
     <body>
-        <div id="menu" class="ui sidebar left vertical menu">
+        <div id="menu" class="ui sidebar left inverted vertical accordion menu list" style="overflow: hidden;">
             <div class="item">
-                <div class="header">Tags</div>
-                <div class="item">Test test test</div>
+                <div class="header"><center>Tagging</center></div>
             </div>
-            <div class="item"><b>Package size:</b></div>
-            <div class="item"><b>Created:</b></div>
-            <div class="item"><b>Status:</b></div>
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Level</b>
+                </a>
+
+                <div class="active content">                
+                    <div class="item">
+                        <div class="ui inverted grey compact button">1</div>
+                        <span class="content">Page</span>
+                    </div>
+
+                    <div class="item">
+                        <div class="ui inverted grey compact button">2</div>
+                        <a class="content" href="">Area</a>
+                    </div>
+
+                    <div class="item">
+                        <div class="ui inverted grey compact button">3</div>
+                        <a class="content" href="">Text</a>
+                    </div>
+                </div>
+            </div>
 
             <div class="item">
-                <div class="header"><b>Instances</b></div>
-                <div class="content"><a href="#">Bla bla bla</a></div>
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Content structure</b>
+                </a>
+                <div class="active content">                
+                    <div class="item">
+                        <div class="ui inverted grey compact button">Q</div>
+                        <span class="content">Headline</span>
+                    </div>
+
+                    <div class="item">
+                        <div class="ui inverted grey compact button">W</div>
+                        <a class="content" href="">Ingress</a>
+                    </div>
+
+                    <div class="item">
+                        <div class="ui inverted grey compact button">E</div>
+                        <a class="content" href="">Text</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Content type</b>
+                </a>
+                <div class="active content">                
+                    <div class="item">
+                        <div class="ui inverted grey compact button">A</div>
+                        <span class="content">Editorial</span>
+                    </div>
+
+                    <div class="item">
+                        <div class="ui inverted grey compact button">S</div>
+                        <a class="content" href="">OP-ED</a>
+                    </div>
+
+                    <div class="item">
+                        <div class="ui inverted grey compact button">D</div>
+                        <a class="content" href="">Article</a>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="main" class="pusher">

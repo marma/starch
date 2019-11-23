@@ -95,7 +95,22 @@
                             <img style="object-fit: cover" class="ui image" width="300" min-height="200" onerror="this.src='/static/img/white-image.png'" src="{{ ns.cover | urlencode if ns.cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
-                            <span class="header"><a download href="./{{ ns.path | urlencode }}"><i class="download icon"></i></a> {{ ns.path | truncate(18) }}</span>
+                            <span class="header">
+                                <span class="ui button"><a download href="./{{ ns.path | urlencode }}"><i class="download icon"></i></a></span>
+                                <div class="ui flowing popup top left transition hidden">
+                                  <div class="ui two column divided center aligned grid">
+                                    <div class="column">
+                                      <h4 class="ui header">JPEG</h4>
+                                      <p><a download="{{ ns.path | replace('.jp2', '.jpg') }}" href="{{ ns.path + '/full/max/0/default.jpg' }}">Original size</a></p>
+                                    </div>
+                                    <div class="column">
+                                      <h4 class="ui header">JPEG</h4>
+                                      <p><a download="{{ ns.path | replace('.jp2', '_small.jpg') }}"  href="{{ ns.path + '/full/1024,/0/default.jpg' }}">1024x1024</a></p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <span class="header">{{ ns.path | truncate(18) }}</span>
+                            </span>
                         </div>
                     </div>  
                     #   endif
@@ -171,5 +186,15 @@
 
             dragged = false;
         }, false);
+
+        $('.button')
+          .popup({
+            inline: true,
+            hoverable: true,
+            delay: {
+                show: 10,
+                hide: 500
+            }
+          });
     </script>
 <html>

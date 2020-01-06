@@ -361,8 +361,6 @@ def package_file(key, path):
     # Fast x-send-file if possible
     loc = archive.location(key, path)
 
-    print(dirname(loc[7:]), basename(loc[7:]))
-
     if loc and loc.startswith('file://'):
         if USE_NGINX_X_ACCEL:
             r = make_response()

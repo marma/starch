@@ -360,7 +360,7 @@ def package_file(key, path):
     # Fast x-send-file if possible
     loc = archive.location(key, path)
 
-    print(dirname(loc[7:]), basename(loc[7:]))
+    #print(dirname(loc[7:]), basename(loc[7:]))
 
     if loc and loc.startswith('file://'):
         if USE_NGINX_X_ACCEL:
@@ -370,6 +370,10 @@ def package_file(key, path):
             r.headers['filename'] = path
             return r
         else:
+            # quick fix for html
+            if path.endswith('aspx') or path.endswith('html'):
+                return Request(open(loc).read(), headers={ 'Content-Type': 'text/plain' })
+
             return send_from_directory(dirname(loc[7:]), basename(loc[7:]))
 
 
@@ -385,6 +389,10 @@ def package_file(key, path):
         # fast hack for pretty JSON
         if (p[path].get('mime_type', 'unknown') == 'application/json' or path.endswith('.json')) and 'pretty' in request.args:
             return Response(dumps(loads(p.get_raw(path).read().decode('utf-8')), indent=2), mimetype='application/json'), 200
+
+        # quick fix for html
+        if p[path].get('mime_type', 'unknown') == 'text/html':
+            return Response(p.get_raw(path).read(), headers={ 'Content-Type': 'text/plain' })
 
         if 'checksum' in p[path]:
             headers.update({ 'ETag': p[path]['checksum'].split(':')[1] })

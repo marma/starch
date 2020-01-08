@@ -245,13 +245,13 @@ def iiif(key, path, region, size, rot, quality, fmt):
 #
 #    return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
 
+    oversample = request.args.get('oversample', 'false').lower() == 'true'
     p = index.get(key) if index else None
     p = p or archive.get(key)
     p = p.description() if not isinstance(p, dict) else p if p else None
-    #p = p.description()
-    p['files'] = { x['path']:x for x in p['files'] }
 
     if p:
+        p['files'] = { x['path']:x for x in p['files'] }
         # pdf page selection?
         m = match('^(.*)(?::)(\\d+)$', path)
 
@@ -266,15 +266,16 @@ def iiif(key, path, region, size, rot, quality, fmt):
                        'size': size,
                        'rotation': rot,
                        'quality': quality,
-                       'format': fmt }
+                       'format': fmt,
+                       'oversample': oversample }
 
-            t0=time()
-            r = get(image_url, params=params, stream=True)
-            b = r.raw.read()
-            print(time() - t0)
-
-            return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
+            #t0=time()
             #r = get(image_url, params=params, stream=True)
+            #b = r.raw.read()
+
+            #return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
+            
+            r = get(image_url, params=params, stream=True)
 
             return Response(
                     r.iter_content(100*1024),
@@ -359,8 +360,6 @@ def package_file(key, path):
 
     # Fast x-send-file if possible
     loc = archive.location(key, path)
-
-    #print(dirname(loc[7:]), basename(loc[7:]))
 
     if loc and loc.startswith('file://'):
         if USE_NGINX_X_ACCEL:

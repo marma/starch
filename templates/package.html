@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-<html>
     <head>
         <link rel="stylesheet" type="text/css" href="/static/Semantic-UI-CSS-master/semantic.min.css">
         <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
@@ -30,10 +28,10 @@
             #       if type in [ 'image/jpeg', 'image/jpg', 'image/gif', 'image/png' ] and d['size']|int < 2*1024*1024:
             #         set ns.cover = path
             #       else
-            #         set ns.cover = path + '/full/1024,/0/default.jpg'
+            #         set ns.cover = path + '/full/512,/0/default.jpg'
             #       endif
             #     elif d['mime_type'] == 'application/pdf':
-            #        set ns.cover = path + ':1/full/1024,/0/default.jpg'
+            #        set ns.cover = path + ':1/full/512,/0/default.jpg'
             #     endif
             #   endif
             # endfor
@@ -85,7 +83,7 @@
                     #     for repr in elem['has_representation']
                     #       if repr.endswith('.jp2')
                     #         set ns.path = repr[repr.rindex('/')+1:]
-                    #         set ns.cover = './' + ns.path + '/full/1024,/0/default.jpg'
+                    #         set ns.cover = './' + ns.path + '/full/512,/0/default.jpg'
                     #         set ns.viewable = True
                     #       endif
                     #     endfor
@@ -95,7 +93,22 @@
                             <img style="object-fit: cover" class="ui image" width="300" min-height="200" onerror="this.src='/static/img/white-image.png'" src="{{ ns.cover | urlencode if ns.cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
-                            <span class="header"><a download href="./{{ ns.path | urlencode }}"><i class="download icon"></i></a> {{ ns.path | truncate(18) }}</span>
+                            <span class="header">
+                                <span class="ui button"><a download href="./{{ ns.path | urlencode }}"><i class="download icon"></i></a></span>
+                                <div class="ui flowing popup top left transition hidden">
+                                  <div class="ui two column divided center aligned grid">
+                                    <div class="column">
+                                      <h4 class="ui header">JPEG</h4>
+                                      <p><a download="{{ ns.path | replace('.jp2', '.jpg') }}" href="{{ ns.path + '/full/max/0/default.jpg' }}">Original size</a></p>
+                                    </div>
+                                    <div class="column">
+                                      <h4 class="ui header">JPEG</h4>
+                                      <p><a download="{{ ns.path | replace('.jp2', '_small.jpg') }}"  href="{{ ns.path + '/full/1024,/0/default.jpg' }}">1024x1024</a></p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <span class="header">{{ ns.path | truncate(18) }}</span>
+                            </span>
                         </div>
                     </div>  
                     #   endif
@@ -171,5 +184,15 @@
 
             dragged = false;
         }, false);
+
+        $('.button')
+          .popup({
+            inline: true,
+            hoverable: true,
+            delay: {
+                show: 0,
+                hide: 100
+            }
+          });
     </script>
 <html>

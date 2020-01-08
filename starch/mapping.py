@@ -1,4 +1,4 @@
-{
+mapping = {
     "settings": {
         "number_of_shards" : 1
     },
@@ -46,7 +46,7 @@
         },
         "id" : {
           "type" : "keyword",
-          "store" : true
+          "store" : True
         },
         "label" : {
           "type" : "text",

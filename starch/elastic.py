@@ -75,8 +75,7 @@ class ElasticIndex(starch.Index):
 
         #print(query, flush=True)
 
-        res = self.elastic.search(index=self.index_name, from_=0, size=0, body=query, track_total_hits)
-        #print(res)
+        res = self.elastic.search(index=self.index_name, from_=0, size=0, body=query, track_total_hits=True)
         count = int(res['hits']['total']['value'])
         key_iter = self._search_iterator(query, start, max, count, sort)
 

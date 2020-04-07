@@ -25,6 +25,13 @@ auth:
     user: demo
     pass: demo
 
+#image_server:
+#    root: http://worker:5000/
+#    callback_root: http://nginx:8080/
+#    send_location: true
+#    prefix: archive
+#    archive_root: /data/archive/
+
 # Not yes implemented
 #    type: file
 #    userfile: users.txt

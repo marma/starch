@@ -194,7 +194,7 @@ class FileArchive(starch.Archive):
             return f.read()
 
 
-    def description(selff, key):
+    def description(self, key):
         ...
 
     #def iter(self, path, chunk_size=10*1024, range=None):

@@ -183,10 +183,22 @@ def _info(key, path):
         url = f'{callback}{key}/{path}'
         uri = f'{p.description()["@id"]}{path}'
 
+        if app.config.get('image_server', {}).get('send_location', False):
+            loc = p.location(path)
+
+            if loc.startswith('file:'):
+                prefix = app.config.get('image_server', {}).get('prefix', None)
+                base = app.config.get('image_server', {}).get('archive_root', None)
+
+                if prefix:
+                    url = loc[7:].replace(base, f'{prefix}:')
+
         if uri == '':
             uri = f'{request.url_root}{key}/{path}'
 
         image_url = app.config.get('image_server').get('root') + 'info'
+
+        print(image_url, uri, url, flush=True)
 
         with closing(get(image_url, params={ 'uri': uri, 'url': url })) as r:
             i = loads(r.text)
@@ -203,83 +215,62 @@ def _info(key, path):
 def iiif_info(key, path):
     _check_base(request)
 
-    i = _info(key, path)
-    r = Response(render_template('info.json', **i), mimetype='application/json')
-    r.headers['Access-Control-Allow-Origin'] = '*'
+    if archive.exists(key, path):
+        i = _info(key, path)
+        r = Response(render_template('info.json', **i), mimetype='application/json')
+        r.headers['Access-Control-Allow-Origin'] = '*'
+    
+        return r
 
-    return r
+    return 'Not found', 404
 
 
 @app.route('/<key>/<path:path>/<region>/<size>/<rot>/<quality>.<fmt>')
 def iiif(key, path, region, size, rot, quality, fmt):
-    t0=time()
     _check_base(request)
     _assert_iiif()
 
-    # fail fast or page number
-    #if not archive.exists(key, path):
-    #    return 'Not found', 404
-    #    #m = match('^(.*)(?::)(\\d+)$', path)
-#
-#        # @TODO two lookups is unecessary
-#        #if not (m and archive.exists(key, m.group(1))):
-#        #    return 'Not found', 404
-#
-#    callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
-#    url = f'{callback}{key}/{path}'
-#    uri = f'{archive.base}{key}/{path}'
-#    image_url = app.config.get('image_server').get('root') + 'image'
-#    
-#    params = { 'uri': uri,
-#               'url': url,
-#               'region': region,
-#               'size': size,
-#               'rotation': rot,
-#               'quality': quality,
-#               'format': fmt }
-#
-#    t1=time()
-#    r = get(image_url, params=params, stream=True)
-#    b = r.raw.read()
-#    print(t1-t0, time() - t1)
-#
-#    return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
+    if archive.exists(key, path):
+        iconf = app.config.get('image_server', {})
+        loc = archive.location(key, path)
 
-    oversample = request.args.get('oversample', 'false').lower() == 'true'
-    p = index.get(key) if index else None
-    p = p or archive.get(key)
-    p = p.description() if not isinstance(p, dict) else p if p else None
+        if loc.startswith('file:'):
+            if iconf.get('send_location', False):
+                # send image using an internal prefix that is known by the image server
+                prefix = app.config['image_server']['prefix']
+                base = app.config['image_server']['archive_root']
+                url = loc[7:].replace(base, f'{prefix}:')
+            elif iconf.get('callback_root', False):
+                # send image location to image server using callback since the internal
+                # name within Docker may not be the same as the external one
+                url = f'{iconf["callback_root"]}{key}/{path}'
+            else:
+                # simply use the request url
+                url = f'{request.url_root}{key}/{path}'
+        else:
+            url = loc
 
-    if p:
-        p['files'] = { x['path']:x for x in p['files'] }
-        # pdf page selection?
-        m = match('^(.*)(?::)(\\d+)$', path)
+        uri = app.config['archive']['base'] + key + '/' + path
+        image_url = iconf['root'] + 'image'
 
-        if path in p['files'] or (m and m.group(1) in p['files'] and p['files'][m.group(1)]['mime_type'] == 'application/pdf'):
-            callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
-            url = f'{callback}{key}/{path}'
-            uri = (p['@id'] or request.url_root + key + '/') + path
-            image_url = app.config.get('image_server').get('root') + 'image'
-            params = { 'uri': uri,
-                       'url': url,
-                       'region': region,
-                       'size': size,
-                       'rotation': rot,
-                       'quality': quality,
-                       'format': fmt,
-                       'oversample': oversample }
+        params = { 'uri': uri,
+                   'url': url,
+                   'region': region,
+                   'size': size,
+                   'rotation': rot,
+                   'quality': quality,
+                   'format': fmt, }
 
-            #t0=time()
-            #r = get(image_url, params=params, stream=True)
-            #b = r.raw.read()
+        print(image_url, uri, url, flush=True)
 
-            #return Response(b, mimetype=r.headers.get('Content-Type', 'application/unknown'))
-            
-            r = get(image_url, params=params, stream=True)
+        r = get(image_url, params=params, stream=True)
 
-            return Response(
-                    r.iter_content(100*1024),
-                    mimetype=r.headers.get('Content-Type', 'application/unknown'))
+        if r.status_code != 200:
+            return f'Image server returned {r.status_code}', 500
+
+        return Response(
+                r.iter_content(100*1024),
+                mimetype=r.headers.get('Content-Type', 'application/unknown'))
 
     return 'Not found', 404
 
@@ -287,6 +278,7 @@ def iiif(key, path, region, size, rot, quality, fmt):
 @app.route('/<key>/_label', methods = [ 'POST' ])
 def set_label(key):
     _check_base(request)
+
     try:
         p = archive.get(key, mode='a')
 
@@ -369,6 +361,10 @@ def package_file(key, path):
             r.headers['filename'] = path
             return r
         else:
+            # quick fix for html
+            if path.endswith('aspx') or path.endswith('html'):
+                return Request(open(loc).read(), headers={ 'Content-Type': 'text/plain' })
+
             return send_from_directory(dirname(loc[7:]), basename(loc[7:]))
 
 
@@ -384,6 +380,10 @@ def package_file(key, path):
         # fast hack for pretty JSON
         if (p[path].get('mime_type', 'unknown') == 'application/json' or path.endswith('.json')) and 'pretty' in request.args:
             return Response(dumps(loads(p.get_raw(path).read().decode('utf-8')), indent=2), mimetype='application/json'), 200
+
+        # quick fix for html
+        if p[path].get('mime_type', 'unknown') == 'text/html':
+            return Response(p.get_raw(path).read(), headers={ 'Content-Type': 'text/plain' })
 
         if 'checksum' in p[path]:
             headers.update({ 'ETag': p[path]['checksum'].split(':')[1] })

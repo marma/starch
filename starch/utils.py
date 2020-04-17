@@ -15,6 +15,8 @@ from re import match
 from copy import deepcopy
 from collections import Counter
 from sys import stderr
+from json import load
+from copy import copy
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter#process_pdf
 from pdfminer.pdfpage import PDFPage
@@ -220,5 +222,60 @@ def flatten_structure(structure, levels=[ 'Part', 'Page' ]):
         if 'has_part' in s:
             yield from flatten_structure(s['has_part'])
 
+
+def aggregate(structure, content, environment, meta):
+    ret = copy(environment)
+    ret_content = []
+
+    if meta:
+        ret['meta'] = meta
+
+    stack = [ structure ]
+    while len(stack) > 0:
+        element = stack.pop(0)
+
+        for x in element if isinstance(element, list) else [ element ]:
+            i = x.get('@id', '')
+
+            if i in content and content[i].get('content', '') != '':
+                ret_content += [ content[i]['content'] if environment.get('@type', '') == 'Text' else content[i] ]
+
+            if 'has_part' in x:
+                stack.insert(0, x['has_part'])
+
+    ret['content'] = ret_content
+
+    return ret
+
+
+def _flerge(structure, content, meta, level='Text', ignore = []):
+    ret = []
+    ignore += [ 'has_part', 'content' ]
+
+    #stack = [ (deepcopy(meta), element) for element in structure ]
+    stack = [ ({ 'path': []}, element) for element in structure ]
+    while len(stack) != 0:
+        environment,element = stack.pop(0)
+        nenviron = { key:copy(environment[key]) for key in sorted(environment) }
+        nenviron.update({ key:value for key,value in element.items() if key not in ignore })        
+
+        if element.get('@type', None) == level:
+            ret += [ aggregate(element, content, nenviron, meta) ]
+        elif 'has_part' in element:
+            nenviron['path'] += [ { '@id': element['@id'], '@type': element['@type'] } ]
+            for x in element['has_part'][::-1]:
+                stack.insert(0, (nenviron, x))
+
+    return ret
+
+
+def flerge(package, level='Text', ignore=[]):
+    structure = load(package.get_raw('structure.json'))
+    content = { x['@id']:x for x in load(package.get_raw('content.json')) }
+    meta = load(package.get_raw('meta.json')) if 'meta' in package else {}
+    desc = package.description()
+    structure = [ { '@id': desc['@id'], '@type': desc['@type'], 'has_part': structure } ]
+
+    return _flerge(structure, content, meta, level, ignore)
 
 

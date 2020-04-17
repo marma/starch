@@ -407,7 +407,11 @@ class FilePackage(starch.Package):
         for fname in include:
             if fname in self:
                 with self.get_raw(fname) as f:
-                    ret[fname[1:]] = load(f)
+                    if self[fname].get('@type', None) == 'Meta':
+                        if 'meta' not in ret:
+                            ret['meta'] = load(f)
+                        else:
+                            ret['meta'].update(load(f))
 
         return ret
 

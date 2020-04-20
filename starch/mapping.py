@@ -111,3 +111,49 @@ mapping = {
       }
     }
 }
+
+content_mapping = {
+    "settings": {
+        "number_of_shards" : 1
+    },
+    "mappings" : {
+        "_source":{
+            "excludes": [
+                "content"
+            ]
+      },
+      "properties" : {
+        "id" : {
+          "type" : "keyword",
+          "store" : True
+        },
+        "type" : {
+          "type" : "keyword",
+          "store": True
+        },
+        "path" : {
+          "type" : "keyword",
+          "store" : True
+        },
+        "image" : {
+          "type" : "keyword",
+          "store" : True
+        },
+        "tag" : {
+          "type" : "keyword"
+        },
+        "content" : {
+          "type" : "text"
+        },
+        "label" : {
+          "type" : "text",
+          "fields" : {
+            "raw" : {
+              "type" : "keyword"
+            }
+          }
+        }
+      }
+    }
+}
+

@@ -5,7 +5,7 @@ from copy import deepcopy
 
 class Index():
     def __new__(cls, **kwargs):
-        if ('type' in kwargs and kwargs['type'] == 'elastic') or ('url' in kwargs and 'index_name' in kwargs):
+        if ('type' in kwargs and kwargs['type'] == 'elastic') or ('url' in kwargs and 'name' in kwargs):
             return super().__new__(starch.ElasticIndex)
         elif 'type' not in kwargs or kwargs['type'] == 'memory':
             return super().__new__(starch.MemoryIndex)

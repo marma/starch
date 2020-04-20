@@ -601,17 +601,26 @@ def count():
 @app.route('/reindex/<key>')
 def reindex(key):
     #print([ x for x in archive ])
+    
+    p=archive.get(key)
+    if index and p:
+        try:
+            index.update(key, p)
+            return 'OK', 200
+        except Exception as e:
+            raise e
+            #return str(e), 500
 
-    if index:
-        t0 = time()
-        ps = [ (k,archive.get(k)) for k in key.split(';') if k ]
-        t1 = time()
-        b = index.bulk_update(ps, sync=False)
-        t2 = time()
+    #if index:
+    #    t0 = time()
+    #    ps = [ (k,archive.get(k)) for k in key.split(';') if k ]
+    #    t1 = time()
+    #    b = index.bulk_update(ps, sync=False)
+    #    t2 = time()
 
         #print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
 
-        return dumps(b)
+    #    return dumps(b)
 
     return 'no index', 500
 

@@ -213,4 +213,4 @@ class ElasticIndex(starch.Index):
                 desc['meta'].update(load(p.get_raw(path)))
             
         return desc
-        
+

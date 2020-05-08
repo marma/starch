@@ -274,7 +274,17 @@ def flerge(package, level='Text', ignore=[]):
     content = { x['@id']:x for x in load(package.get_raw('content.json')) }
     meta = load(package.get_raw('meta.json')) if 'meta.json' in package else {}
     desc = package.description()
-    structure = [ { '@id': desc['@id'], '@type': desc['@type'], 'meta': meta, 'has_part': structure } ]
+
+    if level == 'Package':
+        s = [ desc ]
+        s[0]['meta'] = meta
+        s[0]['has_part'] = structure
+        
+        structure = s
+        #structure = [ { '@id': desc['@id'], '@type': desc['@type'], 'label': desc['label'], 'tags': desc['tags'], 'meta': meta, 'files': desc['files'], 'size': desc['size'], 'has_part': structure } ]
+    else:
+        structure = [ { '@id': desc['@id'], '@type': desc['@type'], 'label': desc['label'], 'tags': desc['tags'], 'meta': meta, 'has_part': structure } ]
 
     return _flerge(structure, content, meta, level, ignore)
+
 

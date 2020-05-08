@@ -26,6 +26,7 @@ class ElasticIndex(starch.Index):
         self.index_content = content is not None
         self.content = content
         self.default = default or ''
+        self.index_map = {}
 
         if not self.indices.exists(self.index_name):
             try:
@@ -43,10 +44,11 @@ class ElasticIndex(starch.Index):
         for c in (content or {}).get('parts', {}).values():
             prefix = content.get('index_prefix', '')
             index = prefix + c['index_name']
+            self.index_map[c['type']] = index
             
             if not self.indices.exists(index):
                 try:
-                    self.indices.create(index, ignore=400, body=content_mapping)
+                    self.indices.create(index, ignore=400, body=mapping)
                 except RequestError as e:
                     if e.error == 'resource_already_exists_exception':
                         self.indices = IndicesClient(self.elastic)
@@ -82,7 +84,7 @@ class ElasticIndex(starch.Index):
             raise
 
 
-    def search(self, q, start=0, max=None, sort=None):
+    def search(self, q, start=0, max=None, sort=None, level=None, include=None):
         if isinstance(q, dict):
             q = dumps(q)
 
@@ -90,9 +92,10 @@ class ElasticIndex(starch.Index):
 
         #print(query, flush=True)
 
-        res = self.elastic.search(index=self.index_name, from_=0, size=0, body=query, track_total_hits=True)
+        index = self.index_map.get(level, self.index_name)
+        res = self.elastic.search(index=index, from_=0, size=0, body=query, track_total_hits=True)
         count = int(res['hits']['total']['value'])
-        key_iter = self._search_iterator(query, start, max, count, sort)
+        key_iter = self._search_iterator(query, start, max, count, sort, level, include)
 
         return starch.Result(
                     start,
@@ -102,19 +105,24 @@ class ElasticIndex(starch.Index):
                     iter([]))
 
 
-    def _search_iterator(self, q, start, max, count, sort):
+    def _search_iterator(self, q, start, max, count, sort, level=None, include=None):
         max = max or count
 
-        s = Search(using=self.elastic, index=self.index_name)
+        # @todo warn when combining files and content in same query
+
+        index = self.index_map.get(level, self.index_name)
+
+        #print(index, self.index_map, flush=True)
+        s = Search(using=self.elastic, index=index)
         s.extra(track_total_hits=True)
         s.update_from_dict(q)
-        s.source(False)
+        s.source(include)
 
         for i,hit in enumerate(s.scan()):
             # @TODO: find a way to paginate using Elastic since this is costly
             if i >= start:
                 if i - start < max:
-                    yield hit.meta.id
+                    yield hit.meta.id if not include else (hit.meta.id, self._hit_to_desc(hit))
                 else:
                     return
 
@@ -182,14 +190,16 @@ class ElasticIndex(starch.Index):
     
             prefix = self.content.get('index_prefix', '')
             for key, config in self.content.get('parts', {}).items():
-                print(config, flush=True)
+                #print(config, flush=True)
                 index = prefix + config['index_name']
                 f = flerge(p, level=config['type'], ignore=config.get('ignore', []))
 
                 bulk = []
                 for d in f:
                     k = d['@id']
-                    #print(dumps(d, indent=2))
+                    k = k[k.rfind('/')+1:] if k[-1] != '/' else k[:-1][k[:-1].rfind('/')+1:]
+
+                    print('key: ' + k, flush=True)
     
                     if config['type'] != self.content.get('content_part_type', 'Text'):
                         l = d.get('content', [])
@@ -206,6 +216,7 @@ class ElasticIndex(starch.Index):
                 self.elastic.bulk(
                     body='\n'.join(bulk),
                     refresh=sync)
+
 
     def delete(self, key):
         self.elastic.delete(
@@ -229,6 +240,16 @@ class ElasticIndex(starch.Index):
             raise Exception('Elastic index existed before creation of this Index instance and force parameter not set')
 
         self.indices.delete(self.index_name)
+
+
+    def _hit_to_desc(self, hit):
+        d = hit.to_dict()
+        ret = { '@id': d['id'], '@type': d['type'] }
+        del(d['id'])
+        del(d['type'])
+        ret.update(d)
+        
+        return ret
 
 
     def _format_package(self, p):

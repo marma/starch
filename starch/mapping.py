@@ -61,7 +61,7 @@ mapping = {
             "created" : {
               "type" : "text",
               "fields" : {
-                "keyword" : {
+                "raw" : {
                   "type" : "keyword",
                   "ignore_above" : 256
                 }
@@ -70,7 +70,7 @@ mapping = {
             "title" : {
               "type" : "text",
               "fields" : {
-                "keyword" : {
+                "raw" : {
                   "type" : "keyword",
                   "ignore_above" : 256
                 }
@@ -144,6 +144,31 @@ content_mapping = {
         },
         "content" : {
           "type" : "text"
+        },
+        "size" : {
+          "type" : "long"
+        },
+        "meta" : {
+          "properties" : {
+            "created" : {
+              "type" : "text",
+              "fields" : {
+                "raw" : {
+                  "type" : "keyword",
+                  "ignore_above" : 256
+                }
+              }
+            },
+            "title" : {
+              "type" : "text",
+              "fields" : {
+                "raw" : {
+                  "type" : "keyword",
+                  "ignore_above" : 256
+                }
+              }
+            }
+          }
         },
         "label" : {
           "type" : "text",

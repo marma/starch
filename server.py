@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask,request,render_template,Response,redirect,send_from_directory,make_response
+from flask import Flask,session,request,render_template,Response,redirect,send_from_directory,make_response
 from flask_caching import Cache
 from flask_basicauth import BasicAuth
 from yaml import load,FullLoader
@@ -47,8 +47,10 @@ index = Index(**app.config['archive']['index']) if 'index' in app.config['archiv
 @app.route('/')
 def site_index():
     q = request.args.get('q', None) or {}
-    packages = (index or archive).search(q, max=50)
-    descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
+    tpe = request.cookies.get('type', 'Package')
+    result = (index or archive).search(q, max=200, level=tpe, include=True)
+    #descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
+    descriptions = [ x for x in result.keys ]
     counts = (index or archive).count(q, { 
 						'type': { 'files': 'mime_type' },
 						'tag': 'tags',
@@ -56,14 +58,29 @@ def site_index():
 						'size': 'sum(size)' } )
     counts['size']['value'] = int(counts['size']['value'])
 
-    return render_template('index.html',
-                           start=packages[0],
-                           max=packages[1],
-                           n_packages=packages[2],
-                           archive=archive,
-                           descriptions=descriptions,
-                           counts=counts,
-                           query=q)
+    r = Response(
+            render_template('conspiracy.html',
+                            start=result.start,
+                            max=result.m,
+                            n_packages=result.n,
+                            #archive=archive,
+                            descriptions=descriptions,
+                            counts=counts,
+                            type=tpe,
+                            query=q))
+
+    return r
+
+
+@app.route('/_set')
+def set():
+    r = Response(headers={ 'Location': request.headers.get("Referer") })
+    
+    for p in request.args:
+        r.set_cookie(p, request.args[p])
+
+    return r, 302
+
 
 @app.route('/<key>')
 def view_thing(key):
@@ -575,13 +592,16 @@ def search():
     if request.args.get('q', '') == '':
         return 'non-existant or empty q parameter', 500
 
-    print(request.args['q'], flush=True)
+    tpe = request.args.get('@type', None)
+    include = 'include' in request.args and request.args['include'] not in [ 'False', 'false' ]
 
     r = (index or archive).search(
             loads(request.args['q']),
             int(request.args.get('from', '0')),
             int(request.args['max']) if 'max' in request.args else None,
-            request.args.get('sort', None))
+            request.args.get('sort', None),
+            level=tpe,
+            include=include)
 
     return Response(
             iter_search(r.start, r.n, r.m, r.keys),
@@ -600,12 +620,17 @@ def count():
 
 @app.route('/reindex/<key>')
 def reindex(key):
-    #print([ x for x in archive ])
-    
     p=archive.get(key)
-    if index and p:
+
+    if not p:
+        return 'Not found', 404    
+
+    print(index, p, flush=True)
+
+    if index != None and p:
         try:
             index.update(key, p)
+
             return 'OK', 200
         except Exception as e:
             raise e
@@ -658,7 +683,10 @@ def iter_search(start, returned, count, gen):
     yield '%d %d %d\n' % (start, returned, count)
 
     for id in gen:
-        yield id + '\n'
+        if isinstance(id, tuple):    
+            yield str(id[0]) + ',' + dumps(id[1]) + '\n'
+        else:
+            yield id + '\n'
 
 
 def newliner(g):

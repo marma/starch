@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" type="text/css" href="static/Semantic-UI-CSS-master/semantic.min.css">
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+        <script src="static/Semantic-UI-CSS-master/semantic.min.js"></script>
+        <style>
+            body {
+                padding: 0.5em;
+                background: {{ 'white' if request.cookies.get('mode', 'light') == 'light' else 'black' }};
+            }
+
+            {{ '#' }}content {
+                padding-left: 19em;
+                padding-top: 0.25em;
+            }
+
+            {{ '#' }}menu {
+                padding-top: 1em;
+                background: #efeff5;
+            }
+
+            .detail {
+                color: gray;
+                font-weight: bold;
+            }
+
+            .masonry.grid {
+                display: block;
+            }
+
+            @media only screen and (min-width: 768px) {
+                .masonry.grid {
+                    -webkit-column-count: 2;
+                    -moz-column-count: 2;
+                    column-count: 2;
+                    -webkit-column-gap: 0;
+                    -moz-column-gap: 0;
+                    column-gap: 0;
+                  }
+  
+                .ui.doubling.masonry.grid[class*="three column"] > .column {
+                    width: 100% !important;
+                }
+            }
+
+            @media only screen and (min-width: 992px) {
+                .masonry.grid {
+                    -webkit-column-count: 3;
+                    -moz-column-count: 3;
+                    column-count: 3;
+                }
+                .ui.doubling.masonry.grid[class*="three column"] > .column {
+                    width: 100% !important;
+                }
+            }
+
+            @media only screen and (min-width: 1200px) {
+                .masonry.grid {
+                    -webkit-column-count: 4;
+                    -moz-column-count: 4;
+                    column-count: 4;
+                }
+            }
+
+            @media only screen and (min-width: 1600px) {
+                .masonry.grid {
+                    -webkit-column-count: 6;
+                    -moz-column-count: 6;
+                    column-count: 6;
+                }
+            .ui.doubling.masonry.grid[class*="six column"] > .column {
+                width: 100% !important;
+            }
+            }
+
+            @media only screen and (min-width: 1920px) {
+                .masonry.grid {
+                    -webkit-column-count: 8;
+                    -moz-column-count: 8;
+                    column-count: 8;
+                }
+            }
+
+            @media only screen and (min-width: 2200px) {
+                .masonry.grid {
+                    -webkit-column-count: 10;
+                    -moz-column-count: 10;
+                    column-count: 10;
+                }
+            }
+            .ui.doubling.masonry.grid > .column {
+                width: 100% !important;
+            }
+        </style>
+    </head>
+    
+    <body class="">
+        <div id="menu" class="ui visible sidebar left vertical accordion menu list" style="overflow: hidden;">
+            <div class="item">
+               <div class="ui search">
+                   <form action="/" method="GET">
+                   <div class="ui icon input">
+                       <input name="q" class="prompt" type="text" value="{{ query or '' }}" placeholder="Search ...">
+                       <i class="search icon"></i>
+                   </div>
+                   </form>
+               </div>
+            </div>
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>File types</b>
+                </a>
+                <div class="active content">
+                {% for type in counts['type'] %}
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['type'][type] }}</div>
+                    </div>
+                    <a class="content" href="?q=files:{+mime_type:+%22{{ type | urlencode }}%22+}">{{ type }}</a>
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+            {% if counts['tag'] %}
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Tags</b>
+                </a>
+                <div class="active content">
+                {% for tag in counts['tag'] %}
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['tag'][tag] }}</div>
+                    </div>
+                    <a class="content" href="?q=tags:+%22{{ tag | urlencode }}%22">{{ tag | truncate(16) }}</a>
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if counts['created'] %}
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Year</b>
+                </a>
+                <div class="active content">
+                {% for year in counts['created'] %}
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['created'][year] }}</div>
+                    </div>
+                    <a class="content" href="?q=meta.created:{{ year | urlencode }}">{{ year }}</a>
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            # if mode == 'Archive':
+            <div class="item">
+                <div class="header">Result</div>
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ n_packages }}</div>
+                    </div>
+                    <div>Number of packages:</div>
+                </div>
+                <div class="item">
+                    <div class="right floated content">
+                        <div class="ui circular label">{{ counts['size']['value'] | filesizeformat }}</div>
+                    </div>
+                    
+                    <div>Total size:</div>
+                </div>
+            </div>
+            # endif
+        </div>
+        <div class="pushable">
+            <!--button id="sidebar_left_toggle" onclick="$('.ui.sidebar').sidebar('toggle');">show sidebar</button-->
+            <div id="content" class="ui article" id="content">
+                <div>
+                    <span class="ui right floated menu">
+                        <a class="ui {{ 'active' if request.cookies.get('mode', 'light') == 'dark' else '' }} item" href="/_set?mode=dark"><i class="moon icon"></i></a>
+                        <a class="ui {{ 'active' if request.cookies.get('mode', 'light') == 'light' else '' }} item" href="/_set?mode=light"><i class="sun icon"></i></a>
+                    </span>
+                    <span class="ui right floated menu">
+                        <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="/_set?type=Package">Package</a>
+                        <a class="ui {{ 'active' if type == 'Page' else '' }} item" href="/_set?type=Page">Page</a>
+                        <a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a>
+                    </span>
+                    <div class="ui floating"><h1><a href="/">Index</a></h1></div>
+                </div>
+                <div class="ui divider"></div>
+                    <!--div class="ui container"-->
+                        <div class="ui three column doubling stackable masonry grid">
+                        # for key,description in descriptions:
+                        #   set tpe = description.get('mime_type', '')
+                        #   if tpe== 'application/pdf':
+                        #   endif
+                        #   if 'files' in description:
+                        #       set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
+                        #       if cover:
+                        #         set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
+                        #       else:
+                        #           set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
+                        #           set cover = cover['path'] + ':1/full/256,/0/default.jpg' if cover else None
+                        #       endif
+                        #   elif 'has_representation' in description:
+                        #       set cover = description['has_representation'] | last | default(None)
+                        #       if cover:
+                        #           if 'box' in description:
+                        #             set box = description['box']
+                        #             set cover = cover.split('/')[-1]  + '/' + box[0] + ',' + box[1] + ',' + box[2] + ',' + box[3] + '/512,/0/default.jpg' | default(None)
+                        #           else:
+                        #             set cover = cover[35:] + '/full/512,/0/default.jpg' | default(None)
+                        #           endif
+                        #       endif
+                        #   endif
+                        <div class="column">
+                            <a href="/{{ key + ('/_view' if type == 'Package' else '')}}">
+                                <img style="object-fit: cover" class="ui masked image" width="300" onerror="this.src='/static/img/white-image.png'" src="/{{ key.split('#')[0] + '/' + cover if cover else '/static/img/white-image.png' }}"/>
+                            </a>
+                            <div class="detail">
+                                <span>{{ (description['label'] or '<None>').split()[-1] | truncate(32) }}</span>
+                            </div>
+                        </div>
+                        # endfor
+                    <!--/div-->
+                </div>
+            </div>
+        </div>
+    </body>
+    <script>
+        $('.ui.accordion')
+           .accordion({ 'exclusive': false })
+        ;
+
+        $(document).ready(function(){
+            $('body,html').animate({scrollTop: 1000}, 800); 
+        });
+    </script>
+<html>
+

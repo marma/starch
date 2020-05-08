@@ -85,6 +85,7 @@
                 </div>
             </div>
             {% endif %}
+            # if mode == 'Archive':
             <div class="item">
                 <div class="header">Result</div>
                 <div class="item">
@@ -101,35 +102,59 @@
                     <div>Total size:</div>
                 </div>
             </div>
+            # endif
         </div>
         <div class="pushable">
             <!--button id="sidebar_left_toggle" onclick="$('.ui.sidebar').sidebar('toggle');">show sidebar</button-->
             <div id="content" class="ui article" id="content">
+                <div>
+                    <span class="ui right floated menu">
+                        <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="?type=Package">Package</a>
+                        <a class="ui {{ 'active' if type == 'Page' else '' }} item" href="?type=Page">Page</a>
+                        <a class="ui {{ 'active' if type == 'Text' else '' }} item" href="?type=Text">Text</a>
+                    </span>
+                    <div class="ui floating"><h1><a href="/">Index</a></h1></div>
+                </div>
+                <div class="ui divider"></div>
                 <div class="ui cards">
                     # for key,description in descriptions:
-                    #   set type = description.get('mime_type', '')
-                    #   if type== 'application/pdf':
+                    #   set tpe = description.get('mime_type', '')
+                    #   if tpe== 'application/pdf':
                     #   endif
-                    #   set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
-                    #   if cover:
-                    #     set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
-                    #   else:
-                    #     set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
-                    #     set cover = cover['path'] + ':1/full/256,/0/default.jpg' if cover else None
+                    #   if 'files' in description:
+                    #       set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
+                    #       if cover:
+                    #         set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
+                    #       else:
+                    #           set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
+                    #           set cover = cover['path'] + ':1/full/256,/0/default.jpg' if cover else None
+                    #       endif
+                    #   elif 'has_representation' in description:
+                    #       set cover = description['has_representation'] | last | default(None)
+                    #       if cover:
+                    #           if 'box' in description:
+                    #             set box = description['box']
+                    #             set cover = cover.split('/')[-1]  + '/' + box[0] + ',' + box[1] + ',' + box[2] + ',' + box[3] + '/512,/0/default.jpg' | default(None)
+                    #           else:
+                    #             set cover = cover[35:] + '/full/512,/0/default.jpg' | default(None)
+                    #           endif
+                    #       endif
                     #   endif
-                    <div class="ui raised linked card" href="/{{ key }}/">
-                        <a href="/{{ key }}/_view">
-                            <img style="object-fit: cover" class="ui masked image" width="300" onerror="this.src='/static/img/white-image.png'" src="/{{ key + '/' + cover | urlencode if cover else '/static/img/white-image.png' }}"/>
+                    <div class="ui raised linked card" href="/{{ key }}">
+                        <a href="/{{ key + ('/_view' if type == 'Package' else '')}}">
+                            <img style="object-fit: cover" class="ui masked image" width="300" onerror="this.src='/static/img/white-image.png'" src="/{{ key.split('#')[0] + '/' + cover if cover else '/static/img/white-image.png' }}"/>
                         </a>
+                        # if type != 'Text':
                         <div class="content">
                             <span class="header">{{ description['label'] or '<None>' | truncate(32) }}</span>
                         </div>
                         <div class="extra content">
-                            <span>{{ description['files'] | length }} Files</span> - <span>{{ description['size'] | filesizeformat }}</span> - <span>{{ [ description['instances'] | length, 1] | max }} instance(s)</span>
+                            <span>{{ description['files'] | length }} Files</span> - <span>{{ description.get('size', '0') | filesizeformat }}</span> - <span>{{ [ description['instances'] | length, 1] | max }} instance(s)</span>
                         </div>
                         <div class="extra content">
                             <span>{{ description['created'] }}</span>
                         </div>
+                        # endif
                     </div>
                     # endfor
                 </div>

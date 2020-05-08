@@ -291,4 +291,3 @@ class ElasticIndex(starch.Index):
 
         return ret
 
-

@@ -146,7 +146,7 @@ def view_package(key):
     if p:
         desc = p.description() if not isinstance(p, dict) else p
         desc['files'] = { x['path']:x for x in desc['files'] }
-        mode = request.args.get('mode', request.cookies.get('mode', 'list'))
+        mode = request.cookies.get('view', 'list')
         t2=time()
         structure = loads(p.read('structure.json')) if 'structure.json' in p and mode == 'structure' else None
         t3=time()
@@ -160,9 +160,6 @@ def view_package(key):
                 mimetype='text/html')
         t4=time()
         print('time: ', t1-t0, t2-t1, t3-t2, t4-t3, t4-t0)
-
-        if 'mode' in request.args:
-            r.set_cookie('mode', request.args['mode'])
 
         return r
     else:

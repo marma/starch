@@ -17,12 +17,13 @@
 
             {{ '#' }}menu {
                 padding-top: 1em;
-                background: #efeff5;
+                # if request.cookies.get('mode', 'light') == 'light':
+                  background: #efeff5;
+                # endif
             }
 
             .detail {
                 color: gray;
-                font-weight: bold;
             }
 
             .masonry.grid {
@@ -96,7 +97,7 @@
     </head>
     
     <body class="">
-        <div id="menu" class="ui visible sidebar left vertical accordion menu list" style="overflow: hidden;">
+        <div id="menu" class="ui visible sidebar left {{ 'inverted' if request.cookies.get('mode', 'light') == 'dark' else '' }} vertical accordion menu list" style="overflow: hidden;">
             <div class="item">
                 <a class="active title">
                     <i class="dropdown icon"></i>
@@ -172,9 +173,10 @@
             <!--button id="sidebar_left_toggle" onclick="$('.ui.sidebar').sidebar('toggle');">show sidebar</button-->
             <div id="content" class="ui article" id="content">
                 <div>
+                    # set mode = request.cookies.get('mode', 'light')
                     <span class="ui right floated menu">
-                        <a class="ui {{ 'active' if request.cookies.get('mode', 'light') == 'dark' else '' }} item" href="/_set?mode=dark"><i class="moon icon"></i></a>
-                        <a class="ui {{ 'active' if request.cookies.get('mode', 'light') == 'light' else '' }} item" href="/_set?mode=light"><i class="sun icon"></i></a>
+                        <a class="ui {{ 'active' if mode == 'dark' else '' }} item" href="/_set?mode=dark"><i class="moon {{ 'outline' if mode != 'dark' else '' }} icon"></i></a>
+                        <a class="ui {{ 'active' if request.cookies.get('mode', 'light') == 'light' else '' }} item" href="/_set?mode=light"><i class="sun {{ 'outline' if request.cookies.get('mode', 'light') != 'light' else '' }} icon"></i></a>
                     </span>
                     <span class="ui right floated menu">
                         <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="/_set?type=Package">Package</a>

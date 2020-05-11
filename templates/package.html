@@ -63,11 +63,11 @@
         <div class="pushable">
             <div id="content">
                 <div>
-                    <span class="ui right floated menu"><a class="ui {{ 'active' if mode == 'list' else '' }} item" href="?mode=list">List</a><a class="ui {{ 'active' if mode == 'structure' else '' }} item" href="?mode=structure">Structure</a></span>
+                    <span class="ui right floated menu"><a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'list' else '' }} item" href="/_set?view=list">List</a><a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'structure' else '' }} item" href="/_set?view=structure">Structure</a></span>
             	    <div class="ui floating"><h1><a href="/">Index</a> / {{ package['label'] }}</h1></div>
                 </div>
                 <div class="ui divider"></div>
-                # if mode == 'structure'
+                # if request.cookies.get('view', 'list') == 'structure'
                 <div class="ui cards">
                     # set partn = namespace(n=0)
                     # for elem in structure

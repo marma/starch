@@ -51,11 +51,14 @@ def site_index():
     result = (index or archive).search(q, max=200, level=tpe, include=True)
     #descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
     descriptions = [ x for x in result.keys ]
-    counts = (index or archive).count(q, { 
-						'type': { 'files': 'mime_type' },
-						'tag': 'tags',
-						'created': 'meta.year.keyword',
-						'size': 'sum(size)' } )
+    counts = (index or archive).count(
+                                    q,
+                                    { 
+				        'type': { 'files': 'mime_type' },
+					'tag': 'tags',
+					'created': 'meta.year.keyword',
+					'size': 'sum(size)' },
+                                    level=tpe)
     counts['size']['value'] = int(counts['size']['value'])
 
     r = Response(
@@ -66,7 +69,6 @@ def site_index():
                             #archive=archive,
                             descriptions=descriptions,
                             counts=counts,
-                            type=tpe,
                             query=q))
 
     return r

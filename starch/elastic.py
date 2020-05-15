@@ -127,15 +127,17 @@ class ElasticIndex(starch.Index):
                     return
 
 
-    def count(self, q, cats):
+    def count(self, q, cats, level=None):
         if isinstance(q, dict):
             q = dumps(q)
 
         q = parse(q, default=self.default)
         q.update(create_aggregations(cats))
 
+        index = self.index_map.get(level, self.index_name) if level else self.index_name
+
         res = self.elastic.search(
-            index=self.index_name,
+            index=index,
             #doc_type='package',
             size=0,
             body=q)

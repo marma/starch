@@ -90,7 +90,7 @@
                     #     set url = '../' + elem['@id'][elem['@id'].rindex('/')+1:] if ns.viewable else ns.path
                     <div class="ui raised linked card">
                         <a href="{{ url | safe }}">
-                            <img style="object-fit: cover" class="ui image" width="300" min-height="200" onerror="this.src='/static/img/white-image.png'" src="{{ ns.cover | urlencode if ns.cover else '/static/img/white-image.png' }}"/>
+                            <img style="object-fit: cover" class="ui image" width="300" min-height="200" src="/static/img/white-image.png" data-src="{{ ns.cover | urlencode if ns.cover else '/static/img/white-image.png' }}"/>
                         </a>
                         <div class="content">
                             <span class="header">
@@ -194,5 +194,13 @@
                 hide: 100
             }
           });
+
+        $('.cards .card a img')
+            .visibility({
+                type       : 'image',
+                transition : 'fade in',
+                duration   : 1000
+            });
+   
     </script>
 <html>

@@ -106,10 +106,10 @@ class FileArchive(starch.Archive):
 
 
     def get(self, key, mode='r'):
-        if mode is 'w':
+        if mode == 'w':
             raise Exception('mode \'w\' not allowed, use \'a\'')
 
-        if mode is 'a' and self.mode == 'read-only':
+        if mode == 'a' and self.mode == 'read-only':
             raise Exception('archive is read-only mode')
 
         d = self._directory(key)

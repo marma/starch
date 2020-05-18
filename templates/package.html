@@ -82,9 +82,13 @@
                     #   elif elem['@type'] == 'Page'
                     #     set ns = namespace(path='', cover=None, viewable=False)
                     #     for repr in elem['has_representation']
-                    #       if repr.endswith('.jp2')
+                    #       if repr.endswith('.jp2'):
                     #         set ns.path = repr[repr.rindex('/')+1:]
                     #         set ns.cover = './' + ns.path + '/full/512,/0/default.jpg'
+                    #         set ns.viewable = True
+                    #       elif repr.endswith('.jpg'):
+                    #         set ns.path = repr[repr.rindex('/')+1:]
+                    #         set ns.cover = './' + ns.path
                     #         set ns.viewable = True
                     #       endif
                     #     endfor

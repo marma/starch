@@ -248,7 +248,7 @@
                         #   endif
                         <div class="column">
                             <a href="/{{ key + ('/_view' if type == 'Package' else '')}}">
-				    <img style="object-fit: cover" src="/static/img/gray-image.png" class="ui masked image" width="300" min-height="200" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else '/static/img/white-image.png' }}"/>
+				                <img style="object-fit: cover" src="/static/img/gray-image.png" class="ui masked image" width="300" min-height="300" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else '/static/img/white-image.png' }}"/>
                             </a>
                             <div class="detail">
                                 <span>{{ (description['label'] or '<None>').split()[-1] | truncate(32) }}</span>
@@ -265,14 +265,12 @@
             .accordion({ 'exclusive': false })
         ;
 
-	$(window).ready(function() {
 		$('.column a img')
-  	    	    .visibility({
-    	                type       : 'image',
-                        transition : 'fade in',
-                        duration   : 200
-                });
-	});
+            .visibility({
+                    type       : 'image',
+                    transition : 'fade in',
+                    duration   : 200
+            });
     </script>
 <html>
 

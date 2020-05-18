@@ -155,7 +155,7 @@ def view_package(key):
 
         r = Response(
                 render_template(
-                    'package.html',
+                    'package_2.html',
                     package=desc,
                     mode=mode,
                     structure=flatten_structure(structure)),

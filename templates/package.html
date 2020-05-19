@@ -61,6 +61,7 @@
             <div class="item"><b>Download:</b> <a href="_download?format=application/x-tar"><i class="archive icon"></i>.tar</a> <!--a href="_download?format=application/tar">BagIt</a--></div>
         </div>
         <div class="pushable">
+        <script src="/static/Semantic-UI-CSS-master/components/visibility.js"></script>
             <div id="content">
                 <div>
                     <span class="ui right floated menu"><a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'list' else '' }} item" href="/_set?view=list">List</a><a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'structure' else '' }} item" href="/_set?view=structure">Structure</a></span>
@@ -86,10 +87,10 @@
                     #         set ns.cover = './' + ns.path + '/full/512,/0/default.jpg'
                     #         set ns.viewable = True
                     #       elif repr.endswith('.jpg'):
-		    #         set ns.path = repr[repr.rindex('/')+1:]
-		    #         set ns.cover = './' + ns.path
-		    #         set ns.viewable = True
-		    #       endif
+                    #         set ns.path = repr[repr.rindex('/')+1:]
+                    #         set ns.cover = './' + ns.path
+                    #         set ns.viewable = True
+                    #       endif
                     #     endfor
                     #     set url = '../' + elem['@id'][elem['@id'].rindex('/')+1:] if ns.viewable else ns.path
                     <div class="ui raised linked card">
@@ -203,7 +204,11 @@
             .visibility({
                 type       : 'image',
                 transition : 'fade in',
-                duration   : 1000
+                duration   : 1000,
+                initialCheck: 'False',
+                onPassing  : function(calulations) {
+                    console.log('bla');
+                }
             });
    
     </script>

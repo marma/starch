@@ -272,7 +272,7 @@
                             var representation = elem["has_representation"];
 
                             for (j=0; j<representation.length;j++) {
-                                if (representation[j].endsWith(".jp2")) {
+                                if (representation[j].endsWith(".jp2") || representation[j].endsWith(".jpg") || representation[j].endsWith(".tif")) {
                                     var im = representation[j];
 
                                     return [ elem, im.substring(im.lastIndexOf("/")+1) ];

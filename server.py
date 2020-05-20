@@ -92,7 +92,7 @@ def view_thing(key):
 
     print(p)
 
-    return render_template('thing.html', structure=archive.read(key, 'structure.json'))
+    return render_template('thing.html', structure=dumps(loads(archive.read(key, 'structure.json'))))
 
     ret = (index or archive).get(key)
 

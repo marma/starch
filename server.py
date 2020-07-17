@@ -52,13 +52,17 @@ def site_index():
     #descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
     descriptions = [ x for x in result.keys ]
     counts = (index or archive).count(
-                                    q,
-                                    { 
-				        'type': { 'files': 'mime_type' },
-					'tag': 'tags',
-					'created': 'meta.year.keyword',
-					'size': 'sum(size)' },
-                                    level=tpe)
+                    q,
+                    { 
+                        'type': { 'files': 'mime_type' },
+                        'tag': 'tags',
+                        'created': 'meta.year.keyword',
+                        'size': 'sum(size)'
+                    },
+                    level=tpe)
+
+    #print(descriptions)
+
     counts['size']['value'] = int(counts['size']['value'])
 
     r = Response(
@@ -149,8 +153,12 @@ def view_package(key):
         desc = p.description() if not isinstance(p, dict) else p
         desc['files'] = { x['path']:x for x in desc['files'] }
         mode = request.cookies.get('view', 'list')
+
+        if 'structure.json' not in p:
+            mode = 'list'
+
         t2=time()
-        structure = loads(p.read('structure.json')) if 'structure.json' in p and mode == 'structure' else None
+        structure = loads(p.read('structure.json')) if mode == 'structure' and 'structure.json' in p else []
         t3=time()
 
         r = Response(
@@ -622,9 +630,11 @@ def reindex(key):
     p=archive.get(key)
 
     if not p:
+        index.delete(key)
+
         return 'Not found', 404    
 
-    print(index, p, flush=True)
+    #print(index, p, flush=True)
 
     if index != None and p:
         try:

@@ -29,8 +29,8 @@ if __name__ == "__main__":
     with fdopen(stdout.fileno(), "wb", closefd=False) as out, fdopen(stderr.fileno(), "wb", closefd=False) as err:
         for b in a.serialize(keys):
             size += len(b)
-            err.write(f'\rCreating TAR-file ... ({sizeof_fmt(size)}) {next(spinner)}'.encode('utf-8'))
+            err.write(f'\rCreating TAR-file ... ({sizeof_fmt(size)}) {next(spinner)}     '.encode('utf-8'))
             out.write(b)
 
-        err.write(f'\rCreating TAR-file ... ({sizeof_fmt(size)}) DONE!\n'.encode('utf-8'))
+        err.write(f'\rCreating TAR-file ... ({sizeof_fmt(size)}) DONE!    \n'.encode('utf-8'))
 

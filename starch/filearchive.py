@@ -20,6 +20,7 @@ import tarfile
 import datetime
 from collections.abc import Iterator,Generator
 from io import BytesIO
+from tempfile import NamedTemporaryFile
 
 MAX_ID=2**38
 
@@ -239,6 +240,8 @@ class FileArchive(starch.Archive):
 
                         if path in checksums:
                             info['checksum'] = checksums[path]
+
+                desc['size'] = sum(sizes.values())
 
                 # add _package.json
                 b = dumps(desc, indent=4).encode('utf-8')

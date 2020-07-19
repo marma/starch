@@ -1,19 +1,25 @@
-from json import loads,dumps
+from json import load,loads,dumps
 from sys import stdin, stderr
 from os.path import exists,join,basename,dirname
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
-from os.path import sep
+from os.path import sep,getsize
 from shutil import rmtree
 from starch.utils import convert,timestamp,valid_path,valid_key,get_temp_dirname,dict_search,dict_values,TEMP_PREFIX
 from random import random
 from collections import Counter
 from threading import RLock
 from starch.result import create_result
-from requests import get
+from requests import get,head
 import starch
-from hashlib import md5
+from hashlib import md5,sha256
 from copy import deepcopy
+from queue import Queue
+from threading import Thread
+import tarfile
+import datetime
+from collections.abc import Iterator,Generator
+from io import BytesIO
 
 MAX_ID=2**38
 
@@ -162,7 +168,100 @@ class FileArchive(starch.Archive):
 
                     return u
 
-            return None
+        return None
+
+
+    def serialize(self, key_or_iter, resolve=True):
+        def create_tar(f):
+            t = tarfile.open(fileobj=f, mode="w|")
+
+            for key in key_or_iter if isinstance(key_or_iter, (list, Iterator, Generator)) else [ key_or_iter ]:
+                print(key, file=stderr)
+                checksums = {}
+                sizes = {}
+                resolved = set()
+
+                p = self.get(key)
+
+                if not p:
+                    continue
+
+                for path in p:
+                    info = p[path]
+
+                    if info['@type'] != 'Reference' or resolve:
+                        ti = tarfile.TarInfo(f'{key}/{path}')
+                        loc = self.location(key, path)
+
+                        ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
+                        
+                        if loc.startswith('file:///'):
+                            sizes[path] = getsize(loc[7:])
+                            checksums[path] = info.get('checksum', 'SHA256:' + self._checksum(loc[7:]))
+                            ti.size = sizes[path]
+                            t.addfile(ti, self.open(key, path, mode='b'))
+                        elif loc.startswith('http'):
+                            try:
+                                with NamedTemporaryFile(mode='w+b') as tempf, self.open(key, path, mode='rb') as pfile:
+                                    h = sha256()
+                                    data, length = None, 0
+
+                                    while data != b'':
+                                        data = pfile.read(100*1024)
+                                        tempf.write(data)
+                                        h.update(data)
+
+                                    sizes[path] = tempf.tell()
+                                    checksums[path] = 'SHA256:' + h.hexdigest()
+                                    ti.size = sizes[path]
+
+                                    tempf.seek(0)
+
+                                    resolved.add(path)
+                                    t.addfile(ti, tempf)
+                            except Exception as e:
+                                # ignore this file or reference
+                                print(f'ignoring {key}/{key}: {e}', flush=True, file=stderr)
+                        else:
+                            # ignore this reference
+                            print(f'ignoring {key}/{key}', flush=True, file=stderr)
+
+                        resolved.add(path)
+
+                desc = load(open(self.location(key, '_package.json')[7:]))
+                for info in desc['files']:
+                    path = info['path']
+
+                    if path in resolved:
+                        info['@type'] = 'Resource'
+
+                        if path in sizes:
+                            info['size'] = sizes[path]
+
+                        if path in checksums:
+                            info['checksum'] = checksums[path]
+
+                # add _package.json
+                b = dumps(desc, indent=4).encode('utf-8')
+                ti = tarfile.TarInfo(f'{key}/_package.json')
+                ti.size = len(b)
+                ti.mtime = int(datetime.datetime.fromisoformat(desc['created'][:-1]).timestamp())
+                t.addfile(ti, BytesIO(b))
+
+            t.close()
+            f.close()
+
+        q = Queue(10)
+        f = starch.queueio.open(q, buffering=1024*1024)
+        t = Thread(target=create_tar, args=(f,))
+        t.start()
+
+        x=q.get()
+        while x != None:
+            yield x
+            x=q.get()
+
+        t.join()
 
 
     def exists(self, key, path=None):
@@ -378,4 +477,14 @@ class FileArchive(starch.Archive):
         return exists(self._directory(key))
 
 
+    def _checksum(self, loc):
+        with open(loc, mode='rb') as pfile:
+            h = sha256()
+            data, length = None, 0
+
+            while data != b'':
+                data = pfile.read(100*1024)
+                h.update(data)
+
+            return h.hexdigest()
 

@@ -151,6 +151,7 @@ def view_package(key):
         mode = request.cookies.get('view', 'list')
         t2=time()
         structure = loads(p.read('structure.json')) if 'structure.json' in p and mode == 'structure' else None
+        entities = loads(p.read('entities.json')) if 'entities.json' in p else None
         t3=time()
 
         r = Response(
@@ -158,7 +159,8 @@ def view_package(key):
                     'package.html',
                     package=desc,
                     mode=mode,
-                    structure=flatten_structure(structure)),
+                    structure=flatten_structure(structure),
+                    entities=entities),
                 mimetype='text/html')
         t4=time()
         print('time: ', t1-t0, t2-t1, t3-t2, t4-t3, t4-t0)

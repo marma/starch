@@ -11,5 +11,6 @@ from starch.index import Index,MemoryIndex
 from starch.elastic import ElasticIndex
 from starch.utils import HttpNotFoundException
 from starch.result import Result
+import starch.queueio
 
 VERIFY_CA=True

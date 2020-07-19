@@ -176,7 +176,6 @@ class FileArchive(starch.Archive):
             t = tarfile.open(fileobj=f, mode="w|")
 
             for key in key_or_iter if isinstance(key_or_iter, (list, Iterator, Generator)) else [ key_or_iter ]:
-                print(key, file=stderr)
                 checksums = {}
                 sizes = {}
                 resolved = set()

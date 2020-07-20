@@ -1,6 +1,6 @@
 from json import load,loads,dumps
 from sys import stdin, stderr
-from os.path import exists,join,basename,dirname
+from os.path import exists,join,basename,dirname,abspath
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
 from os.path import sep,getsize
@@ -239,7 +239,10 @@ class FileArchive(starch.Archive):
                             info['size'] = sizes[path]
 
                         if path in checksums:
-                            info['checksum'] = checksums[path]
+                            info['checksum'] = checksums[path]a
+
+                        if 'url' in info:
+                            del(info['url'])
 
                 desc['size'] = sum(sizes.values())
 
@@ -265,6 +268,34 @@ class FileArchive(starch.Archive):
 
         t.join()
 
+
+    def deserialize(self, stream, key=None):
+        self._check_mode()
+
+        key = self._generate_key(suggest=valid_key(key) if key else None)
+
+        with self.lock(key):
+            dir = self._directory(key)
+
+            if exists(dir):
+                raise Exception(f'key ({key}) already exists in archive')
+
+            t = tarfile.open(fileobj=stream, mode='r|')
+            ti = t.next()
+            while ti:
+                if ti.name.startswith('/') or ti.name.startswith('..') or '/../' in ti.name:
+                    continue
+
+                # TODO: deal with when keys differ in tar-file
+
+                #print(f'extracting {ti.name}', file=stderr)
+                t.extract(ti, path=dirname(abspath(dir)))
+                ti=t.next()
+
+            self._log_add_package(key)
+
+        return key
+   
 
     def exists(self, key, path=None):
         d = self._directory(valid_key(key))

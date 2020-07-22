@@ -203,7 +203,7 @@
                     <span class="ui right floated menu">
                         <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="/_set?type=Package">Package</a>
                         <a class="ui {{ 'active' if type == 'Page' else '' }} item" href="/_set?type=Page">Page</a>
-                        <a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a>
+                        <!--a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a-->
                     </span>
                     <!--span class="ui flating search">
                             <form action="/" method="GET">
@@ -234,9 +234,6 @@
                         #       set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
                         #       if cover:
                         #         set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
-                        #       else:
-                        #           set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
-                        #           set cover = cover['path'] + ':1/full/256,/0/default.jpg' if cover else None
                         #       endif
 			#       set height = 300
                         #   elif 'has_representation' in description:
@@ -257,6 +254,7 @@
                         <div class="column">
                             <a href="/{{ key + ('/_view' if type == 'Package' else '')}}">
                                 <img style="object-fit: cover" src="/static/img/{{ 'gray' if mode == 'dark' else 'white' }}-image.png" class="ui masked image" width="300" min-height="{{ height | int }}" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else '/static/img/' + ('gray' if mode == 'dark' else 'white') + '-image.png' }}"/>
+				<!--img style="object-fit: cover" src="/static/img/gray-image.png" class="ui masked image" width="300" min-height="300" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else 'static/img/gray-image.png' }}"/-->
                             </a>
                             <div class="detail">
                                 <span>{{ (description['label'] or '<None>').split()[-1] | truncate(32) }}</span>

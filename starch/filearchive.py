@@ -95,7 +95,7 @@ class FileArchive(starch.Archive):
 
                 # TODO copy meta-files too
 
-                p = starch.Package(dir)
+                p = starch.Package(dir, base=self.base + key + '/' if self.base else None)
                 p.validate()
             except Exception as e:  
                 rmtree(dir)

@@ -4,7 +4,7 @@ SERVER=elastic:9200
 WAIT_LOOPS=10
 WAIT_SLEEP=5
 WAIT_COMMAND='curl --write-out %{http_code} --silent --output /dev/null http://elastic:9200/_cat/health?h=st'
-START_COMMAND='/usr/local/bin/gunicorn -k gevent --reload --workers 2 --worker-connections 10 --access-logfile=- --pythonpath /app -b :5000 server:app'
+START_COMMAND='/usr/local/bin/gunicorn -k gevent --reload --workers 10 --worker-connections 10 --access-logfile=- --pythonpath /app -b :5000 server:app'
 
 BASE=$(cd `dirname $0` && echo $PWD)
 

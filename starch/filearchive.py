@@ -21,6 +21,8 @@ import datetime
 from collections.abc import Iterator,Generator
 from io import BytesIO
 from tempfile import NamedTemporaryFile
+from random import random
+import shutil
 
 MAX_ID=2**38
 
@@ -172,7 +174,7 @@ class FileArchive(starch.Archive):
         return None
 
 
-    def serialize(self, key_or_iter, resolve=True):
+    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024):
         def create_tar(f):
             t = tarfile.open(fileobj=f, mode="w|")
 
@@ -239,7 +241,7 @@ class FileArchive(starch.Archive):
                             info['size'] = sizes[path]
 
                         if path in checksums:
-                            info['checksum'] = checksums[path]a
+                            info['checksum'] = checksums[path]
 
                         if 'url' in info:
                             del(info['url'])
@@ -256,17 +258,29 @@ class FileArchive(starch.Archive):
             t.close()
             f.close()
 
-        q = Queue(10)
-        f = starch.queueio.open(q, buffering=1024*1024)
-        t = Thread(target=create_tar, args=(f,))
-        t.start()
+        
+        def get_iter(buffer_size=100*1024):
+            q = Queue(10)
+            f = starch.queueio.open(q, buffering=buffer_size)
+            t = Thread(target=create_tar, args=(f,))
+            t.start()
 
-        x=q.get()
-        while x != None:
-            yield x
             x=q.get()
+            while x != None:
+                yield x
+                x=q.get()
 
-        t.join()
+            t.join()
+
+
+        def get_stream(buffer_size=100*1024):
+            return starch.iterio.open(get_iter(buffer_size=buffer_size), mode='rb', buffering=buffer_size)
+
+
+        if iter_content:
+            return get_iter(buffer_size=buffer_size)
+        else:
+            return get_stream(buffer_size=buffer_size)
 
 
     def deserialize(self, stream, key=None):
@@ -280,22 +294,32 @@ class FileArchive(starch.Archive):
             if exists(dir):
                 raise Exception(f'key ({key}) already exists in archive')
 
+            rname = int(1000000*random())
+            tkey=None
             t = tarfile.open(fileobj=stream, mode='r|')
             ti = t.next()
             while ti:
                 if ti.name.startswith('/') or ti.name.startswith('..') or '/../' in ti.name:
                     continue
 
+                tkey = f'{basename(dirname(abspath(ti.name)))}'
+
                 # TODO: deal with when keys differ in tar-file
+                # TODO: deal with multiple packages in one tar-file
 
                 #print(f'extracting {ti.name}', file=stderr)
-                t.extract(ti, path=dirname(abspath(dir)))
+                t.extract(ti, path=f'{dirname(abspath(dir))}/.ingest-{rname}/')
                 ti=t.next()
 
-            self._log_add_package(key)
+            # move package to destination
+            if tkey:
+                shutil.move(f'{dirname(abspath(dir))}/.ingest-{rname}/{tkey}', f'{dirname(abspath(dir))}/{key}')
+                shutil.rmtree(f'{dirname(abspath(dir))}/.ingest-{rname}')
+
+                self._log_add_package(key)
 
         return key
-   
+
 
     def exists(self, key, path=None):
         d = self._directory(valid_key(key))

@@ -318,50 +318,17 @@ def iiif_manifest(key, path):
     return 'IIIF manifest'
 
 
-@app.route('/<key>/_download')
+@app.route('/<key>/_serialize')
 def download(key):
     _check_base(request)
-    fmt = request.args.get('format', 'application/gzip')
     p = archive.get(key)
 
     if not p:
         return 'Not found', 404
 
-    i = download_package_iterator(key, p, fmt)
-    size,filename = next(i)
+    i = archive.serialize(key, resolve=request.args.get('resolve', 'true').lower() == 'true')
 
-    return Response(i, headers={ 'Content-Disposition': f'attachment; filename={filename}' }, mimetype=fmt)
-
-
-def download_package_iterator(key, p, fmt):
-    mimes = { 
-                'application/gzip': ('tar.gz', 'w:gz'),
-                'application/x-tar': ('tar', 'w'),
-                'application/bzip2': ('tar.bz2', 'w:bz2')
-            }
-
-    if fmt not in mimes:
-        raise Exception('Unsupported format')
-
-    with TemporaryFile() as f:
-        t = taropen(fileobj=f, mode=mimes[fmt][1])
-
-        for path in p:
-            ti = TarInfo(f'{key}/{path}')
-            ti.size = int(p[path]['size'])
-            ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
-            t.addfile(ti, IterIO(p.get_iter(path)))
- 
-        t.close()
-        f.seek(0, SEEK_END)
-
-        yield f.tell(), f'{key}.{mimes[fmt][0]}'
-
-        f.seek(0)
-        b = f.read(1024*1024)
-        while b != b'':
-            yield b
-            b = f.read(1024*1024)
+    return Response(i, headers={ 'Content-Disposition': f'attachment; filename={key}.tar' }, mimetype='application/x-tar')
 
 
 @app.route('/<key>/<path:path>', methods=[ 'GET' ])
@@ -531,6 +498,7 @@ def delete_package(key):
 @app.route('/ingest', methods=[ 'POST' ])
 def ingest():
     _check_base(request)
+
     with TemporaryDirectory() as tempdir:
         # TODO: this probably breaks with very large packages
         for path in request.files:
@@ -549,6 +517,15 @@ def ingest():
         package = archive.get(key)
 
         return redirect('/%s/' % key, code=201)
+
+
+@app.route('/_deserialize', methods=[ 'POST' ])
+def deserialize():
+    _check_base(request)
+
+    key = archive.deserialize(request.stream, key=request.args.get('key', None))
+
+    return redirect(f'/{key}/', code=201)
 
 
 @app.route('/new', methods=[ 'POST' ])

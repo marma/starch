@@ -1,4 +1,5 @@
 from io import RawIOBase,UnsupportedOperation,BufferedReader,TextIOWrapper,DEFAULT_BUFFER_SIZE
+from sys import stderr
 
 def open(it, mode='r', auth=None, buffering=-1, encoding=None):
     binary = mode[-1] == 'b'

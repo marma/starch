@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from sys import stderr
 from io import RawIOBase,UnsupportedOperation,BufferedWriter,TextIOWrapper,BlockingIOError,DEFAULT_BUFFER_SIZE
 from queue import Queue
 
@@ -33,6 +34,8 @@ class QueueIO(RawIOBase):
     def write(self, b):
         if self.closed:
             raise ValueError('I/O operation on closed stream')
+
+        #print(len(b), file=stderr)
 
         self.queue.put(bytes(b))
 

@@ -3,11 +3,11 @@
 from flask import Flask,session,request,render_template,Response,redirect,send_from_directory,make_response
 from flask_caching import Cache
 from flask_basicauth import BasicAuth
-from yaml import load,FullLoader
+from yaml import load as yload,FullLoader
 from starch import Archive,Package,Index
 from starch.exceptions import RangeNotSupported
 from contextlib import closing
-from json import loads,dumps
+from json import loads,dumps,load
 from hashlib import md5,sha256
 from starch.elastic import ElasticIndex
 from starch.utils import decode_range,valid_path,max_iter,guess_content,flatten_structure
@@ -20,7 +20,7 @@ from requests import get
 from math import log2
 from tarfile import TarFile,TarInfo,open as taropen
 from os import SEEK_END
-from os.path import basename,dirname
+from os.path import basename,dirname,exists
 from starch.iterio import IterIO
 import datetime
 from sys import stdout
@@ -31,7 +31,7 @@ USE_NGINX_X_ACCEL = False
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 #app.use_x_sendfile = True
-app.config.update(load(open(join(app.root_path, 'config.yml')).read(), Loader=FullLoader))
+app.config.update(yload(open(join(app.root_path, 'config.yml')).read(), Loader=FullLoader))
 app.jinja_env.line_statement_prefix = '#'
 cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
 
@@ -526,11 +526,19 @@ def delete_package(key):
         return e.message, 500
 
 
-@app.route('/ingest', methods=[ 'POST' ])
-def ingest():
+@app.route('/ingest', defaults={'key': None })
+@app.route('/ingest/<key>', methods=[ 'POST' ])
+def ingest(key):
     _check_base(request)
+
+    if app.config['archive'].get('mode', 'read-only') != 'read-write':
+        return 'Archive is read-only', 500
+
     with TemporaryDirectory() as tempdir:
         # TODO: this probably breaks with very large packages
+        # TODO: implement serialize(...) so this can be done over TAR
+        # TODO: validate checksum
+        # TODO: cleanup on failure
         for path in request.files:
             temppath=join(tempdir, valid_path(path))
 
@@ -543,7 +551,8 @@ def ingest():
                     b=request.files[path].read(100*1024)
                     o.write(b)
 
-        key = archive.ingest(Package(tempdir), key=request.args.get('key', None))
+            
+        key = archive.ingest(Package(tempdir), key=key)
         package = archive.get(key)
 
         return redirect('/%s/' % key, code=201)
@@ -622,9 +631,11 @@ def reindex(key):
     p=archive.get(key)
 
     if not p:
+        index.delete(key)
+
         return 'Not found', 404    
 
-    print(index, p, flush=True)
+    #print(index, p, flush=True)
 
     if index != None and p:
         try:

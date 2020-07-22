@@ -198,7 +198,9 @@ class ElasticIndex(starch.Index):
 
                 bulk = []
                 for d in f:
+                    #print(d)
                     k = d['@id']
+                    print(k)
                     k = k[k.rfind('/')+1:] if k[-1] != '/' else k[:-1][k[:-1].rfind('/')+1:]
 
                     print('key: ' + k, flush=True)
@@ -221,11 +223,14 @@ class ElasticIndex(starch.Index):
 
 
     def delete(self, key):
-        self.elastic.delete(
-                index=self.index_name,
-                #doc_type='package',
-                id=key,
-                refresh=True)
+        try:
+            self.elastic.delete(
+                    index=self.index_name,
+                    #doc_type='package',
+                    id=key,
+                    refresh=True)
+        except:
+            ...
 
 
     def iter_packages(self, start=0, max=None):

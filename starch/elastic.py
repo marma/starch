@@ -184,6 +184,7 @@ class ElasticIndex(starch.Index):
             id=key,
             body=self._format_package(p))
 
+        # TODO: deal with deletes
         if update_content and self.content and 'content.json' in p and 'structure.json' in p:
             # get structure and content files
             content = load(p.open('content.json'))
@@ -191,7 +192,7 @@ class ElasticIndex(starch.Index):
             meta = load(p.open('meta.json')) if 'meta.json' in p else {}
     
             prefix = self.content.get('index_prefix', '')
-            for key, config in self.content.get('parts', {}).items():
+            for ckey, config in self.content.get('parts', {}).items():
                 #print(config, flush=True)
                 index = prefix + config['index_name']
                 f = flerge(p, level=config['type'], ignore=config.get('ignore', []))
@@ -203,8 +204,6 @@ class ElasticIndex(starch.Index):
                     print(k)
                     k = k[k.rfind('/')+1:] if k[-1] != '/' else k[:-1][k[:-1].rfind('/')+1:]
 
-                    print('key: ' + k, flush=True)
-    
                     if config['type'] != self.content.get('content_part_type', 'Text'):
                         l = d.get('content', [])
                         d['content'] = [ x['content'] for x in l if x.get('content', '') != '' ]
@@ -220,16 +219,43 @@ class ElasticIndex(starch.Index):
                 self.elastic.bulk(
                     body='\n'.join(bulk),
                     refresh=sync)
+        else:
+            for ckey, config in self.content.get('parts', {}).items():
+                if config.get('type', None)  == 'Package':
+                    prefix = self.content.get('index_prefix', '')
+                    index = prefix + config.get('index_name', '')
 
+                    self.elastic.index(
+                        index=index,
+                        id=key,
+                        body=self._format_package(p))
+                    
 
     def delete(self, key):
+        print('delete', key, flush=True)
         try:
             self.elastic.delete(
                     index=self.index_name,
-                    #doc_type='package',
                     id=key,
                     refresh=True)
         except:
+            ...
+            
+        try:
+            for ckey, config in self.content.get('parts', {}).items():
+                print('delete', ckey, flush=True)
+                if config.get('type', None)  == 'Package':
+                    print('delete', ckey, 'Package', flush=True)
+                    prefix = self.content.get('index_prefix', '')
+                    index = prefix + config.get('index_name', '')
+                    
+                    print('delete', key, prefix, index, flush=True)
+
+                    self.elastic.delete(
+                            index=index,
+                            id=key,
+                            refresh=True)
+        except Exception as e:
             ...
 
 

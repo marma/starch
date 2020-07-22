@@ -15,8 +15,6 @@ import starch
 from starch.utils import pdf_to_textarray
 from collections import Counter
 
-starch.VERIFY_CA=False
-
 def enhance(package, base):
     t,s,c = Counter(), None, None
     if 'aip.mets.metadata' in package and any(( path.endswith('_alto.xml') for path in package )):
@@ -26,15 +24,15 @@ def enhance(package, base):
         # PDF
         t,s,c = enhance_pdf(package, base)
 
-    if content:
+    if c:
         add_data_start = timer()
-        package.add(path='content.json', replace=True, data=dumps(content, indent=2), type='Content', mime_type='application/json')
-        package.add(path='structure.json', replace=True, data=dumps(structure, indent=2), type='Structure', mime_type='application/json')
+        package.add(path='content.json', replace=True, data=dumps(c, indent=2).encode('utf-8'), type='Content', mime_type='application/json')
+        package.add(path='structure.json', replace=True, data=dumps(s, indent=2).encode('utf-8'), type='Structure', mime_type='application/json')
         t.update({ 'add_data': timer() - add_data_start })
     else:
         return { 'status': 'no content' }, None, None        
 
-    return t, structure, content
+    return t
 
                 
 def enhance_pdf(package, base):
@@ -43,23 +41,27 @@ def enhance_pdf(package, base):
     structure = []
     content = []
     timings = Counter()
-    part = 1
+    partn = 1
 
     for path in package:
         info = package[path]
 
-        if package[path].get('mime_type', 'unknown') == 'application/pdf':
+        if info.get('mime_type', 'unknown') == 'application/pdf':
+            print(info['path'])
+
             try:
                 get_bytes_start = timer()
                 b = BytesIO(package.get_raw(path).read())
                 get_bytes_end = timer()
+
+                print(f'get bytes: {get_bytes_end - get_bytes_start}')
 
                 part_id = f'{info["@id"]}#{partn}'
                 part = { '@id': part_id, '@type': 'Part', 'extracted_from': path, 'has_part': [] }
 
                 extract_content_start = timer()
                 text_array = pdf_to_textarray(b)
-                extract_content_end = timer()
+                timings.update({ 'extract_content': timer() - extract_content_start })
 
                 for i,page_data in enumerate(text_array):
                     page_id = f'{part_id}-{i+1}'
@@ -73,7 +75,8 @@ def enhance_pdf(package, base):
                 added = True
             except KeyboardInterrupt:
                 exit(1)
-            except:
+            except Exception as e:
+                print(e, file=stderr)
                 print_exc()
                 print('', flush=True, file=stderr)
                 print('', flush=True, file=stdout)
@@ -81,8 +84,9 @@ def enhance_pdf(package, base):
             finally:
                 partn += 1
 
-            enhance_pdf(package, path, part)
-            part += 1
+            #enhance_pdf(package, path, part)
+
+    return timings, structure, content
         
 
 def alto_content(package, base):
@@ -152,10 +156,10 @@ if __name__ == "__main__":
 #    else:
 #        a = Archive(loc)
 
-    a = Archive('https://betalab.kb.se/', auth=('demo', 't89ughurguyqw476t8ayguhjtr'))
+    a = Archive('/data/archive', base='https://betalab.kb.se/')
 
-    #for package_id in [ 'sou-1971-58' ]:
-    for package_id in stripgen(stdin):
+    for package_id in [ loc ]:
+    #for package_id in stripgen(stdin):
         structure = []
         content = []
         print(package_id, flush=True)

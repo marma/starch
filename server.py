@@ -335,7 +335,11 @@ def download(key):
     if not p:
         return 'Not found', 404
 
-    i = archive.serialize(key, resolve=request.args.get('resolve', 'true').lower() == 'true')
+    i = archive.serialize(
+            key,
+            resolve=request.args.get('resolve', 'true').lower() == 'true',
+            iter_content=True,
+            buffer_size=100*1024)
 
     return Response(i, headers={ 'Content-Disposition': f'attachment; filename={key}.tar' }, mimetype='application/x-tar')
 

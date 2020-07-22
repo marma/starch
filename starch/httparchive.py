@@ -5,6 +5,7 @@ from json import dumps,loads
 from sys import stderr
 from time import sleep
 from starch.result import create_result
+from collections.abc import Iterator,Generator
 import starch
 import logging
 
@@ -190,11 +191,16 @@ class HttpArchive(starch.Archive):
         raise Exception(f'Server returned {r.status_code}')
 
 
-    def deserialize(self, stream, key=None):
-        url = self.location(key_or_iter) + '_deserialize'
+    def deserialize(self, stream_or_iter, key=None):
+        url = f'{self.url}{(key + "/") if key else ""}_serialize'
 
-                
+        if isinstance(stream_or_iter, (Iterator, Generator)):
+            r = post(url, data=stream_or_iter)
+        else:
+            r = post(url, data=starch.utils.stream_to_iter(stream_or_iter))
 
+        return str(r.headers) + ' ' + r.text + ' ' + r.status_code
+        
 
     def _search_iter(self, query, start=0, max=None):
         params = { 'q': dumps(query), 'start': start }

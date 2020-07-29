@@ -17,6 +17,7 @@ from collections import Counter
 from sys import stderr
 from json import load
 from copy import copy
+from subprocess import Popen
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter#process_pdf
 from pdfminer.pdfpage import PDFPage
@@ -286,5 +287,98 @@ def flerge(package, level='Text', ignore=[]):
         structure = [ { '@id': desc['@id'], '@type': desc['@type'], 'label': desc['label'], 'tags': desc['tags'], 'meta': meta, 'has_part': structure } ]
 
     return _flerge(structure, content, meta, level, ignore)
+
+
+class run():
+    debug=False
+
+    def __init__(self, cmd, input=None, ignore_err=False):
+        debug('run init')
+        self.default_buf_size=100*1024
+        self.ignore_err = ignore_err
+        self.p = Popen(split(cmd), stdin=PIPE if input else None, stdout=PIPE, stderr=None if ignore_err else PIPE)
+        self._out = None
+        self._err = None
+        self._text = None
+        self._err_text = None
+
+        if input:
+            self.inpipe = pipe(input, self.p.stdin, chunk_size=self.default_buf_size)
+            self.inpipe.start()
+        else:
+            self.inpipe = None
+
+    @property
+    def out(self):
+        if not self._out:
+            self._out = self.p.stdout.read()
+
+        return self._out
+
+    @property
+    def stdout(self):
+        return self.p.stdout
+    
+    @property
+    def text(self):
+        if not self._text:
+            self._text = self.out.decode('utf-8')
+
+        return self._text
+
+    @property
+    def err(self):
+        if not self._err and not self.ignore_err:
+            self._err = self.p.stderr.read()
+
+        return self._err
+
+    @property
+    def err_text(self):
+        if not self._err_text and not self.ignore_err:
+            self._err_text = self.err.decode('utf-8')
+
+        return self._err_text
+
+    def iter_text(self, chunk_size=None):
+        return self.iter_out(chunk_size or self.default_buf_size, mode='s')
+    
+    def iter_out(self, chunk_size=None, mode='b'):
+        assert self._out == None
+        return self.iter_stream(self.p.stdout, mode, chunk_size or self.default_buf_size)
+
+    def iter_err(self, chunk_size=None, mode='b'):
+        assert self._err == None
+        assert self.ignore_err != None
+        return self.iter_stream(self.p.stderr, mode, chunk_size or self.default_buf_size)
+
+    def iter_err_text(self, chunk_size=None):
+        assert self._err_text == None
+        return self.iter_err(chunk_size or self.default_buf_size, mode='s')
+
+    def iter_stream(self, s, mode='b', chunk_size=None):
+        debug('run iter_stream start')
+        assert mode in [ 'b', 's' ]
+        b = s.read(chunk_size or self.default_buf_size)
+        while b != b'':
+            debug('run iter_stream chunk', len(b))
+            # handle multi-byte Unicode sequence on chunk boundary in string mode
+            while mode == 's' and s.peek(1) != b'' and s.peek(1)[0] > 0x7f:
+                b += s.read(1)
+
+            yield b if mode == 'b' else b.decode('utf-8')
+            b = s.read(chunk_size or self.default_buf_size)
+        debug('run iter_stream end')
+
+    def kill(self):
+        self.p.kill()
+
+    @property
+    def returncode(self):
+        self.p.poll()
+        return self.p.returncode
+
+    def __iter__(self):
+        return iter(self.iter_out())
 
 

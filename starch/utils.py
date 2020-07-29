@@ -137,6 +137,11 @@ def chunked(f, chunk_size=100*1024, max=None):
             yield b
 
 
+def stream_to_iter(raw, chunk_size=10*1024, max=None):
+    with raw as f:
+        yield from chunked(f, chunk_size=chunk_size, max=max)
+
+
 def decode_range(srange):
     s = match('bytes=(\\d+)-(\\d*)', srange).groups()
 

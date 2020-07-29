@@ -5,6 +5,7 @@ from json import dumps,loads
 from sys import stderr
 from time import sleep
 from starch.result import create_result
+from collections.abc import Iterator,Generator
 import starch
 import logging
 
@@ -169,6 +170,38 @@ class HttpArchive(starch.Archive):
         return create_result(i, r, c, g, self)
 
 
+    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024):
+        if not isinstance(key_or_iter, str):
+            raise Exception('Only single string as key_or_iter supported.')
+
+        url = self.location(key_or_iter) + '_serialize'
+
+        r = get(url, auth=self.auth, stream=True)
+    
+        if r.status_code == 200:
+            r.raw.decode_stream = True
+
+            if iter_content:
+                return starch.utils.stream_to_iter(r.raw, chunk_size=buffer_size)
+            else:
+                return r.raw
+        elif r.status_code == 404:
+            raise FileNotFoundError(url)
+
+        raise Exception(f'Server returned {r.status_code}')
+
+
+    def deserialize(self, stream_or_iter, key=None):
+        url = f'{self.url}{(key + "/") if key else ""}_serialize'
+
+        if isinstance(stream_or_iter, (Iterator, Generator)):
+            r = post(url, data=stream_or_iter)
+        else:
+            r = post(url, data=starch.utils.stream_to_iter(stream_or_iter))
+
+        return str(r.headers) + ' ' + r.text + ' ' + r.status_code
+        
+
     def _search_iter(self, query, start=0, max=None):
         params = { 'q': dumps(query), 'start': start }
         if max: params.update({ 'max': max })
@@ -234,4 +267,5 @@ class HttpArchive(starch.Archive):
 
     def __getitem__(self, key):
         return self.get(key)
+
 

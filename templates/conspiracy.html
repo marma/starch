@@ -115,7 +115,7 @@
 
     # set mode = request.cookies.get('mode', 'light')
     # set type = request.cookies.get('type', 'Package')
-
+    # set square = request.cookies.get('square', 'False')
     <body class="">
         <div id="menu" class="ui visible sidebar left {{ 'inverted' if request.cookies.get('mode', 'light') == 'dark' else '' }} vertical accordion menu list" style="overflow: hidden;">
             <div class="item">
@@ -184,7 +184,7 @@
                         <div class="ui circular label">{{ counts['size']['value'] | filesizeformat }}</div>
                     </div>
                     
-                    <div>Total size:</div>a
+                    <div>Total size:</div>
 		# endif
                 </div>
             </div>
@@ -197,10 +197,13 @@
                         <a class="ui {{ 'active' if mode == 'dark' else '' }} item" href="/_set?mode=dark"><i class="moon {{ 'outline' if mode != 'dark' else '' }} icon"></i></a>
                         <a class="ui {{ 'active' if request.cookies.get('mode', 'light') == 'light' else '' }} item" href="/_set?mode=light"><i class="sun {{ 'outline' if request.cookies.get('mode', 'light') != 'light' else '' }} icon"></i></a>
                     </span>
+                    <!--span class="ui right floated menu">
+                        <a class="ui {{ 'active' if square == 'True' else '' }} item" href="/_set?square={{ 'True' if mason == 'False' else 'False' }}"><i class="square icon"></i></a>
+                    </span-->
                     <span class="ui right floated menu">
                         <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="/_set?type=Package">Package</a>
                         <a class="ui {{ 'active' if type == 'Page' else '' }} item" href="/_set?type=Page">Page</a>
-                        <a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a>
+                        <!--a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a-->
                     </span>
                     <!--span class="ui flating search">
                             <form action="/" method="GET">
@@ -231,24 +234,27 @@
                         #       set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
                         #       if cover:
                         #         set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
-                        #       else:
-                        #           set cover = description['files'] | selectattr('mime_type', 'eq', 'application/pdf') | first | default(None)
-                        #           set cover = cover['path'] + ':1/full/256,/0/default.jpg' if cover else None
                         #       endif
+			#       set height = 300
                         #   elif 'has_representation' in description:
                         #       set cover = description['has_representation'] | last | default(None)
                         #       if cover:
                         #           if 'box' in description:
                         #             set box = description['box']
                         #             set cover = cover.split('/')[-1]  + '/' + box[0] + ',' + box[1] + ',' + box[2] + ',' + box[3] + '/512,/0/default.jpg' | default(None)
+			#             set height = 300 * box[3] | int / box[2] | int
                         #           else:
                         #             set cover = cover.split('/')[-1] + '/full/512,/0/default.jpg' | default(None)
+			#             set height = 300 * description['height'] | int / description['width'] | int
                         #           endif
+			#    	else:
+			#           set height = 300
                         #       endif
                         #   endif
                         <div class="column">
                             <a href="/{{ key + ('/_view' if type == 'Package' else '')}}">
-				<img style="object-fit: cover" src="/static/img/gray-image.png" class="ui masked image" width="300" min-height="300" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else '/static/img/white-image.png' }}"/>
+                                <img style="object-fit: cover" src="/static/img/{{ 'gray' if mode == 'dark' else 'white' }}-image.png" class="ui masked image" width="300" min-height="{{ height | int }}" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else '/static/img/' + ('gray' if mode == 'dark' else 'white') + '-image.png' }}"/>
+				<!--img style="object-fit: cover" src="/static/img/gray-image.png" class="ui masked image" width="300" min-height="300" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else 'static/img/gray-image.png' }}"/-->
                             </a>
                             <div class="detail">
                                 <span>{{ (description['label'] or '<None>').split()[-1] | truncate(32) }}</span>

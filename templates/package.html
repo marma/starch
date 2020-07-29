@@ -58,17 +58,23 @@
             </div>
             # endif
 
-            <div class="item"><b>Download:</b> <a href="_download?format=application/x-tar"><i class="archive icon"></i>.tar</a> <!--a href="_download?format=application/tar">BagIt</a--></div>
+            <div class="item"><b>Download:</b> <a href="_serialize"><i class="archive icon"></i>.tar</a> <!--a href="_download?format=application/tar">BagIt</a--></div>
         </div>
         <div>
         <script src="/static/Semantic-UI-CSS-master/components/visibility.js"></script>
             <div id="content">
                 <div>
-                    <span class="ui right floated menu"><a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'list' else '' }} item" href="/_set?view=list">List</a><a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'structure' else '' }} item" href="/_set?view=structure">Structure</a></span>
+                    <span class="ui right floated menu">
+                        <a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'list' else '' }} item" href="/_set?view=list">List</a>
+			# if entities:
+			<a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'entities' else '' }} item" href="/_set?view=entities">Entities</a>
+			# endif
+			<a class="ui {{ 'active' if request.cookies.get('view', 'list') == 'structure' else '' }} item" href="/_set?view=structure">Structure</a>
+		    </span>
             	    <div class="ui floating"><h1><a href="/">Index</a> / {{ package['label'] }}</h1></div>
                 </div>
                 <div class="ui divider"></div>
-                # if request.cookies.get('view', 'list') == 'structure'
+                # if mode == 'structure':
                 <div class="ui cards">
                     # set partn = namespace(n=0)
                     # for elem in structure
@@ -119,6 +125,20 @@
                     #   endif
                     # endfor
                 </div>
+		# elif entities and request.cookies.get('view', 'list') == 'entities':
+		#   for t in [ 'PER', 'ORG', 'LOC', 'WRK' ]:
+		<h3>{{ t }}</h3>
+		#     for entity in entities:
+		#       if entity[1][0]['entity'] == t:
+		#         set word = entity[0]
+		          <span><b>{{ word }}</b> - 
+		#         for name in entity[1]:
+		<span><a href="{{ name['origin'] }}">{{ name['word'] }}</a>, </span>
+		#         endfor
+		<br/>
+		#       endif
+		#     endfor
+		#   endfor
                 # else
                 <table class="ui celled padded striped selectable large table">
                     <thead>

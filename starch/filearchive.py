@@ -174,113 +174,132 @@ class FileArchive(starch.Archive):
         return None
 
 
-    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024):
+    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024, timeout=None):
         def create_tar(f):
-            t = tarfile.open(fileobj=f, mode="w|")
+            #print(f'start create_tar', file=stderr)
 
-            for key in key_or_iter if isinstance(key_or_iter, (list, Iterator, Generator)) else [ key_or_iter ]:
-                checksums = {}
-                sizes = {}
-                resolved = set()
+            try:
+                with tarfile.open(fileobj=f, mode="w|") as t:
+                    for key in key_or_iter if isinstance(key_or_iter, (list, Iterator, Generator)) else [ key_or_iter ]:
+                        checksums = {}
+                        sizes = {}
+                        resolved = set()
 
-                p = self.get(key)
+                        p = self.get(key)
 
-                if not p:
-                    continue
+                        if not p:
+                            continue
 
-                for path in p:
-                    info = p[path]
+                        for path in p:
+                            info = p[path]
 
-                    if info['@type'] != 'Reference' or resolve:
-                        ti = tarfile.TarInfo(f'{key}/{path}')
-                        loc = self.location(key, path)
+                            if info['@type'] != 'Reference' or resolve:
+                                ti = tarfile.TarInfo(f'{key}/{path}')
+                                loc = self.location(key, path)
 
-                        ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
-                        
-                        if loc.startswith('file:///'):
-                            sizes[path] = getsize(loc[7:])
-                            checksums[path] = info.get('checksum', 'SHA256:' + self._checksum(loc[7:]))
-                            ti.size = sizes[path]
-                            t.addfile(ti, self.open(key, path, mode='b'))
-                        elif loc.startswith('http'):
-                            try:
-                                with NamedTemporaryFile(mode='w+b') as tempf, self.open(key, path, mode='rb') as pfile:
-                                    h = sha256()
-                                    data, length = None, 0
-
-                                    while data != b'':
-                                        data = pfile.read(100*1024)
-                                        tempf.write(data)
-                                        h.update(data)
-
-                                    sizes[path] = tempf.tell()
-                                    checksums[path] = 'SHA256:' + h.hexdigest()
+                                ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
+                                
+                                if loc.startswith('file:///'):
+                                    sizes[path] = getsize(loc[7:])
+                                    checksums[path] = info.get('checksum', 'SHA256:' + self._checksum(loc[7:]))
                                     ti.size = sizes[path]
-
-                                    tempf.seek(0)
-
+                                    t.addfile(ti, self.open(key, path, mode='b'))
                                     resolved.add(path)
-                                    t.addfile(ti, tempf)
-                            except Exception as e:
-                                # ignore this file or reference
-                                print(f'ignoring {key}/{key}: {e}', flush=True, file=stderr)
-                        else:
-                            # ignore this reference
-                            print(f'ignoring {key}/{key}', flush=True, file=stderr)
+                                elif loc.startswith('http'):
+                                    try:
+                                        with NamedTemporaryFile(mode='w+b') as tempf, self.open(key, path, mode='rb') as pfile:
+                                            h = sha256()
+                                            data, length = None, 0
 
-                        resolved.add(path)
+                                            while data != b'':
+                                                data = pfile.read(100*1024)
+                                                tempf.write(data)
+                                                h.update(data)
 
-                desc = load(open(self.location(key, '_package.json')[7:]))
-                for info in desc['files']:
-                    path = info['path']
+                                            sizes[path] = tempf.tell()
+                                            checksums[path] = 'SHA256:' + h.hexdigest()
+                                            ti.size = sizes[path]
 
-                    if path in resolved:
-                        info['@type'] = 'Resource'
+                                            tempf.seek(0)
 
-                        if path in sizes:
-                            info['size'] = sizes[path]
+                                            resolved.add(path)
+                                            t.addfile(ti, tempf)
+                                            resolved.add(path)
+                                    except Exception as e:
+                                        # ignore this file or reference
+                                        #print(f'ignoring {key}/{key}: {e}', flush=True, file=stderr)
+                                        ...
+                                else:
+                                    # ignore this reference
+                                    #print(f'ignoring {key}/{key}', flush=True, file=stderr)
+                                    ...
 
-                        if path in checksums:
-                            info['checksum'] = checksums[path]
+                        desc = load(open(self.location(key, '_package.json')[7:]))
 
-                        if 'url' in info:
-                            del(info['url'])
+                        for info in desc['files']:
+                            path = info['path']
 
-                desc['size'] = sum(sizes.values())
+                            if path in resolved:
+                                info['@type'] = 'Resource'
 
-                # add _package.json
-                b = dumps(desc, indent=4).encode('utf-8')
-                ti = tarfile.TarInfo(f'{key}/_package.json')
-                ti.size = len(b)
-                ti.mtime = int(datetime.datetime.fromisoformat(desc['created'][:-1]).timestamp())
-                t.addfile(ti, BytesIO(b))
+                                if path in sizes:
+                                    info['size'] = sizes[path]
 
-            t.close()
-            f.close()
+                                if path in checksums:
+                                    info['checksum'] = checksums[path]
 
+                                if 'url' in info:
+                                    del(info['url'])
+
+                        desc['size'] = sum(sizes.values())
+
+                        # add _package.json
+                        b = dumps(desc, indent=4).encode('utf-8')
+                        ti = tarfile.TarInfo(f'{key}/_package.json')
+                        ti.size = len(b)
+                        ti.mtime = int(datetime.datetime.fromisoformat(desc['created'][:-1]).timestamp())
+                        t.addfile(ti, BytesIO(b))
+
+            finally:
+                f.close()
+                #print(f'end create_tar', file=stderr)
+ 
         
-        def get_iter(buffer_size=100*1024):
+        def get_iter(buffer_size=100*1024, timeout=None):
             q = Queue(10)
-            f = starch.queueio.open(q, buffering=buffer_size)
+            f = starch.queueio.open(q, buffering=buffer_size, timeout=timeout)
             t = Thread(target=create_tar, args=(f,))
             t.start()
 
-            x=q.get()
-            while x != None:
-                yield x
-                x=q.get()
+            try:
+                x=q.get(timeout=timeout)
+                while x != None:
+                    if isinstance(x, BaseException):
+                        raise x
+
+                    yield x
+
+                    x=q.get(timeout=timeout)
+            finally:
+                ...
+                #f.close()
 
             t.join()
 
 
-        def get_stream(buffer_size=100*1024):
-            return starch.iterio.open(get_iter(buffer_size=buffer_size), mode='rb', buffering=buffer_size)
+        def get_stream(buffer_size=100*1024, timeout=None):
+            return starch.iterio.open(
+                        get_iter(
+                            buffer_size=buffer_size,
+                            timeout=timeout),
+                        mode='rb',
+                        buffering=buffer_size)
 
 
         if iter_content:
-            return get_iter(buffer_size=buffer_size)
+            return get_iter(buffer_size=buffer_size, timeout=timeout)
         else:
-            return get_stream(buffer_size=buffer_size)
+            return get_stream(buffer_size=buffer_size, timeout=timeout)
 
 
     def deserialize(self, stream, key=None):

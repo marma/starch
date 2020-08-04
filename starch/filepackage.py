@@ -119,6 +119,8 @@ class FilePackage(starch.Package):
                     self._add_directory(fname, valid_path(path), exclude=exclude)
                 else:
                     raise Exception('file {fname} is a directory, set traverse=True to add directories')
+
+                return
             elif fname or data or url and type != 'Reference':
                 f['urn'] = uuid4().urn
 

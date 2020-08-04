@@ -335,10 +335,13 @@ def download(key):
     if not p:
         return 'Not found', 404
 
+    # set a 60 second timeout so that any lingering threads can be stopped
+    # client *must* validate resulting file
     i = archive.serialize(
             key,
             resolve=request.args.get('resolve', 'true').lower() == 'true',
             iter_content=True,
+            timeout=60,
             buffer_size=100*1024)
 
     return Response(i, headers={ 'Content-Disposition': f'attachment; filename={key}.tar' }, mimetype='application/x-tar')

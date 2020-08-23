@@ -48,7 +48,7 @@ index = Index(**app.config['archive']['index']) if 'index' in app.config['archiv
 def site_index():
     q = request.args.get('q', None) or {}
     tpe = request.cookies.get('type', 'Package')
-    result = (index or archive).search(q, max=200, level=tpe, include=True)
+    result = (index or archive).search(q, max=100, level=tpe, include=True)
     #descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
     descriptions = [ x for x in result.keys ]
     counts = (index or archive).count(
@@ -69,7 +69,7 @@ def site_index():
             render_template('conspiracy.html',
                             start=result.start,
                             max=result.m,
-                            n_packages=result.n,
+                            n_packages=result.m,
                             #archive=archive,
                             descriptions=descriptions,
                             counts=counts,
@@ -204,21 +204,21 @@ def view(key, path):
 def _info(key, path):
     _check_base(request)
 
-    p = archive.get(key)
-    if p and path in p:
+    if archive.exists(key, path):
+        p = archive.get(key)
         callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
         url = f'{callback}{key}/{path}'
         uri = f'{p.description()["@id"]}{path}'
 
         if app.config.get('image_server', {}).get('send_location', False):
-            loc = p.location(path)
+            loc = archive.location(key, path)
 
             if loc.startswith('file:'):
                 prefix = app.config.get('image_server', {}).get('prefix', None)
                 base = app.config.get('image_server', {}).get('archive_root', None)
 
                 if prefix:
-                    url = loc[7:].replace(base, f'{prefix}:')
+                    url = loc.replace(base, f'{prefix}:')
 
         if uri == '':
             uri = f'{request.url_root}{key}/{path}'
@@ -249,7 +249,7 @@ def iiif_info(key, path):
     
         return r
 
-    return 'Not found', 404
+    return f'/{key}/{path } not found', 404
 
 
 @app.route('/<key>/<path:path>/<region>/<size>/<rot>/<quality>.<fmt>')
@@ -266,7 +266,7 @@ def iiif(key, path, region, size, rot, quality, fmt):
                 # send image using an internal prefix that is known by the image server
                 prefix = app.config['image_server']['prefix']
                 base = app.config['image_server']['archive_root']
-                url = loc[7:].replace(base, f'{prefix}:')
+                url = loc.replace(base, f'{prefix}:')
             elif iconf.get('callback_root', False):
                 # send image location to image server using callback since the internal
                 # name within Docker may not be the same as the external one

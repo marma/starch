@@ -203,7 +203,7 @@
                     <span class="ui right floated menu">
                         <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="/_set?type=Package">Package</a>
                         <a class="ui {{ 'active' if type == 'Page' else '' }} item" href="/_set?type=Page">Page</a>
-                        <!--a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a-->
+                        <a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a>
                     </span>
                     <!--span class="ui flating search">
                             <form action="/" method="GET">
@@ -235,20 +235,20 @@
                         #       if cover:
                         #         set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
                         #       endif
-			#       set height = 300
+                        #       set height = 300
                         #   elif 'has_representation' in description:
                         #       set cover = description['has_representation'] | last | default(None)
                         #       if cover:
                         #           if 'box' in description:
                         #             set box = description['box']
-                        #             set cover = cover.split('/')[-1]  + '/' + box[0] + ',' + box[1] + ',' + box[2] + ',' + box[3] + '/512,/0/default.jpg' | default(None)
-			#             set height = 300 * box[3] | int / box[2] | int
+                        #             set cover = cover.split('/')[-1]  + '/' + box[0]|string + ',' + box[1]|string + ',' + box[2]|string + ',' + box[3]|string + '/512,/0/default.jpg' | default(None)
+                        #             set height = 300 * box[3] | int / box[2] | int
                         #           else:
                         #             set cover = cover.split('/')[-1] + '/full/512,/0/default.jpg' | default(None)
-			#             set height = 300 * description['height'] | int / description['width'] | int
+                        #             set height = 300 * description['height'] | int / description['width'] | int
                         #           endif
-			#    	else:
-			#           set height = 300
+                        #    	else:
+                        #           set height = 300
                         #       endif
                         #   endif
                         <div class="column">

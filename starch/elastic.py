@@ -201,7 +201,7 @@ class ElasticIndex(starch.Index):
                 for d in f:
                     #print(d)
                     k = d['@id']
-                    print(k)
+                    #print(k)
                     k = k[k.rfind('/')+1:] if k[-1] != '/' else k[:-1][k[:-1].rfind('/')+1:]
 
                     if config['type'] != self.content.get('content_part_type', 'Text'):

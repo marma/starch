@@ -51,6 +51,7 @@ def site_index():
     result = (index or archive).search(q, max=100, level=tpe, include=True)
     #descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
     descriptions = [ x for x in result.keys ]
+
     counts = (index or archive).count(
                     q,
                     { 
@@ -60,8 +61,6 @@ def site_index():
                         'size': 'sum(size)'
                     },
                     level=tpe)
-
-    #print(descriptions)
 
     counts['size']['value'] = int(counts['size']['value'])
 

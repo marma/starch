@@ -1,5 +1,6 @@
 from json import load,loads,dumps
 from sys import stdin, stderr
+from os import rename
 from os.path import exists,join,basename,dirname,abspath
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
@@ -27,10 +28,11 @@ import shutil
 MAX_ID=2**38
 
 class FileArchive(starch.Archive):
-    def __init__(self, root=None, base=None, index=None, mode='read-write', lockm=starch.LockManager(type='null'), **kwargs):
+    def __init__(self, root=None, base=None, relative_uris=False, index=None, mode='read-write', lockm=starch.LockManager(type='null'), **kwargs):
         self.temporary = root == None
         self.root_dir = root or get_temp_dirname()
-        self.base = base
+        self.base = base if base and base[-1] == '/' else base + '/' if base else base # bass
+        self.relative_uris = relative_uris or not base # omg
         self.mode = mode
         self.index = starch.Index(**index) if isinstance(index, dict) else index
         self.lockm = starch.LockManager(**lockm) if isinstance(lockm, dict) else lockm
@@ -313,7 +315,9 @@ class FileArchive(starch.Archive):
             if exists(dir):
                 raise Exception(f'key ({key}) already exists in archive')
 
-            rname = int(1000000*random())
+            basedir = dirname(abspath(dir))
+            tmpdir = f'{basedir}/.ingest-{int(1000000*random())}'
+
             tkey=None
             t = tarfile.open(fileobj=stream, mode='r|')
             ti = t.next()
@@ -326,16 +330,23 @@ class FileArchive(starch.Archive):
                 # TODO: deal with when keys differ in tar-file
                 # TODO: deal with multiple packages in one tar-file
 
-                #print(f'extracting {ti.name}', file=stderr)
-                t.extract(ti, path=f'{dirname(abspath(dir))}/.ingest-{rname}/')
+                t.extract(ti, path=tmpdir)
                 ti=t.next()
 
             # move package to destination
-            if tkey:
-                shutil.move(f'{dirname(abspath(dir))}/.ingest-{rname}/{tkey}', f'{dirname(abspath(dir))}/{key}')
-                shutil.rmtree(f'{dirname(abspath(dir))}/.ingest-{rname}')
 
+            if tkey:
+                rename(f'{tmpdir}/{key}', dir)
+                shutil.rmtree(tmpdir)
                 self._log_add_package(key)
+
+            # rewrite @ids in content and structure files
+            p = self.get(key, mode='a')
+            for path in p:
+                if p[path].get('@type', None) in [ 'Content', 'Structure' ]:
+                    print(path)
+                    j = load(self.open(key, path))
+                    p.add(path=path, data=self._replace_ids(j, key=key), replace=True)
 
         return key
 
@@ -563,4 +574,39 @@ class FileArchive(starch.Archive):
                 h.update(data)
 
             return h.hexdigest()
+
+
+    def _replace_ids(self, j, key):
+        def _sub(v):
+            if v.startswith('http'):
+                if self.relative_uris:
+                    i = v.split(key)[1]
+                    return i if i[0] != '/' else i[1:]
+                else:
+                    return f'{self.base}{key}{v.split(key)[1]}'
+            else:
+                if self.relative_uris:
+                    return v
+                else:
+                    return f'{self.base}{key}{v if v[0] == "#" else ("/" + v)}'
+
+
+        def _handle(k,v):
+            print('handle', k)
+            if k == '@id':
+                return _sub(v)
+            elif k == 'has_part':
+                return [ self._replace_ids(x, key) for x in v ]
+            elif k == 'has_representation':
+                return [ _sub(x) for x in v ]
+
+            return v
+
+
+        if isinstance(j, list):
+            return [ self._replace_ids(x, key) for x in j ]
+        elif isinstance(j, dict):
+            return { k:_handle(k,v) for k,v in j.items() }
+
+        return j
 

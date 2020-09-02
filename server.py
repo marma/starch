@@ -353,7 +353,7 @@ def download(key):
             key,
             resolve=request.args.get('resolve', 'true').lower() == 'true',
             iter_content=True,
-            timeout=60,
+            timeout=10,
             buffer_size=100*1024)
 
     return Response(i, headers={ 'Content-Disposition': f'attachment; filename={key}.tar' }, mimetype='application/x-tar')

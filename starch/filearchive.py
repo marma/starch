@@ -82,8 +82,6 @@ class FileArchive(starch.Archive):
             dir = self._directory(key)
             makedirs(dir + sep)
     
-            print(dir)
-        
             try:
                 for path in package:
                     if package.get(path)['@type'] != 'Reference' or copy:
@@ -344,7 +342,7 @@ class FileArchive(starch.Archive):
             p = self.get(key, mode='a')
             for path in p:
                 if p[path].get('@type', None) in [ 'Content', 'Structure' ]:
-                    print(path)
+                    #print(path)
                     j = load(self.open(key, path))
                     p.add(path=path, data=self._replace_ids(j, key=key), replace=True)
 
@@ -592,7 +590,7 @@ class FileArchive(starch.Archive):
 
 
         def _handle(k,v):
-            print('handle', k)
+            #print('handle', k)
             if k == '@id':
                 return _sub(v)
             elif k == 'has_part':

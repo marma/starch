@@ -555,11 +555,11 @@ def ingest(key):
         return redirect('/%s/' % key, code=201)
 
 
-@app.route('/_deserialize', methods=[ 'POST' ])
-def deserialize():
+@app.route('/<key>/_deserialize', methods=[ 'POST' ])
+def deserialize(key):
     _check_base(request)
 
-    key = archive.deserialize(request.stream, key=request.args.get('key', None))
+    key = archive.deserialize(request.stream, key=key)
 
     return redirect(f'/{key}/', code=201)
 

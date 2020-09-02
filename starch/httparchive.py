@@ -6,6 +6,7 @@ from sys import stderr
 from time import sleep
 from starch.result import create_result
 from collections.abc import Iterator,Generator
+from starch.enqp import parse
 import starch
 import logging
 
@@ -162,11 +163,44 @@ class HttpArchive(starch.Archive):
             return f.read()
 
 
-    def search(self, query, start=0, max=None, level=None, include=False):
-        g = self._search_iter(query, start, max, level, include)
-        i,r,c = next(g).split()
+    def search(self, query, start=0, max=None, sort=None, level=None, include=False):
+        if isinstance(query, dict):
+            query = dumps(query)
 
-        return create_result(i, r, c, g)
+        key_iter = self._search_iter(query, start, max, sort, level, include)
+        start,max,count = [ int(x) for x in next(key_iter).split() ]
+
+        return starch.Result(
+                    start,
+                    min(count-start, max) if max else count-start,
+                    count,
+                    key_iter,
+                    iter([]))
+
+
+    def _search_iter(self, query, start=0, max=None, sort=None, level=None, include=False):
+        params = { 'q': query, 'from': start }
+        if max: params.update({ 'max': max })
+        if level: params.update({ '@type': level })
+        if sort: params.update({ 'sort': sort })
+        if include: params.update({ 'include': 'True' })
+
+        with closing(get(urljoin(self.url, '_search'),
+            params=params,
+            verify=starch.VERIFY_CA,
+            auth=self.auth,
+            stream=True)) as r:
+
+            if r.status_code == 200:
+                first=True
+                for line in r.raw:
+                    line = line[:-1].decode('utf-8').split(',', 1)
+                    
+                    yield (line[0], loads(line[1])) if include and not first else line[0]
+
+                    first=False
+            else:
+                raise Exception('Expected status 200, got %d' % r.status_code)
 
 
     def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024):
@@ -191,35 +225,15 @@ class HttpArchive(starch.Archive):
 
 
     def deserialize(self, stream_or_iter, key=None):
-        url = f'{self.url}{(key + "/") if key else ""}_serialize'
+        url = f'{self.url}{(key + "/") if key else ""}_deserialize'
 
         if isinstance(stream_or_iter, (Iterator, Generator)):
-            r = post(url, data=stream_or_iter)
+            r = post(url, data=stream_or_iter, auth=self.auth)
         else:
-            r = post(url, data=starch.utils.stream_to_iter(stream_or_iter))
+            r = post(url, data=starch.utils.stream_to_iter(stream_or_iter), auth=self.auth)
 
-        return str(r.headers) + ' ' + r.text + ' ' + r.status_code
+        return str(r.headers) + ' ' + r.text + ' ' + str(r.status_code)
         
-
-    def _search_iter(self, query, start=0, max=None, level=None, include=False):
-        params = { 'q': dumps(query), 'start': start }
-        if max: params.update({ 'max': max })
-        if level: params.update({ '@type': level })
-
-        with closing(get(urljoin(self.url, '_search'),
-            params=params,
-            verify=starch.VERIFY_CA,
-            auth=self.auth,
-            stream=True)) as r:
-
-            if r.status_code == 200:
-                for line in r.raw:
-                    line = line[:-1].decode('utf-8').split(',', 1)
-                    
-                    yield (line[0], loads(line[1])) if include else line
-            else:
-                raise Exception('Expected status 200, got %d' % r.status_code)
-
 
     def count(self, query, cats={}):
         with closing(get(urljoin(self.url, 'count'),

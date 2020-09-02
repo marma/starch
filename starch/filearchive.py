@@ -239,7 +239,7 @@ class FileArchive(starch.Archive):
                         for info in desc['files']:
                             path = info['path']
 
-                            if path in resolved:
+                            if path in resolved and info['@type'] == 'Reference':
                                 info['@type'] = 'Resource'
 
                                 if path in sizes:

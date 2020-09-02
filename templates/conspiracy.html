@@ -118,6 +118,7 @@
     # set square = request.cookies.get('square', 'False')
     <body class="">
         <div id="menu" class="ui visible sidebar left {{ 'inverted' if request.cookies.get('mode', 'light') == 'dark' else '' }} vertical accordion menu list" style="overflow: hidden;">
+            # if type != 'Text':
             <div class="item">
                 <a class="active title">
                     <i class="dropdown icon"></i>
@@ -176,7 +177,7 @@
                     <div class="right floated content">
                         <div class="ui circular label">{{ n_packages }}</div>
                     </div>
-                    <div>Number of packages:</div>
+                    <div>Number of {{ type|lower }}s:</div>
                 </div>
 		# if type == 'Package'
                 <div class="item">
@@ -188,6 +189,7 @@
 		# endif
                 </div>
             </div>
+            # endif
         </div>
         <div>
             <!--button id="sidebar_left_toggle" onclick="$('.ui.sidebar').sidebar('toggle');">show sidebar</button-->
@@ -203,7 +205,7 @@
                     <span class="ui right floated menu">
                         <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="/_set?type=Package">Package</a>
                         <a class="ui {{ 'active' if type == 'Page' else '' }} item" href="/_set?type=Page">Page</a>
-                        <a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a>
+                        <!--a class="ui {{ 'active' if type == 'Text' else '' }} item" href="/_set?type=Text">Text</a-->
                     </span>
                     <!--span class="ui flating search">
                             <form action="/" method="GET">
@@ -216,6 +218,7 @@
                     <!--div class="ui floating"><h1><a href="/">Index</a></h1></div-->
                     <div class="ui floating">
                         <form action="/" method="GET">
+                            <!--div class="ui button" data-title="Exempel" data-tooltip="Exempel: värdeminskning" data-position="bottom left"><b>?</b></i></di-->
                             <div class="ui icon input">
                                 <input name="q" class="prompt" type="text" value="{{ query or '' }}" placeholder="Search ...">
                                 <i class="search icon"></i>
@@ -257,7 +260,9 @@
 				<!--img style="object-fit: cover" src="/static/img/gray-image.png" class="ui masked image" width="300" min-height="300" data-src="/{{ (key.split('#')[0] + '/' + cover) if cover else 'static/img/gray-image.png' }}"/-->
                             </a>
                             <div class="detail">
+                        #   if type != 'Text':
                                 <span>{{ (description['label'] or '<None>').split()[-1] | truncate(32) }}</span>
+                        #   endif
                             </div>
                         </div>
                         # endfor

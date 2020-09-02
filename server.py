@@ -25,6 +25,7 @@ from starch.iterio import IterIO
 import datetime
 from sys import stdout
 from io import UnsupportedOperation
+from time import time
 
 USE_NGINX_X_ACCEL = False
 
@@ -33,7 +34,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 #app.use_x_sendfile = True
 app.config.update(yload(open(join(app.root_path, 'config.yml')).read(), Loader=FullLoader))
 app.jinja_env.line_statement_prefix = '#'
-cache = Cache(app, config={ 'CACHE_TYPE': 'simple' })
+cache = Cache(app, config={ 'CACHE_TYPE': 'filesystem', 'CACHE_DIR': app.config.get('flask_cache_dir', '/tmp/flask_cache') })
 
 if 'auth' in app.config:
     basic_auth = BasicAuth(app)
@@ -44,13 +45,21 @@ if 'auth' in app.config:
 archive = Archive(**app.config['archive'])
 index = Index(**app.config['archive']['index']) if 'index' in app.config['archive'] else None
 
+def make_key():
+    return request.args.get('q', '') + request.cookies.get('type', 'Package')
+
 @app.route('/')
+#@cache.cached(timeout=1, key_prefix=make_key)
 def site_index():
-    q = request.args.get('q', None) or {}
+    q = request.args.get('q', {})
     tpe = request.cookies.get('type', 'Package')
-    result = (index or archive).search(q, max=100, level=tpe, include=True)
+    t0=time()
+    result = (index or archive).search(q, max=200 if tpe == 'Text' else 100, level=tpe, include=True)
+    t1=time()
     #descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
+    t2=time()
     descriptions = [ x for x in result.keys ]
+    t3=time()
 
     counts = (index or archive).count(
                     q,
@@ -60,9 +69,11 @@ def site_index():
                         'created': 'meta.year.keyword',
                         'size': 'sum(size)'
                     },
-                    level=tpe)
+                    level=tpe) if tpe != 'Text' else {}
+    t4=time()
 
-    counts['size']['value'] = int(counts['size']['value'])
+    if 'size' in counts:
+        counts['size']['value'] = int(counts['size']['value'])
 
     r = Response(
             render_template('conspiracy.html',
@@ -73,6 +84,10 @@ def site_index():
                             descriptions=descriptions,
                             counts=counts,
                             query=q))
+
+    t5=time()
+
+    print(f'search: {t1-t0}, descriptions-1: {t2-t1}, descriptions-2: {t3-t2}, counts: {t4-t3}, render: {t5-t4}', flush=True)
 
     return r
 
@@ -92,8 +107,6 @@ def view_thing(key):
     _check_base(request)
  
     p = archive.get(key)
-
-    print(p)
 
     return render_template('thing.html', structure=dumps(loads(archive.read(key, 'structure.json'))))
 
@@ -593,11 +606,19 @@ def search():
     if request.args.get('q', '') == '':
         return 'non-existant or empty q parameter', 500
 
-    tpe = request.args.get('@type', None)
+    tpe = request.args.get('@type', 'Package')
     include = 'include' in request.args and request.args['include'] not in [ 'False', 'false' ]
 
+    query = request.args['q']
+
+    if '[' in query or '}' in query:
+        try:
+            query = loads(request.args['q'])
+        except:
+            ...
+
     r = (index or archive).search(
-            loads(request.args['q']),
+            query,
             int(request.args.get('from', '0')),
             int(request.args['max']) if 'max' in request.args else None,
             request.args.get('sort', None),

@@ -45,6 +45,7 @@ archive = Archive(**app.config['archive'])
 index = Index(**app.config['archive']['index']) if 'index' in app.config['archive'] else None
 
 @app.route('/')
+@cache.cached(timeout=50)
 def site_index():
     q = request.args.get('q', None) or {}
     tpe = request.cookies.get('type', 'Package')
@@ -341,7 +342,7 @@ def download(key):
             key,
             resolve=request.args.get('resolve', 'true').lower() == 'true',
             iter_content=True,
-            timeout=60,
+            timeout=10,
             buffer_size=100*1024)
 
     return Response(i, headers={ 'Content-Disposition': f'attachment; filename={key}.tar' }, mimetype='application/x-tar')

@@ -202,9 +202,10 @@ class HttpArchive(starch.Archive):
         
 
     def _search_iter(self, query, start=0, max=None, level=None, include=False):
-        params = { 'q': dumps(query), 'start': start }
+        params = { 'q': dumps(query), 'from': start }
         if max: params.update({ 'max': max })
         if level: params.update({ '@type': level })
+        if include: params.update({ 'include': include })
 
         with closing(get(urljoin(self.url, '_search'),
             params=params,

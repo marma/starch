@@ -37,7 +37,7 @@ class FileArchive(starch.Archive):
         self.index = starch.Index(**index) if isinstance(index, dict) else index
         self.lockm = starch.LockManager(**lockm) if isinstance(lockm, dict) else lockm
         self.dir_split_strategy = kwargs.get('dir_split_strategy', 'hash')
-        self.prefix = kwargs.get('prefix', {})
+        self.resolutions = kwargs.get('resolve', {})
 
 
     def new(self, key=None, **kwargs):
@@ -166,8 +166,8 @@ class FileArchive(starch.Archive):
                     u = f['url']
                     scheme = u[:u.index(':')]
 
-                    if scheme in self.prefix:
-                        u = self.prefix[scheme]['prefix'] + u[u.index(':')+1:]
+                    if scheme in self.resolutions:
+                        u = 'file://' + self.resolutions[scheme] + u[u.index(':')+1:]
 
                     return u
 
@@ -350,12 +350,18 @@ class FileArchive(starch.Archive):
 
 
     def exists(self, key, path=None):
-        d = self._directory(valid_key(key))
+        #d = self._directory(valid_key(key))
+        l = self.location(valid_key(key), path=valid_path(path) if path else None)
 
-        if path:
-            return exists(join(d, valid_path(path)))
-        else:
-            return exists(d)           
+        if l:
+            return exists(l[7:])
+
+        #if path:
+        #    return exists(join(d, valid_path(path)))
+        #else:
+        #    return exists(d)
+
+        return False
 
 
     def open(self, key, path, mode=''):

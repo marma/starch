@@ -49,17 +49,18 @@ def make_key():
     return request.args.get('q', '') + request.cookies.get('type', 'Package') + request.cookies.get('mode', 'light')
 
 @app.route('/')
-@cache.cached(timeout=60, key_prefix=make_key)
+#@cache.cached(timeout=1, key_prefix=make_key)
 def site_index():
-    q = request.args.get('q', None) or {}
+    q = request.args.get('q', {})
     tpe = request.cookies.get('type', 'Package')
     t0=time()
-    result = (index or archive).search(q, max=100, level=tpe, include=True)
+    result = (index or archive).search(q, max=200 if tpe == 'Text' else 100, level=tpe, include=True)
     t1=time()
     #descriptions = [ (x, index.get(x) if index else archive.get(x).description()) for x in packages[3] ]
     t2=time()
     descriptions = [ x for x in result.keys ]
     t3=time()
+
     counts = (index or archive).count(
                     q,
                     { 
@@ -68,16 +69,17 @@ def site_index():
                         'created': 'meta.year.keyword',
                         'size': 'sum(size)'
                     },
-                    level=tpe)
+                    level=tpe) if tpe != 'Text' else {}
     t4=time()
 
-    counts['size']['value'] = int(counts['size']['value'])
+    if 'size' in counts:
+        counts['size']['value'] = int(counts['size']['value'])
 
     r = Response(
             render_template('conspiracy.html',
                             start=result.start,
                             max=result.m,
-                            n_packages=result.n,
+                            n_packages=result.m,
                             #archive=archive,
                             descriptions=descriptions,
                             counts=counts,
@@ -105,8 +107,6 @@ def view_thing(key):
     _check_base(request)
  
     p = archive.get(key)
-
-    print(p)
 
     return render_template('thing.html', structure=dumps(loads(archive.read(key, 'structure.json'))))
 
@@ -216,21 +216,21 @@ def view(key, path):
 def _info(key, path):
     _check_base(request)
 
-    p = archive.get(key)
-    if p and path in p:
+    if archive.exists(key, path):
+        p = archive.get(key)
         callback = app.config.get('image_server', {}).get('callback_root', request.url_root)
         url = f'{callback}{key}/{path}'
         uri = f'{p.description()["@id"]}{path}'
 
         if app.config.get('image_server', {}).get('send_location', False):
-            loc = p.location(path)
+            loc = archive.location(key, path)
 
             if loc.startswith('file:'):
                 prefix = app.config.get('image_server', {}).get('prefix', None)
                 base = app.config.get('image_server', {}).get('archive_root', None)
 
                 if prefix:
-                    url = loc[7:].replace(base, f'{prefix}:')
+                    url = loc.replace(base, f'{prefix}:')
 
         if uri == '':
             uri = f'{request.url_root}{key}/{path}'
@@ -261,7 +261,7 @@ def iiif_info(key, path):
     
         return r
 
-    return 'Not found', 404
+    return f'/{key}/{path } not found', 404
 
 
 @app.route('/<key>/<path:path>/<region>/<size>/<rot>/<quality>.<fmt>')
@@ -278,7 +278,7 @@ def iiif(key, path, region, size, rot, quality, fmt):
                 # send image using an internal prefix that is known by the image server
                 prefix = app.config['image_server']['prefix']
                 base = app.config['image_server']['archive_root']
-                url = loc[7:].replace(base, f'{prefix}:')
+                url = loc.replace(base, f'{prefix}:')
             elif iconf.get('callback_root', False):
                 # send image location to image server using callback since the internal
                 # name within Docker may not be the same as the external one
@@ -612,11 +612,13 @@ def search():
     if request.args.get('q', '') == '':
         return 'non-existant or empty q parameter', 500
 
-    tpe = request.args.get('@type', None)
+    tpe = request.args.get('@type', 'Package')
     include = 'include' in request.args and request.args['include'] not in [ 'False', 'false' ]
 
+    query = request.args['q']
+
     r = (index or archive).search(
-            request.args['q'],
+            query,
             int(request.args.get('from', '0')),
             int(request.args['max']) if 'max' in request.args else None,
             request.args.get('sort', None),

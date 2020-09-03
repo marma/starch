@@ -90,8 +90,6 @@ class ElasticIndex(starch.Index):
 
         query = parse(q, default=self.default)
 
-        #print(query, flush=True)
-
         index = self.index_map.get(level, self.index_name)
         res = self.elastic.search(index=index, from_=0, size=0, body=query, track_total_hits=True)
         count = int(res['hits']['total']['value'])
@@ -197,7 +195,7 @@ class ElasticIndex(starch.Index):
                 for d in f:
                     #print(d)
                     k = d['@id']
-                    print(k)
+                    #print(k)
                     k = k[k.rfind('/')+1:] if k[-1] != '/' else k[:-1][k[:-1].rfind('/')+1:]
 
                     if config['type'] != self.content.get('content_part_type', 'Text'):

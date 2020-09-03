@@ -92,7 +92,7 @@
                     <div class="right floated content">
                         <div class="ui circular label">{{ n_packages }}</div>
                     </div>
-                    <div>Number of packages:</div>
+                    <div>Number of {{ type|lower }}s:</div>
                 </div>
                 <div class="item">
                     <div class="right floated content">
@@ -111,7 +111,7 @@
                     <span class="ui right floated menu">
                         <a class="ui {{ 'active' if type == 'Package' else '' }} item" href="?type=Package">Package</a>
                         <a class="ui {{ 'active' if type == 'Page' else '' }} item" href="?type=Page">Page</a>
-                        <!--a class="ui {{ 'active' if type == 'Text' else '' }} item" href="?type=Text">Text</a-->
+                        <a class="ui {{ 'active' if type == 'Text' else '' }} item" href="?type=Text">Text</a>
                     </span>
                     <div class="ui floating"><h1><a href="/">Index</a></h1></div>
                 </div>

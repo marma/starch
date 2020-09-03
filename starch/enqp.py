@@ -15,7 +15,7 @@
 #
 # Alternative:
 #
-# nested:{ role:aut and agent:{ name:pelle and lastName:Olsson } }
+# nested:{ role:aut and agent:{ name:pelle AND lastName:Olsson } }
 #
 
 from sys import argv,stdin,stderr
@@ -26,7 +26,7 @@ from re import match
 
 debug = False
 
-def parse(query, default='_all'):
+def parse(query, default_operator='AND', default='_all'):
     parser = Lark('query:          query_part | boolean_query\n' +
             'query_part:     asterisk | expr | dictionary | "(" query ")" | nested_query\n' +
             'boolean_query:  query_part operator query_part (operator query_part)*\n' +
@@ -34,8 +34,8 @@ def parse(query, default='_all'):
             'dictionary:     "{" [key_val] ("," key_val)* "}"\n' +
             'key_val:        field ":" (string | dictionary)\n' +
             'operator:       and | or\n' + # | and_not\n' +
-            'and:            "and"i\n' +
-            'or:             "or"i\n' +
+            'and:            "AND"\n' +
+            'or:             "OR"\n' +
             #'and_not:        "and not"i\n' +
             'expr:           string | fielded_expr\n' +
             'fielded_expr:   field ":" (string | dictionary | nested_query)\n' +
@@ -121,7 +121,7 @@ def _handle(node, field='', default='_all'):
         else:
             return  {
                     'bool': {
-                        'min_should_match': 1,
+                        #'min_should_match': 1,
                         'should': [
                             _handle(l[0], field, default=default) if len(l) == 1 else
                             {
@@ -138,6 +138,7 @@ def _handle(node, field='', default='_all'):
         return { 'match_all': {} }
     elif node.data == 'expr':
         return _handle(node.children[0], field, default=default)
+        #return _handle(' '.join([ x.value for x in node.children ]), field, default=default)
     elif node.data == 'fielded_expr':
         f = node.children[0].children[0].value
 

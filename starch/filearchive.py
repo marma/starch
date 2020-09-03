@@ -197,8 +197,13 @@ class FileArchive(starch.Archive):
                                 ti = tarfile.TarInfo(f'{key}/{path}')
                                 loc = self.location(key, path)
 
-                                ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
-                                
+                                print(loc)
+
+                                try:
+                                    ti.mtime = int(datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
+                                except:
+                                    ti.mtime = int(datetime.datetime.now().timestamp())                                
+
                                 if loc.startswith('file:///'):
                                     sizes[path] = getsize(loc[7:])
                                     checksums[path] = info.get('checksum', 'SHA256:' + self._checksum(loc[7:]))
@@ -257,7 +262,8 @@ class FileArchive(starch.Archive):
                         b = dumps(desc, indent=4).encode('utf-8')
                         ti = tarfile.TarInfo(f'{key}/_package.json')
                         ti.size = len(b)
-                        ti.mtime = int(datetime.datetime.fromisoformat(desc['created'][:-1]).timestamp())
+
+                        ti.mtime = int(datetime.datetime.now().timestamp())
                         t.addfile(ti, BytesIO(b))
 
             finally:

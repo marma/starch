@@ -611,12 +611,6 @@ def search():
 
     query = request.args['q']
 
-    if '[' in query or '}' in query:
-        try:
-            query = loads(request.args['q'])
-        except:
-            ...
-
     r = (index or archive).search(
             query,
             int(request.args.get('from', '0')),

@@ -46,7 +46,7 @@ archive = Archive(**app.config['archive'])
 index = Index(**app.config['archive']['index']) if 'index' in app.config['archive'] else None
 
 def make_key():
-    return request.args.get('q', '') + request.cookies.get('type', 'Package')
+    return request.args.get('q', '') + request.cookies.get('type', 'Package') + request.cookies.get('mode', 'light')
 
 @app.route('/')
 @cache.cached(timeout=60, key_prefix=make_key)
@@ -555,11 +555,17 @@ def ingest(key):
         return redirect('/%s/' % key, code=201)
 
 
-@app.route('/_deserialize', methods=[ 'POST' ])
-def deserialize():
+@app.route('/<key>/_deserialize', methods=[ 'POST' ])
+def deserialize(key):
     _check_base(request)
 
-    key = archive.deserialize(request.stream, key=request.args.get('key', None))
+    key = archive.deserialize(request.stream, key=key)
+
+    try:
+        if index:
+            _reindex(key)
+    except:
+        ...
 
     return redirect(f'/{key}/', code=201)
 
@@ -610,7 +616,7 @@ def search():
     include = 'include' in request.args and request.args['include'] not in [ 'False', 'false' ]
 
     r = (index or archive).search(
-            loads(request.args['q']),
+            request.args['q'],
             int(request.args.get('from', '0')),
             int(request.args['max']) if 'max' in request.args else None,
             request.args.get('sort', None),
@@ -634,37 +640,21 @@ def count():
 
 @app.route('/reindex/<key>')
 def reindex(key):
-    p=archive.get(key)
-
-    if not p:
-        index.delete(key)
-
-        return 'Not found', 404    
-
-    #print(index, p, flush=True)
-
-    if index != None and p:
-        try:
-            index.update(key, p)
-
-            return 'OK', 200
-        except Exception as e:
-            raise e
-            #return str(e), 500
-
-    #if index:
-    #    t0 = time()
-    #    ps = [ (k,archive.get(k)) for k in key.split(';') if k ]
-    #    t1 = time()
-    #    b = index.bulk_update(ps, sync=False)
-    #    t2 = time()
-
-        #print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
-
-    #    return dumps(b)
+    if index:
+        return 'OK' if _reindex(key) else 'deleted'
 
     return 'no index', 500
 
+
+def _reindex(key):
+    p=archive.get(key)
+
+    if p:
+        index.update(key, p)
+        return True
+    else:
+        index.delete(key)
+        return False
 
 
 @app.route('/deindex/<key>')

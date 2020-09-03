@@ -191,7 +191,7 @@ class HttpArchive(starch.Archive):
         raise Exception(f'Server returned {r.status_code}')
 
 
-    def deserialize(self, stream_or_iter, key=None):
+    def deserialize(self, stream_or_iter, key):
         url = f'{self.url}{(key + "/") if key else ""}_serialize'
 
         if isinstance(stream_or_iter, (Iterator, Generator)):
@@ -199,7 +199,7 @@ class HttpArchive(starch.Archive):
         else:
             r = post(url, data=starch.utils.stream_to_iter(stream_or_iter))
 
-        return str(r.headers) + ' ' + r.text + ' ' + r.status_code
+        return key
         
 
     def _search_iter(self, query, start=0, max=None):

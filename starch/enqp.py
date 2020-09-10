@@ -15,7 +15,7 @@
 #
 # Alternative:
 #
-# nested:{ role:aut and agent:{ name:pelle AND lastName:Olsson } }
+# contributor:{ role:aut and agent:{ name:pelle and lastName:Olsson } }
 #
 
 from sys import argv,stdin,stderr
@@ -26,39 +26,83 @@ from re import match
 
 debug = False
 
-def parse(query, default_operator='AND', default='_all'):
-    parser = Lark('query:          query_part | boolean_query\n' +
-            'query_part:     asterisk | expr | dictionary | "(" query ")" | nested_query\n' +
-            'boolean_query:  query_part operator query_part (operator query_part)*\n' +
-            'nested_query:   "{" query "}"\n' +
-            'dictionary:     "{" [key_val] ("," key_val)* "}"\n' +
-            'key_val:        field ":" (string | dictionary)\n' +
-            'operator:       and | or\n' + # | and_not\n' +
-            'and:            "AND"\n' +
-            'or:             "OR"\n' +
-            #'and_not:        "and not"i\n' +
-            'expr:           string | fielded_expr\n' +
-            'fielded_expr:   field ":" (string | dictionary | nested_query)\n' +
-            'field:          CNAME | "\\"" CNAME "\\""\n' +
-            'string:         CNAME | ESCAPED_STRING\n' +
-            'asterisk:       "*"\n' +
-            'CNAME:          /[a-z\u00e5\u00e4\u00f6A-Z\u00c5\u00c4\u00d60-9_\\.-]+/\n' +
-            '%import common.ESCAPED_STRING\n' +
-            '%import common.WS\n' +
-            '%ignore WS',
-            start='query')
+def parse(query, default='_all'):
+    parser = Lark(
+            """
+            query:          or_query
+            single:         asterisk | expr | "(" query ")" | nested_query
+            or_query:       and_query (or and_query)*
+            and_query:      single ([and | "," | and_not] single)*
+            not_query:      single and_not single
+            nested_query:   "{" query "}"
+            and:            "and"i
+            or:             "or"i
+            and_not:        ["and"i] "not"i
+            expr:           (string | fielded_expr)
+            fielded_expr:   field ":" single
+            field:          CNAME | "\\"" CNAME "\\""
+            string:         CNAME | ESCAPED_STRING
+            asterisk:       "*" | ("{" "}")
+            CNAME:          /[a-z\u00e5\u00e4\u00f6A-Z\u00c5\u00c4\u00d60-9_\\.-]+/
+            %import common.ESCAPED_STRING
+            %import common.WS
+            %ignore WS
+            """,
+            start='query',
+            parser='lalr')
 
     x = parser.parse(query)
 
     if debug:
-        print(x.pretty(), file=stderr)
+        print(x.pretty(), file=stderr, flush=True)
+
+    #print({ 'query': _handle(x, default=default) }, file=stderr, flush=True)
 
     return { 'query': _handle(x, default=default) }
 
 
 def _handle(node, field='', default='_all'):
-    if node.data in [ 'query', 'query_part']:
+    if node.data in [ 'query', 'single' ] or node.data in [ 'or_query', 'and_query' ] and len(node.children) == 1:
         return _handle(node.children[0], field, default=default)
+    elif node.data == 'or_query':
+        return  {
+                    'bool': {
+                        #'min_should_match': 1,
+                        'should': [
+                            _handle(x, field, default=default) for x in node.children if x.data != 'or'
+                        ]
+                    }
+                }
+    elif node.data == 'and_query':
+        mode='and'
+        a=[]
+        n=[]
+        for x in node.children:
+            if x.data in [ 'and', 'and_not' ]:
+                mode = x.data
+            elif mode == 'and':
+                a += [ x ]
+            elif mode == 'and_not':
+                n += [ x ]
+ 
+
+        ret = {
+                'bool': {
+                    'must': [
+                        _handle(x, field, default=default) for x in a
+                    ]
+                }
+            }
+
+        if len(n) != 0:
+            ret['bool'].update(
+                    {
+                        'must_not': [
+                            _handle(x, field, default=default) for x in n
+                        ]
+                    })
+
+        return ret
     elif node.data == 'nested_query':
         return {
                 'nested': {
@@ -66,74 +110,6 @@ def _handle(node, field='', default='_all'):
                     'query': _handle(node.children[0], field, default=default)
                     }
                 } if field != '' else _handle(node.children[0], default=default)
-    elif node.data == 'dictionary':
-        if len(node.children) == 0:
-            if field != '':
-                return  {
-                        'nested': {
-                            'path': field,
-                            'query': { 'match_all': {} }
-                            }
-                        }
-            else:
-                return { 'match_all': {} }
-        else:
-            if field != '':
-                return {
-                        'nested': {
-                            'path': field,
-                            'query': {
-                                'bool': {
-                                    'must': [ _handle(kv, field) for kv in node.children ]
-                                    }
-                                } if len(node.children) > 1 else _handle(node.children[0], field, default=default)
-                            }
-                        }
-            else:
-                return  {
-                        'bool': {
-                            'must': [ _handle(kv, field, default=default) for kv in node.children ]
-                            }
-                        } if len(node.children) > 1 else _handle(node.children[0], field, default=default)
-    elif node.data == 'key_val':
-        return _handle(node.children[1], '.'.join([field, node.children[0].children[0].value]) if field != '' else node.children[0].children[0].value, default=default)
-    elif node.data == 'boolean_query':
-        # 1. split on "or" operator
-        should,c = [], []
-
-        for t in node.children:
-            if t.data == 'operator' and t.children[0].data == 'or':
-                should.append(c)
-                c = []
-            else:
-                c += [ t ]
-
-        should.append(c)
-
-        if len(should) == 1:
-            return  {
-                    'bool': {
-                        'must': [
-                            _handle(x, field, default=default) for x in should[0] if x.data != 'operator'
-                            ]
-                        }
-                    }
-        else:
-            return  {
-                    'bool': {
-                        #'min_should_match': 1,
-                        'should': [
-                            _handle(l[0], field, default=default) if len(l) == 1 else
-                            {
-                                'bool': {
-                                    'must': [
-                                        _handle(x, field, default=default) for x in l if x.data != 'operator'
-                                        ]
-                                    }
-                                } for l in should 
-                            ]
-                        }
-                    }
     elif node.data == 'asterisk':
         return { 'match_all': {} }
     elif node.data == 'expr':
@@ -147,9 +123,10 @@ def _handle(node, field='', default='_all'):
         s = node.children[0].value
 
         if s[0] == '"':
-            s = s[1:-1]
+            return { 'match_phrase': { field if field != '' else default: s[1:-1] } }
 
-        return { 'match': { field if field != '' else default: { 'query': s, 'operator': 'and' } } }
+        #return { 'match': { field if field != '' else default: { 'query': s, 'operator': 'and' } } }
+        return { 'term': { field if field != '' else default: s } } 
 
 
 def create_aggregations(q):
@@ -197,7 +174,5 @@ def flatten_aggs(r):
 
 
 if __name__ == "__main__":
-    parse(sys.argv[1])
-
-
+    print(parse(argv[1]))
 

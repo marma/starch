@@ -46,7 +46,7 @@ archive = Archive(**app.config['archive'])
 index = Index(**app.config['archive']['index']) if 'index' in app.config['archive'] else None
 
 def make_key():
-    return request.args.get('q', '') + request.cookies.get('type', 'Package')
+    return request.args.get('q', '') + request.cookies.get('type', 'Package') + request.cookies.get('mode', 'light')
 
 @app.route('/')
 #@cache.cached(timeout=1, key_prefix=make_key)
@@ -354,7 +354,7 @@ def download(key):
             resolve=request.args.get('resolve', 'true').lower() == 'true',
             iter_content=True,
             timeout=10,
-            buffer_size=100*1024)
+            buffer_size=1024*1024)
 
     return Response(i, headers={ 'Content-Disposition': f'attachment; filename={key}.tar' }, mimetype='application/x-tar')
 
@@ -561,6 +561,12 @@ def deserialize(key):
 
     key = archive.deserialize(request.stream, key=key)
 
+    try:
+        if index:
+            _reindex(key)
+    except:
+        ...
+
     return redirect(f'/{key}/', code=201)
 
 
@@ -636,37 +642,21 @@ def count():
 
 @app.route('/reindex/<key>')
 def reindex(key):
-    p=archive.get(key)
-
-    if not p:
-        index.delete(key)
-
-        return 'Not found', 404    
-
-    #print(index, p, flush=True)
-
-    if index != None and p:
-        try:
-            index.update(key, p)
-
-            return 'OK', 200
-        except Exception as e:
-            raise e
-            #return str(e), 500
-
-    #if index:
-    #    t0 = time()
-    #    ps = [ (k,archive.get(k)) for k in key.split(';') if k ]
-    #    t1 = time()
-    #    b = index.bulk_update(ps, sync=False)
-    #    t2 = time()
-
-        #print(f'getting {len(ps)} packages took {t1-t0} seconds, index returned after {t2-t1}', flush=True)
-
-    #    return dumps(b)
+    if index:
+        return 'OK' if _reindex(key) else 'deleted'
 
     return 'no index', 500
 
+
+def _reindex(key):
+    p=archive.get(key)
+
+    if p:
+        index.update(key, p)
+        return True
+    else:
+        index.delete(key)
+        return False
 
 
 @app.route('/deindex/<key>')

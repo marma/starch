@@ -327,7 +327,7 @@ class FileArchive(starch.Archive):
             ti = t.next()
             while ti:
                 if ti.name.startswith('/') or ti.name.startswith('..') or '/../' in ti.name:
-                    continue
+                    raise Exception(f'path not allowed ({ti.name})')
 
                 tkey = f'{basename(dirname(abspath(ti.name)))}'
 

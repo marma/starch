@@ -24,7 +24,7 @@ from json import dumps
 from copy import deepcopy
 from re import match
 
-debug = True
+debug = False
 
 def parse(query, default='_all'):
     parser = Lark(
@@ -54,7 +54,9 @@ def parse(query, default='_all'):
     x = parser.parse(query)
 
     if debug:
-        print(x.pretty(), file=stderr)
+        print(x.pretty(), file=stderr, flush=True)
+
+    #print({ 'query': _handle(x, default=default) }, file=stderr, flush=True)
 
     return { 'query': _handle(x, default=default) }
 
@@ -121,7 +123,7 @@ def _handle(node, field='', default='_all'):
         s = node.children[0].value
 
         if s[0] == '"':
-            s = s[1:-1]
+            return { 'match_phrase': { field if field != '' else default: s[1:-1] } }
 
         #return { 'match': { field if field != '' else default: { 'query': s, 'operator': 'and' } } }
         return { 'term': { field if field != '' else default: s } } 

@@ -42,7 +42,7 @@ def parse(query, default='_all'):
             fielded_expr:   field ":" single
             field:          CNAME | "\\"" CNAME "\\""
             string:         CNAME | ESCAPED_STRING
-            asterisk:       "*"
+            asterisk:       "*" | ("{" "}")
             CNAME:          /[a-z\u00e5\u00e4\u00f6A-Z\u00c5\u00c4\u00d60-9_\\.-]+/
             %import common.ESCAPED_STRING
             %import common.WS

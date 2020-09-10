@@ -221,7 +221,9 @@
                     <div class="ui floating">
                         <form action="/" method="GET">
                             <!--div class="ui button" data-title="Exempel" data-tooltip="Exempel: värdeminskning" data-position="bottom left"><b>?</b></i></di-->
+			    # if query:
 			    <h1 style="display:inline"><a href="/">Index</a> / </h1>
+			    # endif
 			    <div class="ui icon input">
                                 <input name="q" class="prompt" type="text" value="{{ query or '' }}" placeholder="Search ...">
 				<i class="search icon"></i>

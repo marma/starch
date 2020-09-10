@@ -64,7 +64,7 @@ def site_index():
     counts = (index or archive).count(
                     q,
                     { 
-                        'type': { 'files': 'mime_type' },
+                        #'type': { 'files': 'mime_type' },
                         'tag': 'tags',
                         'created': 'meta.year.keyword',
                         'size': 'sum(size)'
@@ -94,7 +94,7 @@ def site_index():
 
 @app.route('/_set')
 def set():
-    r = Response(headers={ 'Location': request.headers.get("Referer") })
+    r = Response(headers={ 'Location': request.headers.get('Referer', '/') })
     
     for p in request.args:
         r.set_cookie(p, request.args[p])
@@ -107,6 +107,9 @@ def view_thing(key):
     _check_base(request)
  
     p = archive.get(key)
+
+    if p == None:
+        return 'Not found', 404
 
     return render_template('thing.html', structure=dumps(loads(archive.read(key, 'structure.json'))))
 
@@ -515,6 +518,9 @@ def delete_package(key):
 
         if p:
             archive.delete(key, force=True)        
+
+            if index:
+                index.delete(key)
 
             return 'deleted', 204
 

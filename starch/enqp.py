@@ -112,6 +112,7 @@ def _handle(node, field='', default='_all'):
         return { 'match_all': {} }
     elif node.data == 'expr':
         return _handle(node.children[0], field, default=default)
+        #return _handle(' '.join([ x.value for x in node.children ]), field, default=default)
     elif node.data == 'fielded_expr':
         f = node.children[0].children[0].value
 

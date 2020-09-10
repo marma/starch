@@ -90,8 +90,6 @@ class ElasticIndex(starch.Index):
 
         query = parse(q, default=self.default)
 
-        #print(query, flush=True)
-
         index = self.index_map.get(level, self.index_name)
         res = self.elastic.search(index=index, from_=0, size=0, body=query, track_total_hits=True)
         count = int(res['hits']['total']['value'])
@@ -105,10 +103,9 @@ class ElasticIndex(starch.Index):
                     iter([]))
 
 
-    def _search_iterator(self, q, start, max, count, sort, level=None, include=None):
-        max = max or count
-
-        # @todo warn when combining files and content in same query
+    def _search_iterator(self, q, start, max, count, sort, level='Package', include=False):
+        if max and start + max > 10_000:
+            raise Exception('Pagination beyond 10000 hits not allowed, use empty max parameter to retrieve full set')
 
         index = self.index_map.get(level, self.index_name)
 
@@ -118,13 +115,10 @@ class ElasticIndex(starch.Index):
         s.update_from_dict(q)
         s.source(include)
 
-        for i,hit in enumerate(s.scan()):
-            # @TODO: find a way to paginate using Elastic since this is costly
-            if i >= start:
-                if i - start < max:
-                    yield hit.meta.id if not include else (hit.meta.id, self._hit_to_desc(hit))
-                else:
-                    return
+        m = max or count
+
+        for hit in s[start:start+m] if start + m <= 10_000 else s.scan():
+            yield hit.meta.id if not include else (hit.meta.id, self._hit_to_desc(hit))
 
 
     def count(self, q, cats, level=None):
@@ -201,7 +195,7 @@ class ElasticIndex(starch.Index):
                 for d in f:
                     #print(d)
                     k = d['@id']
-                    print(k)
+                    #print(k)
                     k = k[k.rfind('/')+1:] if k[-1] != '/' else k[:-1][k[:-1].rfind('/')+1:]
 
                     if config['type'] != self.content.get('content_part_type', 'Text'):

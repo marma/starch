@@ -1,5 +1,6 @@
 from json import load,loads,dumps
 from sys import stdin, stderr
+from os import rename
 from os.path import exists,join,basename,dirname,abspath
 from urllib.parse import urljoin
 from os import remove,makedirs,walk
@@ -27,15 +28,16 @@ import shutil
 MAX_ID=2**38
 
 class FileArchive(starch.Archive):
-    def __init__(self, root=None, base=None, index=None, mode='read-write', lockm=starch.LockManager(type='null'), **kwargs):
+    def __init__(self, root=None, base=None, relative_uris=False, index=None, mode='read-write', lockm=starch.LockManager(type='null'), **kwargs):
         self.temporary = root == None
         self.root_dir = root or get_temp_dirname()
-        self.base = base
+        self.base = base if base and base[-1] == '/' else base + '/' if base else base # bass
+        self.relative_uris = relative_uris or not base # omg
         self.mode = mode
         self.index = starch.Index(**index) if isinstance(index, dict) else index
         self.lockm = starch.LockManager(**lockm) if isinstance(lockm, dict) else lockm
         self.dir_split_strategy = kwargs.get('dir_split_strategy', 'hash')
-        self.prefix = kwargs.get('prefix', {})
+        self.resolutions = kwargs.get('resolve', {})
 
 
     def new(self, key=None, **kwargs):
@@ -80,8 +82,6 @@ class FileArchive(starch.Archive):
             dir = self._directory(key)
             makedirs(dir + sep)
     
-            print(dir)
-        
             try:
                 for path in package:
                     if package.get(path)['@type'] != 'Reference' or copy:
@@ -166,8 +166,8 @@ class FileArchive(starch.Archive):
                     u = f['url']
                     scheme = u[:u.index(':')]
 
-                    if scheme in self.prefix:
-                        u = self.prefix[scheme]['prefix'] + u[u.index(':')+1:]
+                    if scheme in self.resolutions:
+                        u = 'file://' + self.resolutions[scheme] + u[u.index(':')+1:]
 
                     return u
 
@@ -197,8 +197,13 @@ class FileArchive(starch.Archive):
                                 ti = tarfile.TarInfo(f'{key}/{path}')
                                 loc = self.location(key, path)
 
-                                ti.mtime = int(datetime.datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
-                                
+                                print(loc)
+
+                                try:
+                                    ti.mtime = int(datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
+                                except:
+                                    ti.mtime = int(datetime.datetime.now().timestamp())                                
+
                                 if loc.startswith('file:///'):
                                     sizes[path] = getsize(loc[7:])
                                     checksums[path] = info.get('checksum', 'SHA256:' + self._checksum(loc[7:]))
@@ -239,7 +244,7 @@ class FileArchive(starch.Archive):
                         for info in desc['files']:
                             path = info['path']
 
-                            if path in resolved:
+                            if path in resolved and info['@type'] == 'Reference':
                                 info['@type'] = 'Resource'
 
                                 if path in sizes:
@@ -257,7 +262,8 @@ class FileArchive(starch.Archive):
                         b = dumps(desc, indent=4).encode('utf-8')
                         ti = tarfile.TarInfo(f'{key}/_package.json')
                         ti.size = len(b)
-                        ti.mtime = int(datetime.datetime.fromisoformat(desc['created'][:-1]).timestamp())
+
+                        ti.mtime = int(datetime.datetime.now().timestamp())
                         t.addfile(ti, BytesIO(b))
 
             finally:
@@ -313,40 +319,55 @@ class FileArchive(starch.Archive):
             if exists(dir):
                 raise Exception(f'key ({key}) already exists in archive')
 
-            rname = int(1000000*random())
+            basedir = dirname(abspath(dir))
+            tmpdir = f'{basedir}/.ingest-{int(1000000*random())}'
+
             tkey=None
             t = tarfile.open(fileobj=stream, mode='r|')
             ti = t.next()
             while ti:
                 if ti.name.startswith('/') or ti.name.startswith('..') or '/../' in ti.name:
-                    continue
+                    raise Exception(f'path not allowed ({ti.name})')
 
                 tkey = f'{basename(dirname(abspath(ti.name)))}'
 
                 # TODO: deal with when keys differ in tar-file
                 # TODO: deal with multiple packages in one tar-file
 
-                #print(f'extracting {ti.name}', file=stderr)
-                t.extract(ti, path=f'{dirname(abspath(dir))}/.ingest-{rname}/')
+                t.extract(ti, path=tmpdir)
                 ti=t.next()
 
             # move package to destination
-            if tkey:
-                shutil.move(f'{dirname(abspath(dir))}/.ingest-{rname}/{tkey}', f'{dirname(abspath(dir))}/{key}')
-                shutil.rmtree(f'{dirname(abspath(dir))}/.ingest-{rname}')
 
+            if tkey:
+                rename(f'{tmpdir}/{key}', dir)
+                shutil.rmtree(tmpdir)
                 self._log_add_package(key)
+
+            # rewrite @ids in content and structure files
+            p = self.get(key, mode='a')
+            for path in p:
+                if p[path].get('@type', None) in [ 'Content', 'Structure' ]:
+                    #print(path)
+                    j = load(self.open(key, path))
+                    p.add(path=path, data=self._replace_ids(j, key=key), replace=True)
 
         return key
 
 
     def exists(self, key, path=None):
-        d = self._directory(valid_key(key))
+        #d = self._directory(valid_key(key))
+        l = self.location(valid_key(key), path=valid_path(path) if path else None)
 
-        if path:
-            return exists(join(d, valid_path(path)))
-        else:
-            return exists(d)           
+        if l:
+            return exists(l[7:])
+
+        #if path:
+        #    return exists(join(d, valid_path(path)))
+        #else:
+        #    return exists(d)
+
+        return False
 
 
     def open(self, key, path, mode=''):
@@ -563,4 +584,39 @@ class FileArchive(starch.Archive):
                 h.update(data)
 
             return h.hexdigest()
+
+
+    def _replace_ids(self, j, key):
+        def _sub(v):
+            if v.startswith('http'):
+                if self.relative_uris:
+                    i = v.split(key)[1]
+                    return i if i[0] != '/' else i[1:]
+                else:
+                    return f'{self.base}{key}{v.split(key)[1]}'
+            else:
+                if self.relative_uris:
+                    return v
+                else:
+                    return f'{self.base}{key}{v if v[0] == "#" else ("/" + v)}'
+
+
+        def _handle(k,v):
+            #print('handle', k)
+            if k == '@id':
+                return _sub(v)
+            elif k == 'has_part':
+                return [ self._replace_ids(x, key) for x in v ]
+            elif k == 'has_representation':
+                return [ _sub(x) for x in v ]
+
+            return v
+
+
+        if isinstance(j, list):
+            return [ self._replace_ids(x, key) for x in j ]
+        elif isinstance(j, dict):
+            return { k:_handle(k,v) for k,v in j.items() }
+
+        return j
 

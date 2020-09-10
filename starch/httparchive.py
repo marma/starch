@@ -224,7 +224,7 @@ class HttpArchive(starch.Archive):
         raise Exception(f'Server returned {r.status_code}')
 
 
-    def deserialize(self, stream_or_iter, key=None):
+    def deserialize(self, stream_or_iter, key):
         url = f'{self.url}{(key + "/") if key else ""}_deserialize'
 
         if isinstance(stream_or_iter, (Iterator, Generator)):
@@ -232,7 +232,7 @@ class HttpArchive(starch.Archive):
         else:
             r = post(url, data=starch.utils.stream_to_iter(stream_or_iter), auth=self.auth)
 
-        return str(r.headers) + ' ' + r.text + ' ' + str(r.status_code)
+        return key
         
 
     def count(self, query, cats={}):

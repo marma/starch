@@ -26,6 +26,7 @@ import datetime
 from sys import stdout
 from io import UnsupportedOperation
 from time import time
+from urllib.parse import quote_plus
 
 USE_NGINX_X_ACCEL = False
 
@@ -34,6 +35,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 #app.use_x_sendfile = True
 app.config.update(yload(open(join(app.root_path, 'config.yml')).read(), Loader=FullLoader))
 app.jinja_env.line_statement_prefix = '#'
+app.jinja_env.filters['quote_plus'] = lambda u: quote_plus(u)
 cache = Cache(app, config={ 'CACHE_TYPE': 'filesystem', 'CACHE_DIR': app.config.get('flask_cache_dir', '/tmp/flask_cache') })
 
 if 'auth' in app.config:

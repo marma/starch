@@ -115,6 +115,7 @@
             $(document).ready(function() {
                 App.init();
                 document.getElementById('back').setAttribute('href', window.location.href.split("#")[0] + '/_view')
+		//document.getElementById('back').setAttribute('href', escape(document.referrer))
                 $('.ui.sidebar')
                     .sidebar('setting', 'dimPage', false)
                     .sidebar('setting', 'closable', false)

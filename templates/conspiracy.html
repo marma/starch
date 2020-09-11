@@ -149,7 +149,7 @@
                     <div class="right floated content">
                         <div class="ui circular label">{{ counts['tag'][tag] }}</div>
                     </div>
-                    <a class="content" href="?q=tags:+%22{{ tag | urlencode }}%22">{{ tag | truncate(16) }}</a>
+		    <a class="content" href="?q={{ (request.args.get('q', '') + ' ') | quote_plus }}tags:{{ tag | urlencode }}">{{ tag | truncate(16) }}</a>
                 </div>
                 {% endfor %}
                 </div>
@@ -167,7 +167,7 @@
                     <div class="right floated content">
                         <div class="ui circular label">{{ counts['created'][year] }}</div>
                     </div>
-                    <a class="content" href="?q=meta.created:{{ year | urlencode }}">{{ year }}</a>
+                    <a class="content" href="?q={{ (request.args.get('q', '') + ' ') | quote_plus }}meta.created:{{ year | urlencode }}">{{ year }}</a>
                 </div>
                 {% endfor %}
                 </div>
@@ -221,9 +221,12 @@
                     <div class="ui floating">
                         <form action="/" method="GET">
                             <!--div class="ui button" data-title="Exempel" data-tooltip="Exempel: värdeminskning" data-position="bottom left"><b>?</b></i></di-->
-                            <div class="ui icon input">
+			    # if query:
+			    <h1 style="display:inline"><a href="/">Index</a> / </h1>
+			    # endif
+			    <div class="ui icon input">
                                 <input name="q" class="prompt" type="text" value="{{ query or '' }}" placeholder="Search ...">
-                                <i class="search icon"></i>
+				<i class="search icon"></i>
                             </div>
                         </form>
                     </div>

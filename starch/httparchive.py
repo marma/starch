@@ -203,13 +203,13 @@ class HttpArchive(starch.Archive):
                 raise Exception('Expected status 200, got %d' % r.status_code)
 
 
-    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024):
+    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024, ignore=[]):
         if not isinstance(key_or_iter, str):
             raise Exception('Only single string as key_or_iter supported.')
 
         url = self.location(key_or_iter) + '_serialize'
 
-        r = get(url, auth=self.auth, stream=True)
+        r = get(url, auth=self.auth, stream=True, params={ 'ignore': dumps(ignore) } if ignore else None)
     
         if r.status_code == 200:
             r.raw.decode_stream = True

@@ -355,7 +355,7 @@ class FileArchive(starch.Archive):
                 if p[path].get('@type', None) in [ 'Content', 'Structure' ]:
                     #print(path)
                     j = load(self.open(key, path))
-                    p.add(path=path, data=self._replace_ids(j, key=key), replace=True)
+                    p.add(path=path, data=self._replace_ids(j, key=key, package=p), replace=True)
 
         return key
 
@@ -591,7 +591,7 @@ class FileArchive(starch.Archive):
             return h.hexdigest()
 
 
-    def _replace_ids(self, j, key):
+    def _replace_ids(self, j, key, p):
         def _sub(v):
             if v.startswith('http'):
                 if self.relative_uris:
@@ -607,13 +607,15 @@ class FileArchive(starch.Archive):
 
 
         def _handle(k,v):
-            #print('handle', k)
-            if k == '@id':
-                return _sub(v)
-            elif k == 'has_part':
-                return [ self._replace_ids(x, key) for x in v ]
-            elif k == 'has_representation':
-                return [ _sub(x) for x in v ]
+            try:
+                if k == '@id':
+                    return _sub(v)
+                elif k == 'has_part':
+                    return [ self._replace_ids(x, key) for x in v ]
+                elif k == 'has_representation':
+                    return [ _sub(x) for x in v if x.split(key)[1][1:] in p ]
+            except Exception as e:
+                print(str(e), file=stderr, flush=True)
 
             return v
 

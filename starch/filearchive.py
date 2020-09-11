@@ -174,7 +174,7 @@ class FileArchive(starch.Archive):
         return None
 
 
-    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024, timeout=None):
+    def serialize(self, key_or_iter, resolve=True, iter_content=False, buffer_size=100*1024, timeout=None, ignore=[]):
         def create_tar(f):
             #print(f'start create_tar', file=stderr)
 
@@ -191,6 +191,9 @@ class FileArchive(starch.Archive):
                             continue
 
                         for path in p:
+                            if any([ fnmatch(path, p) for p in ignore ]):
+                                continue
+
                             info = p[path]
 
                             if info['@type'] != 'Reference' or resolve:

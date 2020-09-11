@@ -591,7 +591,7 @@ class FileArchive(starch.Archive):
             return h.hexdigest()
 
 
-    def _replace_ids(self, j, key, p):
+    def _replace_ids(self, j, key, package):
         def _sub(v):
             if v.startswith('http'):
                 if self.relative_uris:
@@ -611,9 +611,9 @@ class FileArchive(starch.Archive):
                 if k == '@id':
                     return _sub(v)
                 elif k == 'has_part':
-                    return [ self._replace_ids(x, key) for x in v ]
+                    return [ self._replace_ids(x, key, package) for x in v ]
                 elif k == 'has_representation':
-                    return [ _sub(x) for x in v if x.split(key)[1][1:] in p ]
+                    return [ _sub(x) for x in v if x.split(key)[1][1:] in package ]
             except Exception as e:
                 print(str(e), file=stderr, flush=True)
 
@@ -621,7 +621,7 @@ class FileArchive(starch.Archive):
 
 
         if isinstance(j, list):
-            return [ self._replace_ids(x, key) for x in j ]
+            return [ self._replace_ids(x, key, package) for x in j ]
         elif isinstance(j, dict):
             return { k:_handle(k,v) for k,v in j.items() }
 

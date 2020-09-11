@@ -14,7 +14,7 @@ from starch.result import create_result
 from requests import get,head
 import starch
 from hashlib import md5,sha256
-from copy import deepcopy
+from copy import deepcopy,copy
 from queue import Queue
 from threading import Thread
 import tarfile
@@ -24,6 +24,7 @@ from io import BytesIO
 from tempfile import NamedTemporaryFile
 from random import random
 import shutil
+from fnmatch import fnmatch
 
 MAX_ID=2**38
 
@@ -200,7 +201,7 @@ class FileArchive(starch.Archive):
                                 ti = tarfile.TarInfo(f'{key}/{path}')
                                 loc = self.location(key, path)
 
-                                print(loc)
+                                #print(loc)
 
                                 try:
                                     ti.mtime = int(datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
@@ -243,8 +244,9 @@ class FileArchive(starch.Archive):
                                     ...
 
                         desc = load(open(self.location(key, '_package.json')[7:]))
+                        desc['files'] = [ x for x in desc['files'] if not any([ fnmatch(x['path'], p) for p in ignore ]) ]
 
-                        for info in desc['files']:
+                        for info in copy(desc['files']):
                             path = info['path']
 
                             if path in resolved and info['@type'] == 'Reference':

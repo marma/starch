@@ -244,8 +244,11 @@ class FileArchive(starch.Archive):
 
                         desc = load(open(self.location(key, '_package.json')[7:]))
 
-                        for info in desc['files']:
+                        for info in [ x for x in desc['files'] ]:
                             path = info['path']
+
+                            if any([ fnmatch(path, p) for p in ignore ]):
+                                del(desc['files'][path])
 
                             if path in resolved and info['@type'] == 'Reference':
                                 info['@type'] = 'Resource'

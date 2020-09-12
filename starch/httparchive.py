@@ -209,7 +209,7 @@ class HttpArchive(starch.Archive):
 
         url = self.location(key_or_iter) + '_serialize'
 
-        r = get(url, auth=self.auth, stream=True, params={ 'ignore': dumps(ignore) } if ignore else None)
+        r = get(url, auth=self.auth, stream=True, params={ 'ignore': ';'.join(ignore) } if ignore else None)
     
         if r.status_code == 200:
             r.raw.decode_stream = True

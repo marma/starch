@@ -14,7 +14,7 @@ from starch.result import create_result
 from requests import get,head
 import starch
 from hashlib import md5,sha256
-from copy import deepcopy
+from copy import deepcopy,copy
 from queue import Queue
 from threading import Thread
 import tarfile
@@ -24,6 +24,7 @@ from io import BytesIO
 from tempfile import NamedTemporaryFile
 from random import random
 import shutil
+from fnmatch import fnmatch
 
 MAX_ID=2**38
 
@@ -200,7 +201,7 @@ class FileArchive(starch.Archive):
                                 ti = tarfile.TarInfo(f'{key}/{path}')
                                 loc = self.location(key, path)
 
-                                print(loc)
+                                #print(loc)
 
                                 try:
                                     ti.mtime = int(datetime.fromisoformat(p.description()['created'][:-1]).timestamp())
@@ -243,8 +244,9 @@ class FileArchive(starch.Archive):
                                     ...
 
                         desc = load(open(self.location(key, '_package.json')[7:]))
+                        desc['files'] = [ x for x in desc['files'] if not any([ fnmatch(x['path'], p) for p in ignore ]) ]
 
-                        for info in [ x for x in desc['files'] ]:
+                        for info in copy(desc['files']):
                             path = info['path']
 
                             if any([ fnmatch(path, p) for p in ignore ]):
@@ -356,7 +358,7 @@ class FileArchive(starch.Archive):
                 if p[path].get('@type', None) in [ 'Content', 'Structure' ]:
                     #print(path)
                     j = load(self.open(key, path))
-                    p.add(path=path, data=self._replace_ids(j, key=key), replace=True)
+                    p.add(path=path, data=self._replace_ids(j, key=key, package=p), replace=True)
 
         return key
 
@@ -592,7 +594,7 @@ class FileArchive(starch.Archive):
             return h.hexdigest()
 
 
-    def _replace_ids(self, j, key):
+    def _replace_ids(self, j, key, package):
         def _sub(v):
             if v.startswith('http'):
                 if self.relative_uris:
@@ -608,19 +610,21 @@ class FileArchive(starch.Archive):
 
 
         def _handle(k,v):
-            #print('handle', k)
-            if k == '@id':
-                return _sub(v)
-            elif k == 'has_part':
-                return [ self._replace_ids(x, key) for x in v ]
-            elif k == 'has_representation':
-                return [ _sub(x) for x in v ]
+            try:
+                if k == '@id':
+                    return _sub(v)
+                elif k == 'has_part':
+                    return [ self._replace_ids(x, key, package) for x in v ]
+                elif k == 'has_representation':
+                    return [ _sub(x) for x in v if x.split(key)[1][1:] in package ]
+            except Exception as e:
+                print(str(e), file=stderr, flush=True)
 
             return v
 
 
         if isinstance(j, list):
-            return [ self._replace_ids(x, key) for x in j ]
+            return [ self._replace_ids(x, key, package) for x in j ]
         elif isinstance(j, dict):
             return { k:_handle(k,v) for k,v in j.items() }
 

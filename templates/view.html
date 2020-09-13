@@ -1,9 +1,14 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.3.1/openseadragon.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="/static/Semantic-UI-CSS-master/semantic.min.css">
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+        <script src="/static/Semantic-UI-CSS-master/semantic.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/openseadragon@2.4.1/build/openseadragon/openseadragon.min.js"></script>
+        <script src="static/js/openseadragon-svg-overlay.js"></script>
+        <script src="https://d3js.org/d3.v5.min.js"></script>
         <style>
-            html, body {
+            html, body, {{'#'}}main {
                 height: 100%;
                 width: 100%;
                 margin: 0;
@@ -12,10 +17,8 @@
             {{'#'}}header {
                 padding: 0.5em;
                 height: 3em;
-                color: #fff;
-                font-size: 2em;
+                color: #7f7f8f;
                 background-color: black;
-                font-family: Arial, sans-serif;
                 text-decoration: none;
             }
 
@@ -24,23 +27,42 @@
                 position: absolute;
                 bottom: 0;
                 width: 100%;
-                background-color: black;
+                background-color: #111;
             }
 
             a:link {
                 text-decoration: none;
-                color: #fff;
+                color: #7f7f8f;
             }
 
             a:visited {
                 text-decoration: none;
                 color: #fff;
             }
+
+            {{ '#' }}content {
+                padding-left: 19em;
+                padding-top: 0.25em;
+            }
+
+            {{ '#' }}menu {
+                padding-top: 1em;
+            }
+
+            .key {
+                border: 1px solid black;
+                border-radius: 0.2em;
+                padding: 0.25em;
+            }
         </style>
     </head>
     <body>
-        <div id="header">&lt;&lt; <a href="../_view">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></div>
-        <div id="openseadragon"></div>
+        <div id="main" class="pusher">
+            <h2 class="ui header" id="header">&lt;&lt; <a id="back" href="../_view">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></h2>
+            <div id="openseadragon"></div>
+        </div>
+        <!--div id="header">&lt;&lt; <a href="../_view">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></div>
+        <div id="openseadragon"></div-->
     </body>
     <script type="text/javascript">
         OpenSeadragon({
@@ -50,6 +72,7 @@
             visibilityRatio:    1,
             //minZoomLevel:       1,
             //defaultZoomLevel:   1,
+	    showNavigationControl:    false,
             sequenceMode:       false,
             tileSources:         "{{ info['id'] | safe }}/info.json"
         });

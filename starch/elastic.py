@@ -84,7 +84,7 @@ class ElasticIndex(starch.Index):
             raise
 
 
-    def search(self, q, start=0, max=None, sort=None, level=None, include=None):
+    def search(self, q, start=0, max=None, sort=None, level=None, include=False):
         if isinstance(q, dict):
             q = dumps(q)
 

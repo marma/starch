@@ -588,9 +588,10 @@ def new():
     return redirect('/%s/' % key, code=201)
 
 
+@app.route('/_packages')
 @app.route('/packages')
 def packages():
-    return Response(newliner((index or self)), mimetype='text/plain')
+    return Response(newliner(archive), mimetype='text/plain')
 
 
 @app.route('/<key>/finalize', methods=[ 'POST' ])

@@ -249,6 +249,9 @@ class FileArchive(starch.Archive):
                         for info in copy(desc['files']):
                             path = info['path']
 
+                            if any([ fnmatch(path, p) for p in ignore ]):
+                                del(desc['files'][path])
+
                             if path in resolved and info['@type'] == 'Reference':
                                 info['@type'] = 'Resource'
 

@@ -39,8 +39,8 @@ def parse(query, default='_all'):
             or:             "or"i
             and_not:        ["and"i] "not"i
             expr:           (string | fielded_expr)
-            fielded_expr:   field ":" single
-            field:          CNAME | "\\"" CNAME "\\""
+            fielded_expr:   string ":" single
+            field:          string
             string:         CNAME | ESCAPED_STRING
             asterisk:       "*" | ("{" "}")
             CNAME:          /[a-z\u00e5\u00e4\u00f6A-Z\u00c5\u00c4\u00d60-9_\\.-]+/
@@ -116,7 +116,11 @@ def _handle(node, field='', default='_all'):
         return _handle(node.children[0], field, default=default)
         #return _handle(' '.join([ x.value for x in node.children ]), field, default=default)
     elif node.data == 'fielded_expr':
+        #print(node)
         f = node.children[0].children[0].value
+
+        if f[0] == '"':
+            f = f[1:-1]
 
         return _handle(node.children[1], field + '.' + f if field != '' else f, default=default)
     elif node.data == 'string':

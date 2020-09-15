@@ -273,7 +273,7 @@ class FileArchive(starch.Archive):
 
             finally:
                 f.close()
-                #print(f'end create_tar', file=stderr)
+                #print(f'end create_tar', file=stderr, flush=True)
  
         
         def get_iter(buffer_size=100*1024, timeout=None):
@@ -296,6 +296,8 @@ class FileArchive(starch.Archive):
                 #f.close()
 
             t.join()
+
+            #print(f'end get_iter', file=stderr, flush=True)
 
 
         def get_stream(buffer_size=100*1024, timeout=None):

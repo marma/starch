@@ -358,7 +358,7 @@ def download(key):
             key,
             resolve=request.args.get('resolve', 'true').lower() == 'true',
             iter_content=True,
-            timeout=10,
+            timeout=60,
             buffer_size=1024*1024,
             ignore=request.args.get('ignore', '').split(';'))
 

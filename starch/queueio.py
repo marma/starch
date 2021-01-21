@@ -53,7 +53,8 @@ class QueueIO(RawIOBase):
                     t2 = time()
 
                     if wait < 0.001:
-                        wait *= 10
+                        wait *= 2
+                        print(wait, file=stderr)
 
             if self.closed:
                 raise ValueError('I/O operation on closed stream')

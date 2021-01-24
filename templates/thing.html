@@ -62,7 +62,10 @@
 
                     this.url = window.location.href.substring(0, window.location.href.indexOf("#"))
                     this.anchor = window.location.hash
+                    this.content = {{ content | safe }}
                     this.structure = {{ structure | safe }}
+                    this.content = new Map(this.content.map(i => [ i["@id"], i ]))
+
                     this.pages = flatten_structure(this.structure)
                     this.page = find_page(this.pages, this.anchor)
                     this.page_n = this.page[0]
@@ -72,8 +75,12 @@
                     this.mode = 'view'
                     this.level = 'Text'
                     this.tags = {}
+                    this.tag_colors = [ "red", "orange", "yellow", "olive", "green", "teal", "blue", "violet" ]
+                    this.current_tag = 1
                     this.shifted = false
                     this.debug = false
+
+                    this.tag_types = {}
 
                     this.width = this.page["width"]
                     this.height = this.page["height"]
@@ -104,8 +111,12 @@
                         this.highlight(this.region)
                     }
                     
+                    this.viewer.addHandler('page', function(event) {
+                        App.setPage(event.page)
+                    });
+                    
                     $(window).resize(function() {
-                        overlay.resize();
+                        App.viewer.svgOverlay().resize();
                     });
                 },
 
@@ -118,23 +129,27 @@
                 },
 
                 setPage: function(page_n) {
-                    // remove overlays, if any
-                    d3.select(this.viewer.svgOverlay().node()).selectAll("*").remove();
+                    if (page_n != this.page_n) {
+                        // remove overlays, if any
+                        d3.select(this.viewer.svgOverlay().node()).selectAll("*").remove();
 
-                    // set page
-                    this.page_n = page_n
-                    this.page = this.pages[page_n]
-                    this.image = get_representation(this.page)
-                    this.width = this.page["width"]
-                    this.height = this.page["height"]
-                    this.anchor = this.page["@id"]
-                    this.anchor = this.anchor.substring(this.anchor.indexOf("#"))
-                    this.setHash(this.anchor)
-                    this.viewer.goToPage(page_n)
+                        // set page
+                        this.page_n = page_n
+                        this.page = this.pages[page_n]
+                        this.image = get_representation(this.page)
+                        this.width = this.page["width"]
+                        this.height = this.page["height"]
+                        this.anchor = this.page["@id"]
+                        this.anchor = this.anchor.substring(this.anchor.indexOf("#"))
+                        this.setHash(this.anchor)
 
-                    // create rects?
-                    if (this.mode == "tag") {
-                        this.rects = create_rects(d3.select(this.overlay.node()), this.width, this.height, this.level, this.page, this.anchor)
+                        if (this.viewer.currentPage() != this.page_n)
+                            this.viewer.goToPage(page_n)
+
+                        // create rects?
+                        if (this.mode == "tag") {
+                            this.rects = create_rects(d3.select(this.overlay.node()), this.width, this.height, this.level, this.page, this.anchor)
+                        }
                     }
                 },
 
@@ -162,17 +177,26 @@
 
                 tag: function(region) {
                     const page_id = this.page["@id"]
+                    var n_tags_selected = document.getElementById("n_tags_selected")
 
                     if (!(page_id in this.tags)) {
                         this.tags[this.page["@id"]] = []
                     }
 
                     this.tags[this.page["@id"]].push(region)
+                    this.tag_types[region] = this.current_tag
+
+                    n_tags_selected.innerHTML = parseInt(n_tags_selected.innerHTML) + 1
+                    
+                    if (parseInt(n_tags_selected.innerHTML) == 1) {
+                        document.getElementById("download_button").setAttribute("class", "ui button")        
+                    }
                 },
 
                 untag: function(region) {
                     const page_id = this.page["@id"]
                     const tags = this.tags[page_id]
+                    var n_tags_selected = document.getElementById("n_tags_selected")
 
                     if (tags) {
                         tags.splice(tags.indexOf(region), 1)
@@ -180,6 +204,12 @@
                         if (tags.length == 0) {
                             delete this.tags[page_id]
                         }
+                    }
+
+                    n_tags_selected.innerHTML = parseInt(n_tags_selected.innerHTML) - 1
+                    
+                    if (parseInt(n_tags_selected.innerHTML) == 0) {
+                        document.getElementById("download_button").setAttribute("class", "ui disabled button")        
                     }
                 },
 
@@ -195,7 +225,22 @@
 
                 add_rect: function(region) {
                     
+                },
+
+                getContent: function(region) {
+                    
+                },
+
+                setTag: function(t) {
+                    document.getElementById("tag_" + this.current_tag + "_button").className = "ui inverted " + this.tag_colors[this.current_tag] + " compact button"
+                    this.current_tag = t
+                    document.getElementById("tag_" + this.current_tag + "_button").className = "ui " + this.tag_colors[this.current_tag] + " compact button"
+                },
+
+                getTagType: function(region) {
+                    return this.tag_types[region]
                 }
+
             };
 
             $(document).ready(function() {
@@ -213,7 +258,7 @@
             });
 
             $(document).on("keydown", function (e) {
-                console.log(e)
+                //console.log(e)
 
                 // activate menu?
                 if (e.key == 'T') {
@@ -240,6 +285,8 @@
                 } else if (e.key == 'd') {
                     App.debug = !App.debug
                     App.viewer.setDebugMode(App.debug)
+                } else if (e.key >= '1' && e.key <= '6') {
+                    App.setTag(parseInt(e.key))
                 }
 
                 App.shifted = App.shifted || e.key == "Shift"
@@ -263,7 +310,8 @@
             function select(node) {
                 node.transition()
                     .duration('25')
-                    .attr('opacity', 1)
+                    .style('fill', App.tag_colors[App.current_tag-1])
+                    .attr('opacity', 0.5)
                     .attr('selected', true)
             }
 
@@ -293,17 +341,22 @@
                                 
                                 //alert(selected, App.page["@id"], App.tags, text["@id"])
 
+                                var color = '#ff07'
+                                if (selected) {
+                                    color = App.tag_colors[App.getTagType(text['@id'])-1]
+                                }
+
                                 var x = overlay.append("rect")
-                                    .style('fill', (text['@type'] == 'Image')? '#00f7':'#ff07')
+                                    .style('fill', (text['@type'] == 'Image')? '#00f7':color)
                                     .attr("x", box[0]/width)
                                     .attr("width", box[2]/width)
                                     .attr("y", box[1]/width)
                                     .attr("height", box[3]/width)
-                                    .attr("rx", 0.001)
-                                    .attr("ry", 0.001)
+                                    .attr("rx", 0.002)
+                                    .attr("ry", 0.002)
                                     //.attr("opacity", (selected)? 1.0:0.0)
                                     .attr('stroke', 'rgba(0,0,0,1)')
-                                    .attr('stroke-width', 0.005)
+                                    .attr('stroke-width', 0.002)
                                     .attr('xlink:href', text['@id'])
                                     .attr('id', 'id' + text['@id'].split('#')[1])
                                     .attr('selected', selected)
@@ -314,6 +367,7 @@
                                             d3.select(this)
                                                 .transition()
                                                     .duration('100')
+                                                    .style('fill', App.tag_colors[App.current_tag-1])
                                                     .attr('opacity', 0.5)
                                         }
                                     })
@@ -344,8 +398,7 @@
 
                                     .transition()
                                         .duration('500')
-                                        .attr("opacity", (selected)? 1.0:0.0)
-
+                                        .attr("opacity", (selected)? 0.5:0.0)
                                 }
                         }
                     }
@@ -473,6 +526,22 @@
 
                 return null;
             }
+
+            function download_tags() {
+                var rows = [ "id,type,tag,box,content\n" ]
+
+                for (const [page, tags] of Object.entries(App.tags)) {
+                    tags.forEach(region => rows.push("\"" + region + "\"," + App.content.get(region)["@type"] + "," + App.getTagType(region) + ",\"" + App.content.get(region)["box"] + "\",\"" + App.content.get(region)["content"].replaceAll("\n", "\\n").replaceAll("\"", "\\\"") + "\"\n"))
+                }
+                
+                var data = new Blob(rows, {type: 'text/csv'});
+                var url = window.URL.createObjectURL(data);
+
+                document.getElementById('download_button').href = url;
+                document.getElementById('download_button').download = "{{ key }}-tags-" + Date.now() + ".csv"
+
+                return false
+            }
         </script>
     </head>
 
@@ -491,6 +560,58 @@
                 </div>
             </div-->
             <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Selected (<span id="n_tags_selected">0</span>)</b>
+                </a>
+                
+                <div class="active content">                
+                    <div class="item">
+                        <a id="download_button" class="ui disabled button" onclick="download_tags()"><i class="download icon"></i> Download tags</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item">
+                <a class="active title">
+                    <i class="dropdown icon"></i>
+                    <b>Tags</b>
+                </a>
+
+                <div class="active content">                
+                    <div class="item">
+                        <div id="tag_1_button" onclick="App.setTag(1)" class="ui red compact button">1</div>
+                        <a class="content">Tag 1</a>
+                    </div>
+
+                    <div class="item">
+                        <div id="tag_2_button" onclick="App.setTag(2)" class="ui inverted orange compact button">2</div>
+                        <a class="content">Tag 2</a>
+                    </div>
+
+                    <div class="item">
+                        <div id="tag_3_button" onclick="App.setTag(3)" class="ui inverted yellow compact button">3</div>
+                        <a class="content">Tag 3</a>
+                    </div>
+
+                    <div class="item">
+                        <div id="tag_4_button" onclick="App.setTag(4)" class="ui inverted olive compact button">4</div>
+                        <a class="content">Tag 4</a>
+                    </div>
+
+                    <div class="item">
+                        <div id="tag_5_button" onclick="App.setTag(5)" class="ui inverted green compact button">5</div>
+                        <a class="content">Tag 5</a>
+                    </div>
+
+                    <div class="item">
+                        <div id="tag_6_button" onclick="App.setTag(6)" class="ui inverted teal compact button">6</div>
+                        <a class="content">Tag 6</a>
+                    </div>
+                </div>
+            </div>
+
+            <!--div class="item">
                 <a class="active title">
                     <i class="dropdown icon"></i>
                     <b>Level</b>
@@ -512,9 +633,9 @@
                         <a class="content" href="">Text</a>
                     </div>
                 </div>
-            </div>
+            </div-->
 
-            <div class="item">
+            <!--div class="item">
                 <a class="active title">
                     <i class="dropdown icon"></i>
                     <b>Content structure</b>
@@ -535,9 +656,9 @@
                         <a class="content" href="">Text</a>
                     </div>
                 </div>
-            </div>
+            </div-->
 
-            <div class="item">
+            <!--div class="item">
                 <a class="active title">
                     <i class="dropdown icon"></i>
                     <b>Content type</b>
@@ -558,7 +679,7 @@
                         <a class="content" href="">Article</a>
                     </div>
                 </div>
-            </div>
+            </div-->
         </div>
         <div id="main" class="pusher">
             <h2 class="ui header" id="header">&lt;&lt; <a id="back">{{ request.args['back_title'] if 'back_title' in request.args else 'Back to package' }}</a></h2>

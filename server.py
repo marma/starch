@@ -113,7 +113,11 @@ def view_thing(key):
     if p == None:
         return 'Not found', 404
 
-    return render_template('thing.html', structure=dumps(loads(archive.read(key, 'structure.json'))))
+    return render_template(
+                'thing.html',
+                key=key,
+                structure=dumps(loads(archive.read(key, 'structure.json'))),
+                content=dumps(loads(archive.read(key, 'content.json'))))
 
     ret = (index or archive).get(key)
 

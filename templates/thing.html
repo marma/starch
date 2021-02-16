@@ -326,7 +326,7 @@
                 var a = true
 
                 if ('has_part' in page) {
-                    for (i=0;i<page['has_part'].length;i++) {
+                    for (var i=0;i<page['has_part'].length;i++) {
                         var area = page['has_part'][i]
                         var box = area['box']
 
@@ -408,7 +408,7 @@
             }
 
             function flatten_structure(structure, l=[], level="Page") {
-                for (i=0; i<structure.length;i++) {
+                for (var i=0; i<structure.length;i++) {
                     var elem = structure[i];
 
                     if ("@type" in elem && elem["@type"] == level) {
@@ -424,7 +424,7 @@
             function get_tile_sources(pages, base) {
                 var ret = []
 
-                for (i=0; i<pages.length;i++) {
+                for (var i=0; i<pages.length;i++) {
                     ret.push(base + "/" + get_representation(pages[i]) + "/info.json")
                 }
 
@@ -449,7 +449,7 @@
 
 
             function find_page(pages, anchor) {
-                for (i=0; i<pages.length;i++) {
+                for (var i=0; i<pages.length;i++) {
                     var page = pages[i]
                     var elem_anchor = "#" + page["@id"].split("#")[1]
                     var nelems = elem_anchor.split("-").length
@@ -475,7 +475,7 @@
 
             /*
             function find_page(structure, anchor) {
-                for (i=0; i<structure.length;i++) {
+                for (var i=0; i<structure.length;i++) {
                     var elem = structure[i];
                     var elem_anchor = '#' + elem['@id'].split('#')[1]
                     var nelems = elem_anchor.split('-').length
@@ -508,7 +508,7 @@
             */
 
             function find_region(structure, anchor) {
-                for (i=0; i<structure.length;i++) {
+                for (var i=0; i<structure.length;i++) {
                     var elem = structure[i];
 
                     if (anchor == ("#" + elem['@id'].split("#")[1])) {

@@ -254,7 +254,7 @@
                         #             set height = 300 * box[3] | int / box[2] | int
                         #           else:
                         #             set cover = cover.split('/')[-1] + '/full/512,/0/default.jpg' | default(None)
-                        #             set height = 300 * description['height'] | int / description['width'] | int
+                        #             set height = 300 * description.get('height', 400) | int / description.get('width', 300) | int
                         #           endif
                         #    	else:
                         #           set height = 300

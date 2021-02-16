@@ -210,9 +210,12 @@ class ElasticIndex(starch.Index):
                     bulk += [ dumps({ 'index': { '_index': index, '_id': k } }) ]
                     bulk += [ dumps(self._reformat(d)) ]
 
-                self.elastic.bulk(
-                    body='\n'.join(bulk),
-                    refresh=sync)
+                print(dumps(bulk, indent=2))
+
+                if bulk:
+                    self.elastic.bulk(
+                        body='\n'.join(bulk),
+                        refresh=sync)
         else:
             for ckey, config in self.content.get('parts', {}).items():
                 if config.get('type', None)  == 'Package':

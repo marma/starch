@@ -161,7 +161,7 @@
                                 <a download href="./{{ path | urlencode }}"><i class="download icon"></i></a>
                                 <a class="header" href="./{{ path + '/_view' if viewable else path | urlencode }}"><b>{{ path }}</b></a>
                             </td>
-                            # if package['status'] != 'finalized':
+                            # if package['status'] != 'finalized' and not read_only:
                             <td>
                                 <a href="#" onclick="if (confirm('Really delete {{ path }}?')) deletePath('{{ path }}'); return false;"><i class="ui icon delete"></i></a>
                             </td>

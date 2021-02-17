@@ -189,6 +189,7 @@ def view_package(key):
                     'package.html',
                     package=desc,
                     mode=mode,
+                    read_only=app.config['archive'].get('mode', 'read-only') == 'read-only',
                     structure=flatten_structure(structure),
                     entities=entities),
                 mimetype='text/html')

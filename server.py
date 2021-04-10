@@ -189,6 +189,7 @@ def view_package(key):
                     'package.html',
                     package=desc,
                     mode=mode,
+                    read_only=app.config['archive'].get('mode', 'read-only') == 'read-only',
                     structure=flatten_structure(structure),
                     entities=entities),
                 mimetype='text/html')
@@ -362,7 +363,7 @@ def download(key):
             key,
             resolve=request.args.get('resolve', 'true').lower() == 'true',
             iter_content=True,
-            timeout=10,
+            timeout=60,
             buffer_size=1024*1024,
             ignore=request.args.get('ignore', '').split(';'))
 
@@ -383,12 +384,12 @@ def package_file(key, path):
             r.headers['Content-Type'] = guess_content(path)
             r.headers['filename'] = path
             return r
-        else:
-            # quick fix for html
-            if path.endswith('aspx') or path.endswith('html'):
-                return Request(open(loc).read(), headers={ 'Content-Type': 'text/plain' })
-
-            return send_from_directory(dirname(loc[7:]), basename(loc[7:]))
+#        else:
+#            # quick fix for html
+#            if path.endswith('aspx') or path.endswith('html'):
+#                return Request(open(loc).read(), headers={ 'Content-Type': 'text/plain' })
+#
+#            return send_from_directory(dirname(loc[7:]), basename(loc[7:]))
 
 
     # Do things manually

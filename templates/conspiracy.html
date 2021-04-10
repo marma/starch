@@ -242,7 +242,7 @@
                         #   if 'files' in description:
                         #       set cover = description['files'] | selectattr('mime_type', 'in', [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/jp2', 'image/tiff' ] ) | first | default(None)
                         #       if cover:
-                        #         set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and cover['size'] < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
+                        #         set cover = cover['path'] if cover['mime_type'] in [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif' ] and (cover['size'] | int) < 2*1024*1024 else cover['path'] + '/full/512,/0/default.jpg' | default(None)
                         #       endif
                         #       set height = 300
                         #   elif 'has_representation' in description:
@@ -254,7 +254,7 @@
                         #             set height = 300 * box[3] | int / box[2] | int
                         #           else:
                         #             set cover = cover.split('/')[-1] + '/full/512,/0/default.jpg' | default(None)
-                        #             set height = 300 * description['height'] | int / description['width'] | int
+                        #             set height = 300 * description.get('height', 400) | int / description.get('width', 300) | int
                         #           endif
                         #    	else:
                         #           set height = 300
@@ -268,7 +268,7 @@
                             </a>
                             <div class="detail">
                         #   if type != 'Text':
-                                <span>{{ (description['label'] or '<None>').split()[-1] | truncate(32) }}</span>
+                                <span>{{ (description['label'] or '<None>') | truncate(32) }}</span>
                         #   endif
                             </div>
                         </div>

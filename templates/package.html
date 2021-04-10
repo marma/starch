@@ -103,6 +103,7 @@
                         <a href="{{ url | safe }}">
                             <img style="object-fit: cover" class="ui image" width="300" min-height="200" src="/static/img/white-image.png" data-src="{{ ns.cover | urlencode if ns.cover else '/static/img/white-image.png' }}"/>
                         </a>
+			# if ns.cover:
                         <div class="content">
                             <span class="header">
                                 <span class="ui button"><a download href="./{{ ns.path | urlencode }}"><i class="download icon"></i></a></span>
@@ -121,6 +122,7 @@
                                 <span class="header">{{ ns.path | truncate(18) }}</span>
                             </span>
                         </div>
+			# endif
                     </div>  
                     #   endif
                     # endfor

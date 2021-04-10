@@ -116,8 +116,8 @@ def view_thing(key):
     return render_template(
                 'thing.html',
                 key=key,
-                structure=dumps(loads(archive.read(key, 'structure.json'))),
-                content=dumps(loads(archive.read(key, 'content.json'))))
+                structure=dumps(loads(archive.read(key, 'structure.json')) if 'structure.json' in p else []),
+                content=dumps(loads(archive.read(key, 'content.json')) if 'content.json' in p else []))
 
     ret = (index or archive).get(key)
 
